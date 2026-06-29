@@ -36,7 +36,10 @@ jobs:
       - name: Build static site
         run: bun run build
 
+      # Deploy only dist/client (the static SSG output). Deploying the full
+      # dist/ stands up One's server worker, which EAS Hosting can't route
+      # (every path 404s). Static client → EAS serves the HTML with clean URLs.
       - name: Deploy to EAS Hosting (production)
-        run: bunx eas-cli@latest deploy --prod --export-dir=dist --non-interactive
+        run: bunx eas-cli@latest deploy --prod --export-dir=dist/client --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

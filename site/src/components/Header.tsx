@@ -9,7 +9,7 @@ import { Container } from './Container'
 import { ScrollHeader } from './ScrollHeader'
 import { ThemeSwitch } from './ThemeSwitch'
 
-const navLinks: { name: string; href: Href }[] = [{ name: 'Writing', href: '/writing' }]
+const navLinks: { name: string; href: Href }[] = [{ name: 'Browse', href: '/writing' }]
 
 export function Header() {
   const pathname = usePathname()
@@ -30,7 +30,7 @@ export function Header() {
                 hoverStyle={{ opacity: 0.7 }}
                 $sm={{ size: '$5' }}
               >
-                Your Name
+                FMHY
               </H1>
             </Link>
 
@@ -68,11 +68,11 @@ export function Header() {
 
           <XStack items="center" gap="$1" $sm={{ gap: '$2' }}>
             <XStack items="center">
-              <CircleLink href="https://x.com/yourhandle" tooltip="X">
+              <CircleLink href="https://fmhy.net" tooltip="Official site">
                 <XIcon size={16} />
               </CircleLink>
 
-              <CircleLink href="https://github.com/yourhandle" tooltip="GitHub">
+              <CircleLink href="https://github.com/fmhy/edit" tooltip="FMHY on GitHub">
                 <GitHubIcon size={18} />
               </CircleLink>
             </XStack>

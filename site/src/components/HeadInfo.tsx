@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 
-const SITE_NAME = 'Your Name'
-const SITE_URL = process.env.ONE_SERVER_URL || 'https://example.com'
+const SITE_NAME = 'FMHY'
+const SITE_URL = process.env.ONE_SERVER_URL || 'https://fmhy-static.expo.app'
 
 export function HeadInfo({
   title,

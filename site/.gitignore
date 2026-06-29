@@ -1,0 +1,19 @@
+node_modules
+dist
+.DS_Store
+*.tsbuildinfo
+.tamagui
+.vercel
+.env
+.env.*
+
+# generated claude code skills (run `bun skills` to regenerate)
+.claude/skills/takeout-static-*
+
+# generated og images
+public/og/
+
+# eas/expo deploy artifacts
+.eas
+.expo
+*.tar.gz

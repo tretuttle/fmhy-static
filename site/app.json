@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "fmhy-static",
+    "slug": "fmhy-static",
+    "owner": "tretuttle",
+    "extra": {
+      "eas": {
+        "projectId": "0908d55d-3dbe-45f1-aac9-21934f06ffe8"
+      }
+    }
+  }
+}

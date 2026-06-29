@@ -1,0 +1,42 @@
+name: Deploy fmhy-static
+
+# Free-tier friendly: the heavy lifting (install + build) runs on GitHub Actions
+# (Free plan: 2,000 min/mo on private repos; this job is ~2-3 min). Only the
+# final `eas deploy` touches EAS — a single EAS Hosting deployment per run.
+# Daily cadence keeps well under EAS Hosting's free deployment cap. Tune the
+# cron down (e.g. every few days) if you bump into the cap.
+on:
+  schedule:
+    - cron: '0 6 * * *' # daily at 06:00 UTC
+  workflow_dispatch: {} # manual "Run workflow" button
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      # fmhy/edit isn't a remote in a fresh CI checkout — add it so sync can fetch.
+      - name: Add fmhy/edit upstream remote
+        run: git remote add upstream https://github.com/fmhy/edit.git || true
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Sync fmhy content + regenerate posts
+        run: bun scripts/sync-fmhy.ts
+
+      - name: Build static site
+        run: bun run build
+
+      - name: Deploy to EAS Hosting (production)
+        run: bunx eas-cli@latest deploy --prod --export-dir=dist --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

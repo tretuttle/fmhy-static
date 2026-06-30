@@ -35,7 +35,7 @@ const GridItem = styled(YStack, {
 
 export function WikiHomeContent() {
   return (
-    <YStack gap="$10" py="$8" pb="$12" px="$4" self="center" width="100%" maxW={1152}>
+    <YStack gap="$10" py="$8" pb="$12" px="$4" mx="auto" width="100%" maxW={1152}>
       {/* hero: logo on top + centered up to lg; text-left / logo-right at lg+ */}
       <XStack
         items="center"

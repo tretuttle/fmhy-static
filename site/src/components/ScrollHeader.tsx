@@ -51,26 +51,27 @@ export const ScrollHeader = ({ children }: { children: ReactNode }) => {
             }),
           }}
         >
-          {/* blur layer: always on below $md, fades in on scroll at $md+ */}
+          {/* frosted backdrop + tint: transparent at the top, fades in once
+              scrolled — fmhy.net's header is clear over the hero, frosted on scroll */}
           <YStack
             position="absolute"
             transition="medium"
             inset={0}
-            opacity={1}
-            $md={{ opacity: isScrolled ? 1 : 0 }}
+            opacity={isScrolled ? 1 : 0}
+            $md={{ rounded: '$10' }}
             style={{
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
             }}
           />
 
-          {/* tint layer: subtle below $md, stronger on scroll at $md+ */}
           <YStack
-            opacity={0.35}
-            $md={{ opacity: isScrolled ? 0.85 : 0, rounded: '$10' }}
             position="absolute"
+            transition="medium"
             inset={0}
+            opacity={isScrolled ? 0.85 : 0}
             bg="$color2"
+            $md={{ rounded: '$10' }}
           />
 
           <XStack z={1} width="100%" items="center">

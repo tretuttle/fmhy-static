@@ -1,22 +1,26 @@
 /* @generated fmhy route — do not edit */
-import { createRoute, useLoader } from 'one'
-import remarkSmartypants from 'remark-smartypants'
+import { createRoute, Head, useLoader } from 'one'
 
-import { BlogPostLayout } from '~/components/BlogPostLayout'
+import { HeadInfo } from '~/components/HeadInfo'
+import { WikiCategoryContent } from '~/features/wiki/WikiCategoryContent'
 
-import type { UnifiedPlugin } from '@vxrn/mdx'
+import type { WikiPage } from '~/features/wiki/types'
 
 const route = createRoute<'/video-tools'>()
 
 export const loader = route.createLoader(async () => {
-  const { getMDXBySlug } = await import('@vxrn/mdx')
-  const { frontmatter, code } = await getMDXBySlug('data/blog', 'video-tools', [
-    remarkSmartypants,
-  ] as UnifiedPlugin)
-  return { frontmatter, code, ogImage: `/og/video-tools.png` }
+  const mod = await import('~/features/wiki/generated/pages/video-tools.json')
+  return { page: mod.default as unknown as WikiPage }
 })
 
 export default function Page() {
-  const { code, frontmatter, ogImage } = useLoader(loader)
-  return <BlogPostLayout code={code} frontmatter={frontmatter} ogImage={ogImage} />
+  const { page } = useLoader(loader)
+  return (
+    <>
+      <Head>
+        <HeadInfo title={page.title} description={page.description} />
+      </Head>
+      <WikiCategoryContent page={page} />
+    </>
+  )
 }

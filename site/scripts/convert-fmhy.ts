@@ -1,123 +1,71 @@
 /**
- * Converts the tracked fmhy/edit wiki docs (../docs/*.md) into takeout-static
- * blog posts (data/blog/*.mdx). The page list + titles/descriptions come from
- * fmhy's own headers map, so adding/renaming a page upstream flows through on
- * the next `git pull` + re-run. Run: bun scripts/convert-fmhy.ts
+ * Generates one static +ssg route per wiki page produced by scripts/wiki/generate.ts.
+ * Each route statically loads its page JSON and renders WikiCategoryContent — matching
+ * fmhy-app's structured rendering (no MDX runtime). EAS Hosting serves One as static,
+ * and the dynamic [slug] route's client loader builds a malformed chunk path that 404s
+ * on hydration, so we emit param-free routes instead.
+ *
+ * Run AFTER scripts/wiki/generate.ts (sync-fmhy does both). Run: bun scripts/convert-fmhy.ts
  */
-import { execSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const SITE = join(import.meta.dir, '..')
-const ROOT = join(SITE, '..') // the fmhy/edit clone
-const DOCS = join(ROOT, 'docs')
-const OUT = join(SITE, 'data', 'blog')
-const CONSTANTS = join(DOCS, '.vitepress', 'transformer', 'constants.ts')
-
-// fmhy injects page title/description at build from this map — it's also the
-// canonical list of which docs are real wiki pages (excludes index/feedback/etc).
-const src = readFileSync(CONSTANTS, 'utf8')
-const headers: Record<string, { title: string; description: string }> = {}
-const re =
-  /'([\w-]+\.md)':\s*\{\s*title:\s*'((?:[^'\\]|\\.)*)',\s*description:\s*'((?:[^'\\]|\\.)*)'/g
-let m: RegExpExecArray | null
-while ((m = re.exec(src))) {
-  headers[m[1]] = {
-    title: m[2].replace(/\\'/g, "'"),
-    description: m[3].replace(/\\'/g, "'"),
-  }
-}
-
-// content snapshot date (depth-1 clone → HEAD commit date)
-let date = '2026-06-29'
-try {
-  date = execSync('git log -1 --format=%cs', { cwd: ROOT }).toString().trim() || date
-} catch {}
-
-// MDX is JSX-strict: bare `<`, `{`, `}` break the parse. Escape them outside
-// fenced code (where MDX leaves content alone).
-function sanitize(md: string): string {
-  let fence = false
-  return md
-    .split('\n')
-    .map((line) => {
-      if (/^\s*(```|~~~)/.test(line)) {
-        fence = !fence
-        return line
-      }
-      if (fence) return line
-      return line.replace(/</g, '&lt;').replace(/\{/g, '&#123;').replace(/\}/g, '&#125;')
-    })
-    .join('\n')
-}
-
-// fresh slate: drop any prior generated/demo posts
-for (const f of readdirSync(OUT)) if (f.endsWith('.mdx')) rmSync(join(OUT, f))
-
-let n = 0
-const slugs: string[] = []
-for (const [file, meta] of Object.entries(headers)) {
-  const path = join(DOCS, file)
-  if (!existsSync(path)) {
-    console.warn('skip (missing upstream):', file)
-    continue
-  }
-  const slug = file.replace(/\.md$/, '')
-  const body = sanitize(readFileSync(path, 'utf8').trim())
-  const frontmatter = [
-    '---',
-    `title: ${JSON.stringify(meta.title)}`,
-    `publishedAt: '${date}'`,
-    `description: ${JSON.stringify(meta.description)}`,
-    'draft: false',
-    '---',
-    '',
-    '',
-  ].join('\n')
-  writeFileSync(join(OUT, `${slug}.mdx`), frontmatter + body + '\n')
-  slugs.push(slug)
-  n++
-}
-
-// Generate one STATIC route per page. EAS Hosting serves One as static, and the
-// dynamic [slug] route's client loader builds a malformed chunk path (ai)_...)
-// that 404s on hydration. Param-free static routes avoid that entirely.
+const PAGES = join(SITE, 'src', 'features', 'wiki', 'generated', 'pages')
 const APP = join(SITE, 'app')
 const MARKER = '/* @generated fmhy route — do not edit */'
+
+if (!existsSync(PAGES)) {
+  console.error('missing generated pages — run scripts/wiki/generate.ts first')
+  process.exit(1)
+}
+
+const slugs = readdirSync(PAGES)
+  .filter((f) => f.endsWith('.json'))
+  .map((f) => f.replace(/\.json$/, ''))
+  .sort()
+
+// fresh slate: drop prior generated routes (index+ssg is hand-authored, no marker)
 for (const f of readdirSync(APP)) {
-  if (f.endsWith('+ssg.tsx') && existsSync(join(APP, f))) {
-    if (readFileSync(join(APP, f), 'utf8').startsWith(MARKER)) rmSync(join(APP, f))
+  if (
+    f.endsWith('+ssg.tsx') &&
+    readFileSync(join(APP, f), 'utf8').startsWith(MARKER)
+  ) {
+    rmSync(join(APP, f))
   }
 }
+
 for (const slug of slugs) {
   writeFileSync(
     join(APP, `${slug}+ssg.tsx`),
     `${MARKER}
-import { createRoute, useLoader } from 'one'
-import remarkSmartypants from 'remark-smartypants'
+import { createRoute, Head, useLoader } from 'one'
 
-import { BlogPostLayout } from '~/components/BlogPostLayout'
+import { HeadInfo } from '~/components/HeadInfo'
+import { WikiCategoryContent } from '~/features/wiki/WikiCategoryContent'
 
-import type { UnifiedPlugin } from '@vxrn/mdx'
+import type { WikiPage } from '~/features/wiki/types'
 
 const route = createRoute<'/${slug}'>()
 
 export const loader = route.createLoader(async () => {
-  const { getMDXBySlug } = await import('@vxrn/mdx')
-  const { frontmatter, code } = await getMDXBySlug('data/blog', '${slug}', [
-    remarkSmartypants,
-  ] as UnifiedPlugin)
-  return { frontmatter, code, ogImage: \`/og/${slug}.png\` }
+  const mod = await import('~/features/wiki/generated/pages/${slug}.json')
+  return { page: mod.default as unknown as WikiPage }
 })
 
 export default function Page() {
-  const { code, frontmatter, ogImage } = useLoader(loader)
-  return <BlogPostLayout code={code} frontmatter={frontmatter} ogImage={ogImage} />
+  const { page } = useLoader(loader)
+  return (
+    <>
+      <Head>
+        <HeadInfo title={page.title} description={page.description} />
+      </Head>
+      <WikiCategoryContent page={page} />
+    </>
+  )
 }
-`
+`,
   )
 }
 
-console.info(
-  `✓ converted ${n} fmhy pages → data/blog/*.mdx + ${slugs.length} static routes (content @ ${date})`
-)
+console.info(`✓ generated ${slugs.length} wiki routes → app/*+ssg.tsx`)

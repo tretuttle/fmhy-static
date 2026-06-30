@@ -1,0 +1,201 @@
+import { SizableText, XStack, YStack } from 'tamagui'
+
+import { Link } from '~/components/Link'
+import { ArrowBendUpRightIcon } from '~/icons/phosphor/ArrowBendUpRightIcon'
+import { SepHeading } from '~/interface/text/Headings'
+
+import {
+  countVisible,
+  filterEntries,
+  type EntryVisibilityFilters,
+} from './entryVisibility'
+import { LinkEntryRow } from './LinkEntryRow'
+import { openExternal } from './openExternal'
+import { useWikiFilters } from './useWikiFilters'
+import { WikiNotice } from './WikiNotice'
+import { useShowNsfw } from './wikiSettingsStorage'
+
+import type { Href } from 'one'
+import type { ReactNode } from 'react'
+import type { WikiPage, WikiSection, WikiSubsection } from './types'
+
+// real ids let /#anchor hash-navigation work, and data-toc-* feeds the Phase-3
+// ToC. raw div keeps content-visibility untouched by tamagui's style system so
+// the browser can skip layout/paint for below-fold sections on the huge SSG
+// pages; hash navigation still forces them rendered
+const Anchor = ({
+  id,
+  tocLevel,
+  tocTitle,
+  children,
+}: {
+  id: string
+  tocLevel?: 0 | 1
+  tocTitle?: string
+  children: ReactNode
+}) => {
+  return (
+    <div
+      id={id}
+      data-toc-level={tocLevel}
+      data-toc-title={tocTitle}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 2000px' }}
+    >
+      {children}
+    </div>
+  )
+}
+
+const CrossrefRow = ({
+  title,
+  refUrl,
+  crossrefRoute,
+}: {
+  title: string
+  refUrl: string
+  crossrefRoute: string | null
+}) => {
+  const inner = (
+    <XStack items="center" gap="$2" py="$2">
+      <ArrowBendUpRightIcon size={14} color="$color10" />
+      <SizableText size="$4" color="$accent11" hoverStyle={{ color: '$accent12' }}>
+        {title}
+      </SizableText>
+    </XStack>
+  )
+
+  if (crossrefRoute) {
+    return (
+      <Link href={crossrefRoute as Href} asChild>
+        {inner}
+      </Link>
+    )
+  }
+
+  return (
+    <XStack
+      items="center"
+      gap="$2"
+      py="$2"
+      cursor="pointer"
+      onPress={() => openExternal(refUrl)}
+    >
+      <ArrowBendUpRightIcon size={14} color="$color10" />
+      <SizableText size="$4" color="$accent11" hoverStyle={{ color: '$accent12' }}>
+        {title}
+      </SizableText>
+    </XStack>
+  )
+}
+
+const SubsectionBlock = ({
+  subsection,
+  filters,
+  filterActive,
+  unsafe,
+}: {
+  subsection: WikiSubsection
+  filters: EntryVisibilityFilters
+  filterActive: boolean
+  unsafe: boolean
+}) => {
+  const visible = filterEntries(subsection.entries, filters)
+
+  if (filterActive && visible.length === 0 && !subsection.refUrl) {
+    return null
+  }
+
+  return (
+    <Anchor id={subsection.id} tocLevel={1} tocTitle={subsection.title}>
+      <YStack>
+        <SepHeading size="$5">{subsection.title}</SepHeading>
+        {subsection.notice && <WikiNotice notice={subsection.notice} />}
+        {subsection.refUrl ? (
+          <CrossrefRow
+            title={subsection.title}
+            refUrl={subsection.refUrl}
+            crossrefRoute={subsection.crossrefRoute}
+          />
+        ) : (
+          visible.map((entry) => (
+            <LinkEntryRow key={entry.id} entry={entry} unsafe={unsafe} />
+          ))
+        )}
+      </YStack>
+    </Anchor>
+  )
+}
+
+const SectionBlock = ({
+  section,
+  filters,
+  filterActive,
+  unsafe,
+}: {
+  section: WikiSection
+  filters: EntryVisibilityFilters
+  filterActive: boolean
+  unsafe: boolean
+}) => {
+  const visibleOwn = filterEntries(section.entries, filters)
+  const visibleTotal =
+    visibleOwn.length +
+    section.subsections.reduce((sum, sub) => sum + countVisible(sub.entries, filters), 0)
+  const hasRef =
+    !!section.refUrl || section.subsections.some((subsection) => !!subsection.refUrl)
+
+  if (filterActive && visibleTotal === 0 && !hasRef) {
+    return null
+  }
+
+  return (
+    <Anchor id={section.id} tocLevel={0} tocTitle={section.title}>
+      <YStack>
+        <SepHeading size="$6">{section.title}</SepHeading>
+        {section.notice && <WikiNotice notice={section.notice} />}
+        {section.refUrl ? (
+          <CrossrefRow
+            title={section.title}
+            refUrl={section.refUrl}
+            crossrefRoute={section.crossrefRoute}
+          />
+        ) : (
+          visibleOwn.map((entry) => (
+            <LinkEntryRow key={entry.id} entry={entry} unsafe={unsafe} />
+          ))
+        )}
+        {section.subsections.map((subsection) => (
+          <SubsectionBlock
+            key={subsection.id}
+            subsection={subsection}
+            filters={filters}
+            filterActive={filterActive}
+            unsafe={unsafe}
+          />
+        ))}
+      </YStack>
+    </Anchor>
+  )
+}
+
+export function WikiSectionList({ page }: { page: WikiPage }) {
+  const { starredOnly, indexesOnly } = useWikiFilters()
+  const [showNsfw] = useShowNsfw()
+  const filters: EntryVisibilityFilters = { starredOnly, indexesOnly, showNsfw }
+  const filterActive = starredOnly || indexesOnly
+  const unsafe = page.kind === 'unsafe'
+
+  return (
+    <YStack gap="$2">
+      {page.sections.map((section) => (
+        <SectionBlock
+          key={section.id}
+          section={section}
+          filters={filters}
+          filterActive={filterActive}
+          unsafe={unsafe}
+        />
+      ))}
+    </YStack>
+  )
+}

@@ -70,7 +70,8 @@ export default {
         experimental_scriptLoading: 'after-lcp-aggressive',
         inlineLayoutCSS: true,
         defaultRenderMode: 'ssg',
-        // no vercel preset — plain static dist/ for EAS Hosting (`eas deploy`)
+        // EAS Hosting serves One's output as static — emit plain static dist/
+        // (no worker preset; eas deploy runs the static client, not the worker).
       },
     }),
 

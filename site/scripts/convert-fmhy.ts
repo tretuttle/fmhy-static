@@ -55,6 +55,7 @@ function sanitize(md: string): string {
 for (const f of readdirSync(OUT)) if (f.endsWith('.mdx')) rmSync(join(OUT, f))
 
 let n = 0
+const slugs: string[] = []
 for (const [file, meta] of Object.entries(headers)) {
   const path = join(DOCS, file)
   if (!existsSync(path)) {
@@ -74,7 +75,49 @@ for (const [file, meta] of Object.entries(headers)) {
     '',
   ].join('\n')
   writeFileSync(join(OUT, `${slug}.mdx`), frontmatter + body + '\n')
+  slugs.push(slug)
   n++
 }
 
-console.info(`✓ converted ${n} fmhy pages → data/blog/*.mdx (content @ ${date})`)
+// Generate one STATIC route per page. EAS Hosting serves One as static, and the
+// dynamic [slug] route's client loader builds a malformed chunk path (ai)_...)
+// that 404s on hydration. Param-free static routes avoid that entirely.
+const APP = join(SITE, 'app')
+const MARKER = '/* @generated fmhy route — do not edit */'
+for (const f of readdirSync(APP)) {
+  if (f.endsWith('+ssg.tsx') && existsSync(join(APP, f))) {
+    if (readFileSync(join(APP, f), 'utf8').startsWith(MARKER)) rmSync(join(APP, f))
+  }
+}
+for (const slug of slugs) {
+  writeFileSync(
+    join(APP, `${slug}+ssg.tsx`),
+    `${MARKER}
+import { createRoute, useLoader } from 'one'
+import remarkSmartypants from 'remark-smartypants'
+
+import { BlogPostLayout } from '~/components/BlogPostLayout'
+
+import type { UnifiedPlugin } from '@vxrn/mdx'
+
+const route = createRoute<'/${slug}'>()
+
+export const loader = route.createLoader(async () => {
+  const { getMDXBySlug } = await import('@vxrn/mdx')
+  const { frontmatter, code } = await getMDXBySlug('data/blog', '${slug}', [
+    remarkSmartypants,
+  ] as UnifiedPlugin)
+  return { frontmatter, code, ogImage: \`/og/${slug}.png\` }
+})
+
+export default function Page() {
+  const { code, frontmatter, ogImage } = useLoader(loader)
+  return <BlogPostLayout code={code} frontmatter={frontmatter} ogImage={ogImage} />
+}
+`
+  )
+}
+
+console.info(
+  `✓ converted ${n} fmhy pages → data/blog/*.mdx + ${slugs.length} static routes (content @ ${date})`
+)

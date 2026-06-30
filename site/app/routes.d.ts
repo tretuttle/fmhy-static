@@ -6,12 +6,11 @@ import type { OneRouter } from 'one'
 declare module 'one' {
   export namespace OneRouter {
     export interface __routes<T extends string = string> extends Record<string, unknown> {
-      StaticRoutes: `/` | `/_draft` | `/_sitemap` | `/writing`
-      DynamicRoutes: `/${OneRouter.SingleRoutePart<T>}` | `/_draft/${OneRouter.SingleRoutePart<T>}`
-      DynamicRouteTemplate: `/[slug]` | `/_draft/[slug]`
+      StaticRoutes: `/` | `/_draft` | `/_sitemap` | `/ai` | `/audio` | `/beginners-guide` | `/developer-tools` | `/downloading` | `/educational` | `/file-tools` | `/gaming` | `/gaming-tools` | `/image-tools` | `/internet-tools` | `/linux-macos` | `/misc` | `/mobile` | `/non-english` | `/privacy` | `/reading` | `/social-media-tools` | `/storage` | `/system-tools` | `/text-tools` | `/torrenting` | `/unsafe` | `/video` | `/video-tools` | `/writing`
+      DynamicRoutes: `/_draft/${OneRouter.SingleRoutePart<T>}`
+      DynamicRouteTemplate: `/_draft/[slug]`
       IsTyped: true
       RouteTypes: {
-        '/[slug]': RouteInfo<{ slug: string }>
         '/_draft/[slug]': RouteInfo<{ slug: string }>
       }
     }

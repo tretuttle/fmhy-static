@@ -64,16 +64,33 @@ export function Layout() {
 function Shell() {
   const isHome = usePathname() === '/'
 
+  // flex: 1 0 auto — grow to fill short pages, never cap below content (footer stays put)
   if (isHome) {
     return (
-      <View render="main" flex={1} minW={0} pt={HEADER_H}>
+      <View
+        render="main"
+        flexGrow={1}
+        flexShrink={0}
+        flexBasis="auto"
+        minW={0}
+        pt={HEADER_H}
+        minH={`calc(100dvh - ${HEADER_H}px)`}
+      >
         <Slot />
       </View>
     )
   }
 
   return (
-    <XStack flex={1} width="100%" pt={HEADER_H} items="flex-start">
+    <XStack
+      flexGrow={1}
+      flexShrink={0}
+      flexBasis="auto"
+      width="100%"
+      pt={HEADER_H}
+      minH={`calc(100dvh - ${HEADER_H}px)`}
+      items="flex-start"
+    >
       <View
         width={260}
         shrink={0}

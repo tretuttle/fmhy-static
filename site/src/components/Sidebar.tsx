@@ -1,4 +1,4 @@
-import { Link, usePathname, type Href } from 'one'
+import { usePathname } from 'one'
 import { SizableText, YStack } from 'tamagui'
 
 type Item = { slug: string; title: string }
@@ -51,20 +51,20 @@ function Group({ label, items, pathname }: { label: string; items: Item[]; pathn
       {items.map((it) => {
         const active = pathname === `/${it.slug}`
         return (
-          <Link key={it.slug} href={`/${it.slug}` as Href} asChild>
-            <SizableText
-              render="a"
-              size="$3"
-              fontFamily="$mono"
-              cursor="pointer"
-              py="$1"
-              color={active ? '$color12' : '$color10'}
-              fontWeight={active ? '700' : '400'}
-              hoverStyle={{ color: '$color12' }}
-            >
-              {it.title}
-            </SizableText>
-          </Link>
+          <SizableText
+            key={it.slug}
+            render="a"
+            href={`/${it.slug}`}
+            size="$3"
+            fontFamily="$mono"
+            cursor="pointer"
+            py="$1"
+            color={active ? '$color12' : '$color10'}
+            fontWeight={active ? '700' : '400'}
+            hoverStyle={{ color: '$color12' }}
+          >
+            {it.title}
+          </SizableText>
         )
       })}
     </YStack>

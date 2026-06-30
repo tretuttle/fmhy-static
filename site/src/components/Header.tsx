@@ -1,4 +1,4 @@
-import { Link, usePathname, type Href } from 'one'
+import { usePathname } from 'one'
 import { H1, Separator, SizableText, Spacer, XStack } from 'tamagui'
 
 import { GitHubIcon } from '~/icons/GitHubIcon'
@@ -9,7 +9,7 @@ import { Container } from './Container'
 import { ScrollHeader } from './ScrollHeader'
 import { ThemeSwitch } from './ThemeSwitch'
 
-const navLinks: { name: string; href: Href }[] = [{ name: 'Browse', href: '/writing' }]
+const navLinks: { name: string; href: string }[] = [{ name: 'Browse', href: '/writing' }]
 
 export function Header() {
   const pathname = usePathname()
@@ -19,20 +19,19 @@ export function Header() {
       <Container py="$2">
         <XStack items="center" justify="space-between">
           <XStack items="center" gap="$3" $sm={{ gap: '$6' }}>
-            <Link href="/" asChild>
-              <H1
-                render="a"
-                size="$4"
-                fontWeight="400"
-                cursor="pointer"
-                whiteSpace="nowrap"
-                color="$color"
-                hoverStyle={{ opacity: 0.7 }}
-                $sm={{ size: '$5' }}
-              >
-                FMHY
-              </H1>
-            </Link>
+            <H1
+              render="a"
+              href="/"
+              size="$4"
+              fontWeight="400"
+              cursor="pointer"
+              whiteSpace="nowrap"
+              color="$color"
+              hoverStyle={{ opacity: 0.7 }}
+              $sm={{ size: '$5' }}
+            >
+              FMHY
+            </H1>
 
             {navLinks.length > 0 && (
               <>
@@ -44,20 +43,20 @@ export function Header() {
                     ? pathname !== '/'
                     : pathname.startsWith(link.href as string)
                   return (
-                    <Link key={link.name} href={link.href} asChild>
-                      <SizableText
-                        render="a"
-                        size="$3"
-                        fontFamily="$mono"
-                        fontWeight={isActive ? '600' : '400'}
-                        cursor="pointer"
-                        color={isActive ? '$color12' : '$color'}
-                        hoverStyle={{ color: '$color12' }}
-                        $sm={{ size: '$4', fontWeight: isActive ? '600' : '400' }}
-                      >
-                        {link.name}
-                      </SizableText>
-                    </Link>
+                    <SizableText
+                      key={link.name}
+                      render="a"
+                      href={link.href}
+                      size="$3"
+                      fontFamily="$mono"
+                      fontWeight={isActive ? '600' : '400'}
+                      cursor="pointer"
+                      color={isActive ? '$color12' : '$color'}
+                      hoverStyle={{ color: '$color12' }}
+                      $sm={{ size: '$4', fontWeight: isActive ? '600' : '400' }}
+                    >
+                      {link.name}
+                    </SizableText>
                   )
                 })}
               </>

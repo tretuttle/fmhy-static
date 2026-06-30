@@ -1,5 +1,5 @@
 import { Anchor, H1, H2, Paragraph, SizableText, View, XStack, YStack } from 'tamagui'
-import { Head, Link, useLoader, type Href } from 'one'
+import { Head, useLoader } from 'one'
 
 import { Container } from '~/components/Container'
 import { HeadInfo } from '~/components/HeadInfo'
@@ -66,9 +66,9 @@ export default function HomePage() {
               $sm={{ width: 'calc((100% - 12px) / 2)' as any }}
               $md={{ width: 'calc((100% - 24px) / 3)' as any }}
             >
-              <Link href={`/${post.slug.replace('blog/', '')}` as Href} asChild>
                 <YStack
                   render="a"
+                  href={`/${post.slug.replace('blog/', '')}`}
                   height="100%"
                   p="$3.5"
                   gap="$1.5"
@@ -92,7 +92,6 @@ export default function HomePage() {
                     {post.description}
                   </Paragraph>
                 </YStack>
-              </Link>
             </View>
           ))}
         </XStack>

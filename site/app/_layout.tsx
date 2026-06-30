@@ -1,17 +1,39 @@
 import './root.css'
 
 import { Slot, usePathname } from 'one'
+import { useEffect } from 'react'
 import { ScrollView, View, XStack } from 'tamagui'
 
 import { Footer } from '~/components/Footer'
 import { Header } from '~/components/Header'
 import { GlobalTooltipProvider } from '~/components/TooltipSimple'
 import { WikiSidebar } from '~/components/WikiSidebar'
+import { WikiToc } from '~/components/WikiToc'
 import { ThemeController } from '~/features/theme/ThemeController'
+import { closeSearch, isSearchOpen, toggleSearch } from '~/features/wiki/searchModal'
+import { WikiFiltersProvider } from '~/features/wiki/useWikiFilters'
+import { WikiSearchModal } from '~/features/wiki/WikiSearchModal'
 import { TamaguiRootProvider } from '~/tamagui/TamaguiRootProvider'
 
 // fixed header height; content clears it and the rails stick beneath it
 const HEADER_H = 56
+
+// global ⌘K / Ctrl-K toggles search; Escape closes it
+function SearchHotkey() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        toggleSearch()
+      } else if (e.key === 'Escape' && isSearchOpen()) {
+        closeSearch()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  return null
+}
 
 export function Layout() {
   return (
@@ -27,6 +49,12 @@ export function Layout() {
           content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
         />
         <link rel="icon" href="/favicon.svg" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        />
         <link
           rel="preload"
           href="/JetBrainsMono.woff2"
@@ -46,12 +74,16 @@ export function Layout() {
       <body>
         <TamaguiRootProvider>
           <GlobalTooltipProvider>
-            <ThemeController />
-            <View className="body-scrollable">
-              <Header />
-              <Shell />
-              <Footer />
-            </View>
+            <WikiFiltersProvider>
+              <ThemeController />
+              <SearchHotkey />
+              <View className="body-scrollable">
+                <Header />
+                <Shell />
+                <Footer />
+              </View>
+              <WikiSearchModal />
+            </WikiFiltersProvider>
           </GlobalTooltipProvider>
         </TamaguiRootProvider>
       </body>
@@ -120,6 +152,8 @@ function Shell() {
       >
         <Slot />
       </View>
+
+      <WikiToc />
     </XStack>
   )
 }

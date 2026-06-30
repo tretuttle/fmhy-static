@@ -18,8 +18,10 @@ import { DiscordLogoIcon } from '~/icons/phosphor/DiscordLogoIcon'
 import { GithubLogoIcon } from '~/icons/phosphor/GithubLogoIcon'
 import { ListIcon } from '~/icons/phosphor/ListIcon'
 import { MagnifyingGlassIcon } from '~/icons/phosphor/MagnifyingGlassIcon'
-import { PaletteIcon } from '~/icons/phosphor/PaletteIcon'
 import { RedditLogoIcon } from '~/icons/phosphor/RedditLogoIcon'
+
+import { ThemeMenu } from '~/features/theme/ThemeMenu'
+import { openSearch } from '~/features/wiki/searchModal'
 
 import { CircleButton, CircleLink } from './CircleButton'
 import { Container } from './Container'
@@ -109,11 +111,6 @@ const SOCIAL_LINKS: SocialLink[] = [
   { label: 'Reddit', href: REDDIT_URL, Icon: RedditLogoIcon },
 ]
 
-// phase 1 placeholder — phase 3 wires the real search modal / theme menu
-const noop = () => {
-  // intentionally empty until phase 3
-}
-
 const Logo = () => (
   <Link href="/" aria-label="Home">
     <XStack items="center" gap="$2">
@@ -134,7 +131,7 @@ const Logo = () => (
 const NavTextLink = ({ emoji, label, href, arrow }: NavLink) => (
   <Link href={href as never} target="_blank" rel="noopener noreferrer">
     <XStack items="center" gap="$1" opacity={0.85} hoverStyle={{ opacity: 1 }}>
-      <SizableText fontFamily="$mono" size="$3" color="$color12">
+      <SizableText fontFamily="$body" size="$3" color="$color12">
         {emoji} {label}
       </SizableText>
       {arrow ? <ArrowUpRightIcon size={11} color="$color9" /> : null}
@@ -178,7 +175,7 @@ const EcosystemMenu = () => (
         hoverStyle={{ opacity: 1 }}
         aria-label="Ecosystem"
       >
-        <SizableText fontFamily="$mono" size="$3" color="$color12">
+        <SizableText fontFamily="$body" size="$3" color="$color12">
           🌐 Ecosystem
         </SizableText>
         <CaretDownIcon size={12} color="$color11" />
@@ -216,7 +213,7 @@ const SocialLinksRow = () => (
 const HeaderSearchBox = () => (
   <XStack
     render="button"
-    onPress={noop}
+    onPress={openSearch}
     aria-label="Search"
     width={240}
     maxW="100%"
@@ -239,7 +236,7 @@ const HeaderSearchBox = () => (
     <SizableText
       size="$2"
       color="$color8"
-      fontFamily="$mono"
+      fontFamily="$body"
       letterSpacing={1}
       px="$1.5"
       py="$0.5"
@@ -332,6 +329,7 @@ const MobileMenu = () => {
           <YStack flex={1} gap="$2">
             <XStack items="center" justify="space-between">
               <Logo />
+              <ThemeMenu />
             </XStack>
 
             <Separator my="$2" />
@@ -341,7 +339,10 @@ const MobileMenu = () => {
                 <SheetRow
                   label="Search"
                   icon={<MagnifyingGlassIcon size={20} />}
-                  onPress={close}
+                  onPress={() => {
+                    close()
+                    openSearch()
+                  }}
                 />
                 <SheetRow
                   label="Feedback"
@@ -406,7 +407,7 @@ export function Header() {
 
           {/* below wide: compact search icon */}
           <XStack display="flex" $xl={{ display: 'none' }} items="center">
-            <CircleButton tooltip="Search" aria-label="Search" onPress={noop}>
+            <CircleButton tooltip="Search" aria-label="Search" onPress={openSearch}>
               <MagnifyingGlassIcon size={18} />
             </CircleButton>
           </XStack>
@@ -417,9 +418,7 @@ export function Header() {
               <NavTextLink key={l.label} {...l} />
             ))}
             <EcosystemMenu />
-            <CircleButton tooltip="Theme" aria-label="Theme" onPress={noop}>
-              <PaletteIcon size={18} />
-            </CircleButton>
+            <ThemeMenu />
             <SocialLinksRow />
           </XStack>
 

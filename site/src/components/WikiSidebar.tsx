@@ -2,6 +2,7 @@ import { usePathname } from 'one'
 import { SizableText, styled, XStack, YStack } from 'tamagui'
 
 import { wikiNav } from '~/features/wiki/data'
+import { OptionsCard } from '~/features/wiki/OptionsCard'
 
 import type { WikiNavItem } from '~/features/wiki/types'
 
@@ -57,7 +58,7 @@ function SidebarRow({ item, onNavigate }: { item: WikiNavItem; onNavigate?: () =
       </SizableText>
       <SizableText
         size="$3"
-        fontFamily="$mono"
+        fontFamily="$body"
         fontWeight={active ? '600' : '400'}
         color={active ? '$color12' : '$color11'}
       >
@@ -72,7 +73,7 @@ function GroupLabel({ label }: { label: string }) {
   return (
     <SizableText
       size="$2"
-      fontFamily="$mono"
+      fontFamily="$body"
       textTransform="uppercase"
       opacity={0.225}
       select="none"
@@ -99,6 +100,8 @@ export function WikiSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
           ))}
         </YStack>
       ))}
+
+      <OptionsCard />
     </YStack>
   )
 }

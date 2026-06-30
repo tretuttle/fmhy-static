@@ -37,14 +37,14 @@ const REDDIT_URL = 'https://www.reddit.com/r/FREEMEDIAHECKYEAH/'
 type NavLink = { emoji: string; label: string; href: string; arrow?: boolean }
 
 const NAV_LINKS: NavLink[] = [
-  { emoji: '📋', label: 'Changelog', href: 'https://fmhy.net/posts/changelog-sites' },
+  { emoji: '📋', label: 'Changelog', href: '/changelog' },
   {
     emoji: '📖',
     label: 'Glossary',
     href: 'https://rentry.org/The-Piracy-Glossary',
     arrow: true,
   },
-  { emoji: '💾', label: 'Backups', href: 'https://fmhy.net/other/backups' },
+  { emoji: '💾', label: 'Backups', href: '/backups' },
 ]
 
 // fmhy ecosystem menu. internal where a route exists; the rest deep-link to fmhy.net
@@ -128,40 +128,63 @@ const Logo = () => (
   </Link>
 )
 
-const NavTextLink = ({ emoji, label, href, arrow }: NavLink) => (
-  <Link href={href as never} target="_blank" rel="noopener noreferrer">
-    <XStack items="center" gap="$1" opacity={0.85} hoverStyle={{ opacity: 1 }}>
-      <SizableText fontFamily="$body" size="$3" color="$color12">
-        {emoji} {label}
-      </SizableText>
-      {arrow ? <ArrowUpRightIcon size={11} color="$color9" /> : null}
-    </XStack>
-  </Link>
+const NavTextLink = ({ emoji, label, href, arrow }: NavLink) => {
+  const external = href.startsWith('http')
+  return (
+    <Link
+      href={href as never}
+      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+    >
+      <XStack items="center" gap="$1" opacity={0.85} hoverStyle={{ opacity: 1 }}>
+        <SizableText fontFamily="$body" size="$3" color="$color12">
+          {emoji} {label}
+        </SizableText>
+        {arrow ? <ArrowUpRightIcon size={11} color="$color9" /> : null}
+      </XStack>
+    </Link>
+  )
+}
+
+const EcosystemRowInner = ({ item }: { item: EcosystemItem }) => (
+  <XStack
+    items="center"
+    gap="$2.5"
+    px="$2.5"
+    py="$2"
+    rounded="$3"
+    cursor="pointer"
+    bg="transparent"
+    borderWidth={0}
+    width="100%"
+    hoverStyle={{ bg: '$color4' }}
+  >
+    <SizableText size="$4">{item.emoji}</SizableText>
+    <SizableText flex={1} size="$3" color="$color12">
+      {item.label}
+    </SizableText>
+    {item.external ? <ArrowUpRightIcon size={12} color="$color9" /> : null}
+  </XStack>
 )
 
-const EcosystemRow = ({ item }: { item: EcosystemItem }) => (
-  <Link
-    href={item.href as never}
-    {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-    asChild
-  >
-    <XStack
-      items="center"
-      gap="$2.5"
-      px="$2.5"
-      py="$2"
-      rounded="$3"
-      cursor="pointer"
-      hoverStyle={{ bg: '$color4' }}
+const EcosystemRow = ({ item }: { item: EcosystemItem }) => {
+  // "Search" opens the live ⌘K content-search modal, not a route
+  if (item.label === 'Search') {
+    return (
+      <XStack render="button" bg="transparent" borderWidth={0} onPress={() => openSearch()}>
+        <EcosystemRowInner item={item} />
+      </XStack>
+    )
+  }
+  return (
+    <Link
+      href={item.href as never}
+      {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      asChild
     >
-      <SizableText size="$4">{item.emoji}</SizableText>
-      <SizableText flex={1} size="$3" color="$color12">
-        {item.label}
-      </SizableText>
-      {item.external ? <ArrowUpRightIcon size={12} color="$color9" /> : null}
-    </XStack>
-  </Link>
-)
+      <EcosystemRowInner item={item} />
+    </Link>
+  )
+}
 
 const EcosystemMenu = () => (
   <Popover placement="bottom-end" allowFlip>
@@ -361,7 +384,7 @@ const MobileMenu = () => {
                     label={l.label}
                     emoji={l.emoji}
                     href={l.href}
-                    external
+                    external={l.href.startsWith('http')}
                     onPress={close}
                   />
                 ))}

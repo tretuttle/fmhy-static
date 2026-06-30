@@ -7,6 +7,7 @@ import {
   ACCENT_NAMES,
   ACCENT_SWATCHES,
   useAccent,
+  useMonochrome,
 } from '~/features/theme/themeSettings'
 
 import { useWikiFilters } from './useWikiFilters'
@@ -64,9 +65,11 @@ function ToggleRow({
   )
 }
 
-// round swatch per accent; active gets a 2px ring (mirrors the ColorPicker)
+// round swatch per accent + a trailing grey monochrome swatch; active gets a 2px
+// ring (mirrors the fmhy.net ColorPicker). monochrome is an independent toggle.
 function AccentPicker() {
   const [accent, setAccent] = useAccent()
+  const [monochrome, setMonochrome] = useMonochrome()
 
   return (
     <XStack flexWrap="wrap" gap="$2">
@@ -90,6 +93,19 @@ function AccentPicker() {
           />
         )
       })}
+      <XStack
+        render="button"
+        onPress={() => setMonochrome(!monochrome)}
+        aria-label="Monochrome"
+        width={24}
+        height={24}
+        rounded={100}
+        cursor="pointer"
+        borderWidth={2}
+        borderColor={monochrome ? '$color12' : 'transparent'}
+        hoverStyle={{ borderColor: monochrome ? '$color12' : '$color7' }}
+        style={{ backgroundColor: '#888888' }}
+      />
     </XStack>
   )
 }
@@ -99,6 +115,7 @@ export function OptionsCard() {
   const { starredOnly, indexesOnly, setStarredOnly, setIndexesOnly } =
     useWikiFilters()
   const [accent] = useAccent()
+  const [monochrome] = useMonochrome()
 
   return (
     <YStack
@@ -138,7 +155,7 @@ export function OptionsCard() {
       <AccentPicker />
 
       <SizableText size="$2" color="$color10">
-        Theme: {capitalizeAccent(accent)}
+        Theme: {monochrome ? 'Monochrome' : capitalizeAccent(accent)}
       </SizableText>
     </YStack>
   )

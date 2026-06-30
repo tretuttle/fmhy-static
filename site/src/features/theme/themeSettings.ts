@@ -7,6 +7,7 @@ import { createStorageValue } from '~/lib/storage'
 // these settings cover the extra fmhy.net theming layers: amoled, accent, monochrome.
 
 // the 7 named accent palettes from fmhy.net (docs/.vitepress/theme/utils/colors.ts)
+// plus catppuccin, fmhy.net's catppuccin theme brand mapped as an accent.
 export type AccentName =
   | 'swarm'
   | 'turquoise'
@@ -15,6 +16,7 @@ export type AccentName =
   | 'meadow'
   | 'merlin'
   | 'blue-violet'
+  | 'catppuccin'
 
 export const ACCENT_NAMES: readonly AccentName[] = [
   'swarm',
@@ -24,9 +26,11 @@ export const ACCENT_NAMES: readonly AccentName[] = [
   'meadow',
   'merlin',
   'blue-violet',
+  'catppuccin',
 ] as const
 
 // swatch = each palette's 500 shade, mirroring the fmhy.net ColorPicker swatches
+// (catppuccin uses its main mauve)
 export const ACCENT_SWATCHES: Record<AccentName, string> = {
   swarm: 'hsl(211, 63%, 61%)',
   turquoise: 'hsl(188, 86%, 43%)',
@@ -35,6 +39,7 @@ export const ACCENT_SWATCHES: Record<AccentName, string> = {
   meadow: 'hsl(158, 77%, 42%)',
   merlin: 'hsl(45, 93%, 47%)',
   'blue-violet': 'hsl(242, 91%, 64%)',
+  catppuccin: '#9345ed',
 }
 
 export const amoledStorage = createStorageValue<boolean>('theme.amoled')

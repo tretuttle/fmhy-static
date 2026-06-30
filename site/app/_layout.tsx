@@ -2,7 +2,7 @@ import './root.css'
 
 import { Slot, usePathname } from 'one'
 import { useEffect } from 'react'
-import { ScrollView, View, XStack } from 'tamagui'
+import { View, XStack } from 'tamagui'
 
 import { Footer } from '~/components/Footer'
 import { Header } from '~/components/Header'
@@ -123,22 +123,18 @@ function Shell() {
       minH={`calc(100dvh - ${HEADER_H}px)`}
       items="flex-start"
     >
+      {/* sidebar flows with the page (no nested scroll) — the OptionsCard at the
+          bottom is reached via the main page scroll, with content space below it */}
       <View
         width={260}
         shrink={0}
+        self="stretch"
         display="none"
         borderRightWidth={1}
         borderRightColor="$color2"
-        $md={{
-          display: 'flex',
-          position: 'sticky',
-          t: HEADER_H,
-          height: `calc(100dvh - ${HEADER_H}px)`,
-        }}
+        $md={{ display: 'flex' }}
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <WikiSidebar />
-        </ScrollView>
+        <WikiSidebar />
       </View>
 
       <View

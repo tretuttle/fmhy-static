@@ -402,6 +402,25 @@ html.accent-blue-violet.t_light {
   --accent2: hsl(231, 100%, 94%);
 }
 
+/* catppuccin — fmhy.net's catppuccin theme brand mapped onto the accent scale.
+   accent9 = main mauve (#9345ed), accent10 = #7c3aed, accent11 = soft #a78bfa (link). */
+html.accent-catppuccin.t_dark {
+  --accent9: #9345ed;
+  --accent10: #7c3aed;
+  --accent11: #a78bfa;
+  --accent12: #ddd6fe;
+  --accent1: #2e1065;
+  --accent2: #4c1d95;
+}
+html.accent-catppuccin.t_light {
+  --accent9: #9345ed;
+  --accent10: #7c3aed;
+  --accent11: #9345ed;
+  --accent12: #5b21b6;
+  --accent1: #f5f3ff;
+  --accent2: #ede9fe;
+}
+
 /* monochrome — exactly the live site's mechanism */
 html.monochrome {
   filter: grayscale(1);

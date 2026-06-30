@@ -1,10 +1,11 @@
 import './root.css'
 
 import { Slot } from 'one'
-import { View } from 'tamagui'
+import { View, XStack } from 'tamagui'
 
 import { Footer } from '~/components/Footer'
 import { Header } from '~/components/Header'
+import { Sidebar } from '~/components/Sidebar'
 import { GlobalTooltipProvider } from '~/components/TooltipSimple'
 import { TamaguiRootProvider } from '~/tamagui/TamaguiRootProvider'
 
@@ -14,7 +15,7 @@ export function Layout() {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-        <meta property="og:site_name" content="Takeout Static" />
+        <meta property="og:site_name" content="FMHY" />
         <meta property="og:locale" content="en_US" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta
@@ -43,10 +44,13 @@ export function Layout() {
           <GlobalTooltipProvider>
             <View className="body-scrollable">
               <Header />
-              <View render="main" pt={55}>
-                <Slot />
-              </View>
-              <Footer />
+              <XStack items="flex-start" pt={55}>
+                <Sidebar />
+                <View render="main" flex={1} minW={0}>
+                  <Slot />
+                  <Footer />
+                </View>
+              </XStack>
             </View>
           </GlobalTooltipProvider>
         </TamaguiRootProvider>

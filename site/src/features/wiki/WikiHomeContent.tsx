@@ -7,10 +7,11 @@ import { CategoryCard } from './CategoryCard'
 import { homeFeatures } from './homeFeatures'
 import { openExternal } from './openExternal'
 
-// the wiki source lives in these repos; backups + feedback have no in-app route
-const BACKUPS_URL = 'https://github.com/fmhy/FMHY'
-const FEEDBACK_URL = 'https://www.reddit.com/r/FREEMEDIAHECKYEAH/'
+// hero action links, mirroring fmhy.net
 const UPDATES_URL = 'https://fmhy.net/posts'
+const POSTS_URL = 'https://fmhy.net/posts'
+const CONTRIBUTE_URL = 'https://fmhy.net/other/contributing'
+const DISCORD_URL = 'https://github.com/fmhy/FMHY/wiki/FMHY-Discord'
 
 // gradient-text heading (web-only css), matches the live fmhy.net rainbow name
 const HeroTitle = styled(H1, {
@@ -32,14 +33,6 @@ const GridItem = styled(YStack, {
   $lg: { width: '25%' },
 })
 
-// web-only smooth scroll to the category grid (the home is the wiki landing)
-function scrollToCategories() {
-  if (typeof document === 'undefined') return
-  document
-    .getElementById('home-categories')
-    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
 export function WikiHomeContent() {
   return (
     <YStack gap="$10" py="$8" pb="$12" px="$4" self="center" width="100%" maxW={1152}>
@@ -53,31 +46,17 @@ export function WikiHomeContent() {
       >
         {isWeb && (
           <YStack
-            position="relative"
-            width={280}
-            height={280}
-            $lg={{ width: 360, height: 360 }}
+            width={300}
+            height={300}
+            $lg={{ width: 400, height: 400 }}
             items="center"
             justify="center"
           >
-            {/* soft blurred gradient glow behind the logo */}
-            <YStack
-              position="absolute"
-              width={220}
-              height={220}
-              $lg={{ width: 300, height: 300 }}
-              opacity={0.6}
-              $platform-web={{
-                backgroundImage: 'linear-gradient(-45deg, #c4b5fd 50%, #47caff 50%)',
-                filter: 'blur(90px)',
-              }}
-            />
+            {/* fmhy.net play-button mark (glow baked into the png) */}
             <img
-              src="/favicon.svg"
+              src="/fmhy-hero.png"
               alt="FMHY"
-              width={200}
-              height={200}
-              style={{ position: 'relative', objectFit: 'contain' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             />
           </YStack>
         )}
@@ -100,7 +79,7 @@ export function WikiHomeContent() {
             cursor="pointer"
             hoverStyle={{ bg: '$color4' }}
           >
-            June 2026 Updates 🌈
+            June 2026 Updates ✨
           </SizableText>
 
           <HeroTitle text="center" $lg={{ text: 'left' }}>
@@ -118,17 +97,17 @@ export function WikiHomeContent() {
             $lg={{ justify: 'flex-start' }}
             mt="$2"
           >
-            <Button bg="$color12" hoverStyle={{ bg: '$color11' }} onPress={scrollToCategories}>
-              <Button.Text color="$color1">Browse Wiki</Button.Text>
-            </Button>
-
             <Link href="/beginners-guide" asChild>
-              <Button>Beginners</Button>
+              <Button bg="$accent9" hoverStyle={{ bg: '$accent10' }}>
+                <Button.Text color="$color1">See Beginners Guide</Button.Text>
+              </Button>
             </Link>
 
-            <Button onPress={() => openExternal(BACKUPS_URL)}>Backups</Button>
+            <Button onPress={() => openExternal(POSTS_URL)}>Posts</Button>
 
-            <Button onPress={() => openExternal(FEEDBACK_URL)}>Feedback</Button>
+            <Button onPress={() => openExternal(CONTRIBUTE_URL)}>Contribute</Button>
+
+            <Button onPress={() => openExternal(DISCORD_URL)}>Discord</Button>
           </XStack>
         </YStack>
       </XStack>

@@ -3,7 +3,6 @@ import { Popover, Switch, View, XStack, YStack } from 'tamagui'
 
 import { CircleHalfIcon } from '~/icons/phosphor/CircleHalfIcon'
 import { MoonStarsIcon } from '~/icons/phosphor/MoonStarsIcon'
-import { PaletteIcon } from '~/icons/phosphor/PaletteIcon'
 import { SunIcon } from '~/icons/phosphor/SunIcon'
 import { Text } from '~/interface/text/Text'
 
@@ -211,7 +210,7 @@ export function ThemeMenu() {
           hoverStyle={{ bg: '$color3' }}
           pressStyle={{ bg: '$color2' }}
         >
-          <PaletteIcon size={18} color="$color12" />
+          <MoonStarsIcon size={18} color="$color12" />
         </XStack>
       </Popover.Trigger>
 

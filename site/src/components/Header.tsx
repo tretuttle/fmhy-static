@@ -114,7 +114,7 @@ const SOCIAL_LINKS: SocialLink[] = [
 const Logo = () => (
   <Link href="/" aria-label="Home">
     <XStack items="center" gap="$2">
-      <Image src="/favicon.svg" width={24} height={24} aria-label="FMHY logo" />
+      <Image src="/fmhy-logo.webp" width={22} height={22} aria-label="FMHY logo" />
       <SizableText
         select="none"
         fontFamily="$heading"

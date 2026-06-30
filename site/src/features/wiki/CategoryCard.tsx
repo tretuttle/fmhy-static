@@ -59,11 +59,9 @@ export function CategoryCard({
           <LucideIcon paths={paths} color={color} size={24} />
         </YStack>
 
-        <H4 size="$6" textDecorationLine="underline">
-          {title}
-        </H4>
+        <H4 size="$6">{title}</H4>
 
-        <SizableText size="$3" color="$color10" textDecorationLine="underline">
+        <SizableText size="$3" color="$color10">
           {description}
         </SizableText>
       </CategoryCardFrame>

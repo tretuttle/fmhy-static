@@ -4,8 +4,8 @@ import { createThemes } from '@tamagui/theme-builder'
 import { opacify } from './opacify'
 
 const darkPalette = [
-  '#080808',
-  '#191919',
+  '#1a1a1a',
+  '#242424',
   '#282828',
   '#353535',
   '#444',

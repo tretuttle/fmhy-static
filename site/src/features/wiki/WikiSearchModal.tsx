@@ -233,7 +233,7 @@ function ModalInner() {
   }
 
   return (
-    <YStack gap="$3" flex={1}>
+    <YStack gap="$3">
       <XStack items="center" gap="$3">
         <MagnifyingGlassIcon size={20} color="$color10" />
         <Input
@@ -255,7 +255,7 @@ function ModalInner() {
 
       <Separator opacity={0.4} />
 
-      <ScrollView flex={1} showsVerticalScrollIndicator={false}>
+      <ScrollView maxHeight={440} showsVerticalScrollIndicator={false}>
         <YStack gap="$1">
           {!query.trim() && recent.length > 0 && (
             <YStack gap="$2">
@@ -371,6 +371,7 @@ export function WikiSearchModal() {
         width="100%"
         maxW={640}
         maxH="70vh"
+        overflow="hidden"
         bg="$background08"
         borderWidth={0.5}
         borderColor="$color3"

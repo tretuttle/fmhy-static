@@ -1,10 +1,8 @@
-import { memo, useState, type ReactNode } from 'react'
-import { styled, Tooltip, XStack, YStack } from 'tamagui'
+import { Fragment, memo, useState, type ReactNode } from 'react'
+import { Paragraph, Tooltip, YStack } from 'tamagui'
 
 import { Link } from '~/components/Link'
-import { TooltipSimple } from '~/components/TooltipSimple'
 import { ArrowBendUpRightIcon } from '~/icons/phosphor/ArrowBendUpRightIcon'
-import { CopyIcon } from '~/icons/phosphor/CopyIcon'
 import { DiscordLogoIcon } from '~/icons/phosphor/DiscordLogoIcon'
 import { GithubLogoIcon } from '~/icons/phosphor/GithubLogoIcon'
 import { GitlabLogoIcon } from '~/icons/phosphor/GitlabLogoIcon'
@@ -16,15 +14,14 @@ import { WarningCircleIcon } from '~/icons/phosphor/WarningCircleIcon'
 import { XLogoIcon } from '~/icons/phosphor/XLogoIcon'
 import { Text } from '~/interface/text/Text'
 
-import { copyText } from './clipboard'
 import { InlineMarkdown } from './InlineMarkdown'
 import { loadNote } from './notes'
 import { openExternal } from './openExternal'
 import { toPlatformWikiRoute } from './routes'
 
-import type { IconComponent } from '~/icons/types'
-import type { Href } from 'one'
 import type { WikiAlternative, WikiEntry, WikiNote, WikiSubLink } from './types'
+import type { Href } from 'one'
+import type { IconComponent } from '~/icons/types'
 
 const SUB_LINK_ICONS: Record<string, IconComponent> = {
   discord: DiscordLogoIcon,
@@ -35,6 +32,16 @@ const SUB_LINK_ICONS: Record<string, IconComponent> = {
   x: XLogoIcon,
 }
 
+// $platform-web overrides that drop Link.tsx's inherit pins so the chosen
+// props win on web. each variant inherits only what should flow from the line.
+const INHERIT_SIZE = { fontSize: 'inherit', lineHeight: 'inherit' } as const
+const INHERIT_SIZE_WEIGHT = {
+  fontSize: 'inherit',
+  fontWeight: 'inherit',
+  lineHeight: 'inherit',
+} as const
+const INHERIT_WEIGHT = { fontWeight: 'inherit', lineHeight: 'inherit' } as const
+
 function hostnameOf(url: string) {
   try {
     return new URL(url).hostname.replace(/^www\./, '')
@@ -43,57 +50,163 @@ function hostnameOf(url: string) {
   }
 }
 
-// small pill used for mirror numbers, sub-link icons/labels, evidence and copy
-const Chip = styled(XStack, {
-  items: 'center',
-  justify: 'center',
-  gap: '$1',
-  height: 18,
-  minWidth: 18,
-  px: 5,
-  rounded: '$3',
-  borderWidth: 1,
-  borderColor: '$color6',
-  bg: '$color2',
-  cursor: 'pointer',
-  hoverStyle: { bg: '$color4', borderColor: '$color8' },
-  pressStyle: { bg: '$color3' },
-})
-
-const ChipLabel = ({ children }: { children: ReactNode }) => (
-  <Text fontFamily="$mono" fontSize={11} lineHeight={14} color="$color11">
+// wraps an svg so it rides the text baseline within the flowing line (NoteLink trick)
+const InlineIcon = ({ children }: { children: ReactNode }) => (
+  <Text
+    render="span"
+    tag="span"
+    display="inline-flex"
+    style={{ verticalAlign: '-0.15em' }}
+  >
     {children}
   </Text>
 )
 
-const MirrorChips = ({ mirrors, offset = 2 }: { mirrors: string[]; offset?: number }) => {
-  if (mirrors.length === 0) return null
+const MarkerIcon = ({ marker }: { marker: WikiEntry['marker'] }) => {
+  switch (marker) {
+    case 'starred':
+      return <StarIcon size={14} color="$gold" />
+    case 'index':
+      return <GlobeIcon size={14} color="$color10" />
+    case 'crossref':
+      return <ArrowBendUpRightIcon size={14} color="$color10" />
+    case null:
+      return null
+  }
+}
+
+// fmhy.net's primary name: blue rgb(120,179,226), bold, underlined
+const NameLink = ({
+  title,
+  url,
+  crossrefRoute,
+  bold = true,
+}: {
+  title: string
+  url: string | null
+  crossrefRoute?: string | null
+  bold?: boolean
+}) => {
+  const weight = bold ? '700' : '500'
+
+  if (crossrefRoute) {
+    return (
+      <Link
+        href={crossrefRoute as Href}
+        color="$accent11"
+        fontWeight={weight}
+        textDecorationLine="underline"
+        hoverStyle={{ color: '$accent12' }}
+        $platform-web={INHERIT_SIZE}
+        aria-label={title}
+      >
+        {title}
+      </Link>
+    )
+  }
+
+  // no link target — a plain bold name, not a dead blue link
+  if (!url) {
+    return (
+      <Text render="strong" fontWeight={weight} color="$color12">
+        {title}
+      </Text>
+    )
+  }
+
   return (
-    <>
-      {mirrors.map((mirror, index) => (
-        <TooltipSimple key={mirror} label={`Mirror ${index + offset}`}>
-          <Chip
-            render="button"
-            aria-label={`Mirror ${index + offset}`}
-            onPress={() => openExternal(mirror)}
-          >
-            <ChipLabel>{String(index + offset)}</ChipLabel>
-          </Chip>
-        </TooltipSimple>
-      ))}
-    </>
+    <Link
+      href={url as Href}
+      target="_blank"
+      rel="noopener noreferrer"
+      color="$accent11"
+      fontWeight={weight}
+      textDecorationLine="underline"
+      hoverStyle={{ color: '$accent12' }}
+      $platform-web={INHERIT_SIZE}
+      aria-label={title}
+      onPress={(e) => {
+        e.preventDefault()
+        openExternal(url)
+      }}
+    >
+      {title}
+    </Link>
+  )
+}
+
+// small superscript "[2] [3]" mirror links trailing the name
+const MirrorLink = ({ url, index }: { url: string; index: number }) => (
+  <Link
+    href={url as Href}
+    fontSize={12}
+    color="$accent11"
+    textDecorationLine="none"
+    hoverStyle={{ color: '$accent12', textDecorationLine: 'underline' }}
+    $platform-web={INHERIT_WEIGHT}
+    style={{ verticalAlign: 'super' }}
+    aria-label={`Mirror ${index}`}
+    onPress={(e) => {
+      e.preventDefault()
+      openExternal(url)
+    }}
+  >
+    [{index}]
+  </Link>
+)
+
+// shared blue text-link style for sub-links (regular weight, underline on hover)
+const subLinkProps = {
+  color: '$accent11',
+  textDecorationLine: 'none',
+  hoverStyle: { color: '$accent12', textDecorationLine: 'underline' },
+  '$platform-web': INHERIT_SIZE_WEIGHT,
+} as const
+
+const IconSubLink = ({ link, Icon }: { link: WikiSubLink; Icon: IconComponent }) => {
+  const route = toPlatformWikiRoute(link.route)
+  const icon = <Icon size={14} color="$accent11" />
+
+  if (route) {
+    return (
+      <Link
+        href={route as Href}
+        display="inline-flex"
+        style={{ verticalAlign: '-0.15em' }}
+        hoverStyle={{ opacity: 0.7 }}
+        aria-label={link.label}
+      >
+        {icon}
+      </Link>
+    )
+  }
+
+  return (
+    <Link
+      href={link.url as Href}
+      display="inline-flex"
+      style={{ verticalAlign: '-0.15em' }}
+      hoverStyle={{ opacity: 0.7 }}
+      aria-label={link.label}
+      onPress={(e) => {
+        e.preventDefault()
+        openExternal(link.url)
+      }}
+    >
+      {icon}
+    </Link>
   )
 }
 
 // vitepress note sub-links have no toast on web, so reveal the note in a lazy tooltip
-const NoteChip = ({
+const NoteSubLink = ({
   noteId,
   label,
-  children,
+  Icon,
 }: {
   noteId: string
   label: string
-  children: ReactNode
+  Icon?: IconComponent
 }) => {
   const [open, setOpen] = useState(false)
   const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle')
@@ -118,9 +231,18 @@ const NoteChip = ({
       allowFlip
     >
       <Tooltip.Trigger asChild="except-style">
-        <Chip render="button" aria-label={label}>
-          {children}
-        </Chip>
+        <Text
+          render="span"
+          tag="span"
+          display="inline-flex"
+          cursor="pointer"
+          color="$accent11"
+          hoverStyle={{ color: '$accent12', textDecorationLine: 'underline' }}
+          style={Icon ? { verticalAlign: '-0.15em' } : undefined}
+          aria-label={label}
+        >
+          {Icon ? <Icon size={14} color="$accent11" /> : label}
+        </Text>
       </Tooltip.Trigger>
 
       <Tooltip.Content
@@ -166,108 +288,62 @@ const NoteChip = ({
   )
 }
 
-const SubLinkChip = ({ link }: { link: WikiSubLink }) => {
+const SubLink = ({ link }: { link: WikiSubLink }) => {
   const Icon = link.icon ? SUB_LINK_ICONS[link.icon] : undefined
-  // reddit-wiki cross-references resolve to in-app routes
-  const route = link.noteId ? null : toPlatformWikiRoute(link.route)
 
-  const inner = Icon ? <Icon size={12} color="$color11" /> : <ChipLabel>{link.label}</ChipLabel>
-
+  // note sub-link: lazy tooltip trigger (icon when known, else the label text)
   if (link.noteId) {
-    return (
-      <NoteChip noteId={link.noteId} label={link.label}>
-        {inner}
-      </NoteChip>
-    )
+    return <NoteSubLink noteId={link.noteId} label={link.label} Icon={Icon} />
   }
 
+  // known platform icon renders as the link itself
+  if (Icon) {
+    return <IconSubLink link={link} Icon={Icon} />
+  }
+
+  // reddit-wiki cross-references resolve to in-app routes
+  const route = toPlatformWikiRoute(link.route)
   if (route) {
     return (
-      <TooltipSimple label={link.label}>
-        <Link asChild href={route as Href} aria-label={link.label}>
-          <Chip>{inner}</Chip>
-        </Link>
-      </TooltipSimple>
-    )
-  }
-
-  return (
-    <TooltipSimple label={link.label}>
-      <Chip render="button" aria-label={link.label} onPress={() => openExternal(link.url)}>
-        {inner}
-      </Chip>
-    </TooltipSimple>
-  )
-}
-
-const TitleLink = ({
-  title,
-  url,
-  bold,
-  crossrefRoute,
-}: {
-  title: string
-  url: string | null
-  bold: boolean
-  crossrefRoute?: string | null
-}) => {
-  const weight = bold ? '700' : '500'
-
-  // the inner Text carries the styling so it survives Link's $platform-web inherit pins
-  if (crossrefRoute) {
-    return (
-      <Link href={crossrefRoute as Href} aria-label={title}>
-        <Text size="$4" fontWeight={weight} color="$color12" hoverStyle={{ color: '$accent11' }}>
-          {title}
-        </Text>
+      <Link href={route as Href} {...subLinkProps}>
+        {link.label}
       </Link>
     )
   }
 
-  if (!url) {
-    return (
-      <Text size="$4" fontWeight={weight} color="$color12">
-        {title}
-      </Text>
-    )
-  }
-
   return (
-    <Link href={url as Href} target="_blank" rel="noopener noreferrer" aria-label={title}>
-      <Text size="$4" fontWeight={weight} color="$color12" hoverStyle={{ color: '$accent11' }}>
-        {title}
-      </Text>
+    <Link
+      href={link.url as Href}
+      target="_blank"
+      {...subLinkProps}
+      onPress={(e) => {
+        e.preventDefault()
+        openExternal(link.url)
+      }}
+    >
+      {link.label}
     </Link>
   )
 }
 
 const AlternativeInline = ({ alternative }: { alternative: WikiAlternative }) => (
   <>
-    <Text size="$3" color="$color10">
-      or
-    </Text>
-    <TitleLink
+    {' '}
+    <Text color="$color11">or</Text>{' '}
+    <NameLink
       title={alternative.title}
       url={alternative.url}
-      bold={alternative.bold}
       crossrefRoute={toPlatformWikiRoute(alternative.route)}
+      bold={alternative.bold}
     />
-    <MirrorChips mirrors={alternative.mirrors} />
+    {alternative.mirrors.map((mirror, index) => (
+      <Fragment key={mirror}>
+        {' '}
+        <MirrorLink url={mirror} index={index + 2} />
+      </Fragment>
+    ))}
   </>
 )
-
-const MarkerIcon = ({ marker }: { marker: WikiEntry['marker'] }) => {
-  switch (marker) {
-    case 'starred':
-      return <StarIcon size={14} color="$gold" />
-    case 'index':
-      return <GlobeIcon size={14} color="$color10" />
-    case 'crossref':
-      return <ArrowBendUpRightIcon size={14} color="$color10" />
-    case null:
-      return null
-  }
-}
 
 export const LinkEntryRow = memo(
   ({ entry, unsafe = false }: { entry: WikiEntry; unsafe?: boolean }) => {
@@ -277,74 +353,78 @@ export const LinkEntryRow = memo(
     // unsafe-page style entries: nothing to open, render as a plain warning
     const isWarningOnly =
       unsafe || (!entry.url && entry.links.length === 0 && !crossrefRoute)
+    const showMarker = isWarningOnly || entry.marker !== null
+
+    // everything after the name flows inline: description first (if any), then the
+    // unsafe evidence host or each sub-link. fmhy.net joins the first part with
+    // " - " and every following part with " / "
+    const tail: ReactNode[] = []
+    if (entry.description) {
+      tail.push(<InlineMarkdown markdown={entry.description} />)
+    }
+    if (unsafe && entry.url) {
+      tail.push(
+        <SubLink
+          link={{
+            label: hostnameOf(entry.url),
+            url: entry.url,
+            icon: null,
+            noteId: null,
+            route: null,
+          }}
+        />
+      )
+    }
+    if (!unsafe) {
+      for (const link of entry.links) {
+        tail.push(<SubLink link={link} />)
+      }
+    }
 
     return (
-      <YStack py="$2" gap="$1">
-        <XStack items="center" gap="$2" flexWrap="wrap">
-          {isWarningOnly ? (
-            <WarningCircleIcon size={14} color={unsafe ? '$dangerText' : '$warnText'} />
-          ) : (
-            <MarkerIcon marker={entry.marker} />
-          )}
-
-          {unsafe ? (
-            // never a clickable recommendation — bold plain text only
-            <Text size="$4" fontWeight="700" color="$color12">
-              {title}
-            </Text>
-          ) : (
-            <TitleLink
-              title={title}
-              url={entry.url}
-              bold={entry.bold}
-              crossrefRoute={crossrefRoute}
-            />
-          )}
-
-          {unsafe && !!entry.url && (
-            <TooltipSimple label={entry.url}>
-              <Chip
-                render="button"
-                aria-label={`Evidence: ${hostnameOf(entry.url)}`}
-                onPress={() => openExternal(entry.url!)}
-              >
-                <ChipLabel>{hostnameOf(entry.url)}</ChipLabel>
-              </Chip>
-            </TooltipSimple>
-          )}
-
-          <MirrorChips mirrors={entry.mirrors} />
-
-          {entry.alternatives.map((alternative) => (
-            <AlternativeInline key={alternative.title} alternative={alternative} />
-          ))}
-
-          {entry.links.map((link, index) => (
-            <SubLinkChip key={`${link.url}-${index}`} link={link} />
-          ))}
-
-          {!!entry.url && (
-            <TooltipSimple label="Copy link">
-              <Chip
-                render="button"
-                aria-label="Copy link"
-                bg="transparent"
-                borderColor="transparent"
-                hoverStyle={{ bg: '$color4' }}
-                onPress={() => void copyText(entry.url!)}
-              >
-                <CopyIcon size={12} color="$color10" />
-              </Chip>
-            </TooltipSimple>
-          )}
-        </XStack>
-
-        {!!entry.description && (
-          <Text size="$3" color="$color10" pl="$5">
-            <InlineMarkdown markdown={entry.description} />
-          </Text>
+      <Paragraph size="$5" lineHeight={26} color="$color11" my={0} py="$1">
+        {showMarker && (
+          <>
+            <InlineIcon>
+              {isWarningOnly ? (
+                <WarningCircleIcon
+                  size={14}
+                  color={unsafe ? '$dangerText' : '$warnText'}
+                />
+              ) : (
+                <MarkerIcon marker={entry.marker} />
+              )}
+            </InlineIcon>{' '}
+          </>
         )}
-      </YStack>
+
+        {unsafe ? (
+          // never a clickable recommendation — bold plain text only
+          <Text render="strong" fontWeight="700" color="$color12">
+            {title}
+          </Text>
+        ) : (
+          <NameLink title={title} url={entry.url} crossrefRoute={crossrefRoute} />
+        )}
+
+        {entry.mirrors.map((mirror, index) => (
+          <Fragment key={mirror}>
+            {' '}
+            <MirrorLink url={mirror} index={index + 2} />
+          </Fragment>
+        ))}
+
+        {entry.alternatives.map((alternative) => (
+          <AlternativeInline key={alternative.title} alternative={alternative} />
+        ))}
+
+        {tail.map((node, index) => (
+          <Fragment key={index}>
+            {index === 0 ? ' - ' : ' / '}
+            {node}
+          </Fragment>
+        ))}
+      </Paragraph>
     )
-  },
+  }
 )

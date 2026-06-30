@@ -101,11 +101,10 @@ a {
   text-decoration-thickness: 0px;
 }
 
-/* but if in a paragraph then underline */
+/* underline in-content links only (prose / entries), not chrome links (cards, nav, sidebar) */
 .is_Paragraph a,
 p a,
-[data-tint-link],
-.t_Link:not(:has(div, span)) {
+[data-tint-link] {
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-decoration-color: var(--color5);

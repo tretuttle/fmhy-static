@@ -171,6 +171,8 @@ const EcosystemMenu = () => (
         items="center"
         gap="$1.5"
         cursor="pointer"
+        bg="transparent"
+        borderWidth={0}
         opacity={0.85}
         hoverStyle={{ opacity: 1 }}
         aria-label="Ecosystem"

@@ -207,6 +207,8 @@ export function ThemeMenu() {
           justify="center"
           rounded={100}
           cursor="pointer"
+          bg="transparent"
+          borderWidth={0}
           hoverStyle={{ bg: '$color3' }}
           pressStyle={{ bg: '$color2' }}
         >

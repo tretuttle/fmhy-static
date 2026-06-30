@@ -76,8 +76,7 @@ export function Sidebar() {
   return (
     <YStack
       tag="nav"
-      display="none"
-      $md={{ display: 'flex' }}
+      $maxMD={{ display: 'none' }}
       width={250}
       shrink={0}
       position="sticky"

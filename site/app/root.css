@@ -261,3 +261,104 @@ details .details-inner > :last-child {
     transform: translateY(15px);
   }
 }
+
+/* align anchor scroll with the fixed header */
+html {
+  scroll-padding-top: 64px;
+}
+
+/*
+  theme controller overrides (applied at runtime by ThemeController via html classes,
+  mirroring fmhy.net: AMOLED black bg, accent presets, monochrome grayscale filter).
+  these override the semantic tamagui vars from src/tamagui/tamagui.css; the extra
+  class raises specificity so the override wins. swarm is the shipped baseline (no class).
+*/
+
+/* AMOLED: pure black backgrounds, dark mode only */
+html.amoled.t_dark {
+  --background: #000000;
+  --backgroundActive: #000000;
+  --backgroundFocus: #050505;
+  --backgroundHover: #0a0a0a;
+  --backgroundPress: #000000;
+  --color1: #000000;
+  --color2: #050505;
+  --color3: #0e0e0e;
+}
+
+/* purple — catppuccin-flavoured */
+html.accent-purple {
+  --accent1: #1b1525;
+  --accent2: #241a33;
+  --accent9: #8b5cf6;
+  --accent10: #7c3aed;
+  --accent11: #b794ff;
+  --accent12: #ede9fe;
+}
+html.accent-purple.t_light {
+  --accent1: #faf7ff;
+  --accent2: #f2ebff;
+  --accent9: #7c3aed;
+  --accent10: #6d28d9;
+  --accent11: #5b21b6;
+  --accent12: #2e1065;
+}
+
+/* green — meadow */
+html.accent-green {
+  --accent1: #0c1a14;
+  --accent2: #102a20;
+  --accent9: #18bd75;
+  --accent10: #14a866;
+  --accent11: #56e0a0;
+  --accent12: #d6fbe8;
+}
+html.accent-green.t_light {
+  --accent1: #f0fdf6;
+  --accent2: #dcfceb;
+  --accent9: #15a866;
+  --accent10: #0f8a53;
+  --accent11: #0a663d;
+  --accent12: #043422;
+}
+
+/* pink — cerise */
+html.accent-pink {
+  --accent1: #240f18;
+  --accent2: #331523;
+  --accent9: #ec4c80;
+  --accent10: #db2e6b;
+  --accent11: #ff8db3;
+  --accent12: #ffe1ec;
+}
+html.accent-pink.t_light {
+  --accent1: #fff5f9;
+  --accent2: #ffe6f0;
+  --accent9: #db2e6b;
+  --accent10: #c01f57;
+  --accent11: #921642;
+  --accent12: #4d0a22;
+}
+
+/* orange — merlin */
+html.accent-orange {
+  --accent1: #251608;
+  --accent2: #331f0c;
+  --accent9: #f59e0b;
+  --accent10: #ea8c00;
+  --accent11: #ffc15c;
+  --accent12: #ffeccc;
+}
+html.accent-orange.t_light {
+  --accent1: #fff9f0;
+  --accent2: #ffefd6;
+  --accent9: #ea8c00;
+  --accent10: #c66f00;
+  --accent11: #8f5000;
+  --accent12: #4d2a00;
+}
+
+/* monochrome — exactly the live site's mechanism */
+html.monochrome {
+  filter: grayscale(1);
+}

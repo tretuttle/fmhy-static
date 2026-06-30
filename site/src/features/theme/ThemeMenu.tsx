@@ -1,21 +1,14 @@
 import { useUserScheme } from '@vxrn/color-scheme'
-import { Popover, Switch, View, XStack, YStack } from 'tamagui'
+import { Popover, Switch, XStack, YStack } from 'tamagui'
 
 import { CircleHalfIcon } from '~/icons/phosphor/CircleHalfIcon'
 import { MoonStarsIcon } from '~/icons/phosphor/MoonStarsIcon'
 import { SunIcon } from '~/icons/phosphor/SunIcon'
 import { Text } from '~/interface/text/Text'
 
-import {
-  ACCENT_NAMES,
-  ACCENT_SWATCHES,
-  useAccent,
-  useAmoled,
-  useMonochrome,
-} from './themeSettings'
+import { useAmoled, useMonochrome } from './themeSettings'
 
 import type { IconComponent } from '~/icons/types'
-import type { AccentName } from './themeSettings'
 
 // base light/dark/system reuses the tamagui scheme provider (same mechanism as ThemeSwitch).
 // amoled/accent/monochrome are the extra fmhy theming layers wired through themeSettings.
@@ -84,46 +77,6 @@ function ModeSegment({
   )
 }
 
-function AccentRow({
-  active,
-  onSelect,
-}: {
-  active: AccentName
-  onSelect: (accent: AccentName) => void
-}) {
-  return (
-    <XStack gap="$2" items="center">
-      {ACCENT_NAMES.map((name) => {
-        const isActive = active === name
-        return (
-          <XStack
-            key={name}
-            render="button"
-            onPress={() => onSelect(name)}
-            aria-label={`${name} accent`}
-            width={30}
-            height={30}
-            items="center"
-            justify="center"
-            rounded={100}
-            cursor="pointer"
-            borderWidth={2}
-            borderColor={isActive ? '$color12' : 'transparent'}
-            hoverStyle={{ borderColor: isActive ? '$color12' : '$color7' }}
-          >
-            <View
-              width={20}
-              height={20}
-              rounded={100}
-              style={{ backgroundColor: ACCENT_SWATCHES[name] }}
-            />
-          </XStack>
-        )
-      })}
-    </XStack>
-  )
-}
-
 function ToggleRow({
   label,
   checked,
@@ -155,7 +108,6 @@ function ToggleRow({
 export function ThemeMenuContents() {
   const userScheme = useUserScheme()
   const [amoled, setAmoled] = useAmoled()
-  const [accent, setAccent] = useAccent()
   const [monochrome, setMonochrome] = useMonochrome()
 
   const onSelectMode = (mode: ModeId) => {
@@ -175,11 +127,6 @@ export function ThemeMenuContents() {
       <YStack gap="$2">
         <SectionLabel>Mode</SectionLabel>
         <ModeSegment active={userScheme.setting} onSelect={onSelectMode} />
-      </YStack>
-
-      <YStack gap="$2">
-        <SectionLabel>Accent</SectionLabel>
-        <AccentRow active={accent} onSelect={setAccent} />
       </YStack>
 
       <YStack gap="$2.5">

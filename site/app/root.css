@@ -285,76 +285,121 @@ html.amoled.t_dark {
   --color3: #0e0e0e;
 }
 
-/* purple — catppuccin-flavoured */
-html.accent-purple {
-  --accent1: #1b1525;
-  --accent2: #241a33;
-  --accent9: #8b5cf6;
-  --accent10: #7c3aed;
-  --accent11: #b794ff;
-  --accent12: #ede9fe;
+/*
+  accent presets — the 7 named palettes from fmhy.net (utils/colors.ts).
+  swarm is the shipped baseline (no class). each block below maps the palette
+  scale onto the tamagui accent vars. base selector = dark mode:
+    accent9→500  accent10→600  accent11→400 (link/brand)  accent12→200  accent1→950  accent2→900
+  .t_light override = light mode:
+    accent9→500  accent10→600  accent11→500 (link/brand)  accent12→800  accent1→50   accent2→100
+*/
+
+/* turquoise */
+html.accent-turquoise.t_dark {
+  --accent9: hsl(188, 86%, 43%);
+  --accent10: hsl(191, 84%, 36%);
+  --accent11: hsl(188, 78%, 60%);
+  --accent12: hsl(185, 85%, 82%);
+  --accent1: hsl(197, 71%, 15%);
+  --accent2: hsl(197, 59%, 24%);
 }
-html.accent-purple.t_light {
-  --accent1: #faf7ff;
-  --accent2: #f2ebff;
-  --accent9: #7c3aed;
-  --accent10: #6d28d9;
-  --accent11: #5b21b6;
-  --accent12: #2e1065;
+html.accent-turquoise.t_light {
+  --accent9: hsl(188, 86%, 43%);
+  --accent10: hsl(191, 84%, 36%);
+  --accent11: hsl(188, 86%, 43%);
+  --accent12: hsl(194, 64%, 27%);
+  --accent1: hsl(184, 89%, 96%);
+  --accent2: hsl(186, 88%, 90%);
 }
 
-/* green — meadow */
-html.accent-green {
-  --accent1: #0c1a14;
-  --accent2: #102a20;
-  --accent9: #18bd75;
-  --accent10: #14a866;
-  --accent11: #56e0a0;
-  --accent12: #d6fbe8;
+/* carnation */
+html.accent-carnation.t_dark {
+  --accent9: hsl(0, 84%, 60%);
+  --accent10: hsl(0, 72%, 51%);
+  --accent11: hsl(0, 91%, 71%);
+  --accent12: hsl(0, 96%, 89%);
+  --accent1: hsl(0, 75%, 15%);
+  --accent2: hsl(0, 63%, 31%);
 }
-html.accent-green.t_light {
-  --accent1: #f0fdf6;
-  --accent2: #dcfceb;
-  --accent9: #15a866;
-  --accent10: #0f8a53;
-  --accent11: #0a663d;
-  --accent12: #043422;
-}
-
-/* pink — cerise */
-html.accent-pink {
-  --accent1: #240f18;
-  --accent2: #331523;
-  --accent9: #ec4c80;
-  --accent10: #db2e6b;
-  --accent11: #ff8db3;
-  --accent12: #ffe1ec;
-}
-html.accent-pink.t_light {
-  --accent1: #fff5f9;
-  --accent2: #ffe6f0;
-  --accent9: #db2e6b;
-  --accent10: #c01f57;
-  --accent11: #921642;
-  --accent12: #4d0a22;
+html.accent-carnation.t_light {
+  --accent9: hsl(0, 84%, 60%);
+  --accent10: hsl(0, 72%, 51%);
+  --accent11: hsl(0, 84%, 60%);
+  --accent12: hsl(0, 70%, 35%);
+  --accent1: hsl(0, 86%, 97%);
+  --accent2: hsl(0, 93%, 94%);
 }
 
-/* orange — merlin */
-html.accent-orange {
-  --accent1: #251608;
-  --accent2: #331f0c;
-  --accent9: #f59e0b;
-  --accent10: #ea8c00;
-  --accent11: #ffc15c;
-  --accent12: #ffeccc;
+/* cerise */
+html.accent-cerise.t_dark {
+  --accent9: hsl(346, 77%, 57%);
+  --accent10: hsl(343, 67%, 50%);
+  --accent11: hsl(348, 82%, 71%);
+  --accent12: hsl(347, 84%, 90%);
+  --accent1: hsl(339, 75%, 16%);
+  --accent2: hsl(338, 65%, 30%);
 }
-html.accent-orange.t_light {
-  --accent1: #fff9f0;
-  --accent2: #ffefd6;
-  --accent9: #ea8c00;
-  --accent10: #c66f00;
-  --accent11: #8f5000;
-  --accent12: #4d2a00;
+html.accent-cerise.t_light {
+  --accent9: hsl(346, 77%, 57%);
+  --accent10: hsl(343, 67%, 50%);
+  --accent11: hsl(346, 77%, 57%);
+  --accent12: hsl(340, 68%, 35%);
+  --accent1: hsl(350, 86%, 97%);
+  --accent2: hsl(352, 85%, 95%);
+}
+
+/* meadow */
+html.accent-meadow.t_dark {
+  --accent9: hsl(158, 77%, 42%);
+  --accent10: hsl(159, 86%, 30%);
+  --accent11: hsl(156, 59%, 52%);
+  --accent12: hsl(150, 70%, 80%);
+  --accent1: hsl(164, 83%, 9%);
+  --accent2: hsl(162, 79%, 16%);
+}
+html.accent-meadow.t_light {
+  --accent9: hsl(158, 77%, 42%);
+  --accent10: hsl(159, 86%, 30%);
+  --accent11: hsl(158, 77%, 42%);
+  --accent12: hsl(161, 80%, 20%);
+  --accent1: hsl(148, 71%, 96%);
+  --accent2: hsl(148, 73%, 90%);
+}
+
+/* merlin */
+html.accent-merlin.t_dark {
+  --accent9: hsl(45, 93%, 47%);
+  --accent10: hsl(45, 96%, 40%);
+  --accent11: hsl(45, 96%, 53%);
+  --accent12: hsl(46, 98%, 77%);
+  --accent1: hsl(45, 83%, 14%);
+  --accent2: hsl(45, 73%, 26%);
+}
+html.accent-merlin.t_light {
+  --accent9: hsl(45, 93%, 47%);
+  --accent10: hsl(45, 96%, 40%);
+  --accent11: hsl(45, 93%, 47%);
+  --accent12: hsl(45, 81%, 29%);
+  --accent1: hsl(46, 92%, 95%);
+  --accent2: hsl(46, 97%, 88%);
+}
+
+/* blue-violet */
+html.accent-blue-violet.t_dark {
+  --accent9: hsl(242, 91%, 64%);
+  --accent10: hsl(246, 82%, 59%);
+  --accent11: hsl(237, 98%, 74%);
+  --accent12: hsl(231, 100%, 88%);
+  --accent1: hsl(247, 51%, 20%);
+  --accent2: hsl(245, 52%, 34%);
+}
+html.accent-blue-violet.t_light {
+  --accent9: hsl(242, 91%, 64%);
+  --accent10: hsl(246, 82%, 59%);
+  --accent11: hsl(242, 91%, 64%);
+  --accent12: hsl(246, 59%, 41%);
+  --accent1: hsl(227, 100%, 96%);
+  --accent2: hsl(231, 100%, 94%);
 }
 
 /* monochrome — exactly the live site's mechanism */

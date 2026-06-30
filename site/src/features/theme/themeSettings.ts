@@ -6,23 +6,35 @@ import { createStorageValue } from '~/lib/storage'
 // note: base light/dark/system mode lives in the tamagui scheme provider.
 // these settings cover the extra fmhy.net theming layers: amoled, accent, monochrome.
 
-export type AccentName = 'swarm' | 'purple' | 'green' | 'pink' | 'orange'
+// the 7 named accent palettes from fmhy.net (docs/.vitepress/theme/utils/colors.ts)
+export type AccentName =
+  | 'swarm'
+  | 'turquoise'
+  | 'carnation'
+  | 'cerise'
+  | 'meadow'
+  | 'merlin'
+  | 'blue-violet'
 
 export const ACCENT_NAMES: readonly AccentName[] = [
   'swarm',
-  'purple',
-  'green',
-  'pink',
-  'orange',
+  'turquoise',
+  'carnation',
+  'cerise',
+  'meadow',
+  'merlin',
+  'blue-violet',
 ] as const
 
-// swatch hexes for the picker ui (accent9-ish solid)
+// swatch = each palette's 500 shade, mirroring the fmhy.net ColorPicker swatches
 export const ACCENT_SWATCHES: Record<AccentName, string> = {
-  swarm: '#5d99da',
-  purple: '#8b5cf6',
-  green: '#18bd75',
-  pink: '#ec4c80',
-  orange: '#f59e0b',
+  swarm: 'hsl(211, 63%, 61%)',
+  turquoise: 'hsl(188, 86%, 43%)',
+  carnation: 'hsl(0, 84%, 60%)',
+  cerise: 'hsl(346, 77%, 57%)',
+  meadow: 'hsl(158, 77%, 42%)',
+  merlin: 'hsl(45, 93%, 47%)',
+  'blue-violet': 'hsl(242, 91%, 64%)',
 }
 
 export const amoledStorage = createStorageValue<boolean>('theme.amoled')

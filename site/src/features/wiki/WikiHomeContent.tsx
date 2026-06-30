@@ -23,14 +23,17 @@ const HeroTitle = styled(H1, {
     backgroundClip: 'text',
     WebkitBackgroundClip: 'text',
     color: 'transparent' as any,
+    hyphens: 'none' as any,
   },
 })
 
-// responsive grid item: 1 col phone, 2 col >=sm (500), 4 col >=lg (800)
+// responsive grid: 1 col phone, 2 col >=sm (500), 3 col >=xl (1024), 4 col >=xxl (1240)
+// (fmhy.net stays 2-col until the container nears its ~1152 max, then 4-col)
 const GridItem = styled(YStack, {
   width: '100%',
   $sm: { width: '50%' },
-  $lg: { width: '25%' },
+  $xl: { width: '33.333%' },
+  $xxl: { width: '25%' },
 })
 
 export function WikiHomeContent() {
@@ -42,13 +45,13 @@ export function WikiHomeContent() {
         justify="center"
         gap="$8"
         flexDirection="column"
-        $lg={{ flexDirection: 'row-reverse', justify: 'space-between' }}
+        $xl={{ flexDirection: 'row-reverse', justify: 'space-between' }}
       >
         {isWeb && (
           <YStack
             width={300}
             height={300}
-            $lg={{ width: 400, height: 400 }}
+            $xl={{ width: 400, height: 400 }}
             items="center"
             justify="center"
           >
@@ -61,7 +64,7 @@ export function WikiHomeContent() {
           </YStack>
         )}
 
-        <YStack minW={280} gap="$5" items="center" $lg={{ flex: 1, items: 'flex-start' }}>
+        <YStack minW={280} gap="$5" items="center" $xl={{ flex: 1, items: 'flex-start' }}>
           <SizableText
             render="a"
             href={UPDATES_URL}
@@ -82,11 +85,11 @@ export function WikiHomeContent() {
             June 2026 Updates ✨
           </SizableText>
 
-          <HeroTitle text="center" $lg={{ text: 'left' }}>
+          <HeroTitle text="center" $xl={{ text: 'left' }}>
             freemediaheckyeah
           </HeroTitle>
 
-          <SubHeading size="$6" text="center" $lg={{ text: 'left' }} maxW={520}>
+          <SubHeading size="$6" text="center" $xl={{ text: 'left' }} maxW={520}>
             The largest collection of free stuff on the internet!
           </SubHeading>
 
@@ -94,7 +97,7 @@ export function WikiHomeContent() {
             gap="$3"
             flexWrap="wrap"
             justify="center"
-            $lg={{ justify: 'flex-start' }}
+            $xl={{ justify: 'flex-start' }}
             mt="$2"
           >
             <Link href="/beginners-guide" asChild>

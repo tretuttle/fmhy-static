@@ -48,9 +48,9 @@ export function Layout() {
                 <Sidebar />
                 <View render="main" flex={1} minW={0}>
                   <Slot />
-                  <Footer />
                 </View>
               </XStack>
+              <Footer />
             </View>
           </GlobalTooltipProvider>
         </TamaguiRootProvider>

@@ -1,34 +1,34 @@
-import { H1, H2, H3, H4, Paragraph, Text, View, YStack, styled } from 'tamagui'
+import { Children } from 'react'
+import { H1, H2, H3, H4, Paragraph, Text, View, XStack, YStack, styled } from 'tamagui'
 
-import { ArrowUpRightIcon } from '~/icons/ArrowUpRightIcon'
+import { GlobeIcon } from '~/icons/phosphor/GlobeIcon'
+import { StarIcon } from '~/icons/phosphor/StarIcon'
 
 import { Link } from './Link'
+import { NoteLink } from './NoteLink'
 import { Notice } from './Notice'
-
-const LI = styled(Paragraph, {
-  display: 'list-item' as any,
-  render: 'li',
-  size: '$5',
-  pb: '$1',
-})
 
 const UL = styled(YStack, {
   render: 'ul',
   my: '$2',
-  ml: '$4',
+  ml: 0,
+  gap: '$0.5',
+  style: { listStyleType: 'none', paddingLeft: 0 } as any,
 })
 
 const OL = styled(YStack, {
   render: 'ol',
   my: '$2',
-  ml: '$4',
+  ml: 0,
+  gap: '$0.5',
+  style: { listStyleType: 'none', paddingLeft: 0 } as any,
 })
 
 const CodeInline = styled(Text, {
   render: 'code',
   fontFamily: '$mono',
   fontSize: '$3',
-  bg: '$color3',
+  bg: '$color4',
   px: '$1.5',
   py: '$0.5',
   rounded: '$2',
@@ -67,55 +67,132 @@ const Summary = styled(Text, {
   },
 })
 
+// flatten children to a string (back-link hide + note detection)
+function getNodeText(node: any): string {
+  if (node == null || node === false) return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(getNodeText).join('')
+  if (node?.props?.children) return getNodeText(node.props.children)
+  return ''
+}
+
+const STAR_RE = /^\s*(?:⭐|🌟|✅)\s*/u
+const INDEX_RE = /^\s*🌐\s*/u
+
+// detect/strip a leading ⭐/🌐 marker on a list item
+function getLeadingMarker(children: any): { kind: 'star' | 'index' | null; rest: any[] } {
+  const arr = Children.toArray(children)
+  const first = arr[0]
+  if (typeof first === 'string') {
+    if (STAR_RE.test(first))
+      return { kind: 'star', rest: [first.replace(STAR_RE, ''), ...arr.slice(1)] }
+    if (INDEX_RE.test(first))
+      return { kind: 'index', rest: [first.replace(INDEX_RE, ''), ...arr.slice(1)] }
+  }
+  return { kind: null, rest: arr }
+}
+
 export const components = {
-  h1: (props: any) => <H1 size="$9" mt="$6" mb="$4" {...props} />,
+  h1: (props: any) => (
+    <H1
+      size="$8"
+      mt="$7"
+      mb="$3"
+      fontFamily="$heading"
+      fontWeight="700"
+      color="$color12"
+      letterSpacing={-0.5}
+      {...props}
+    />
+  ),
 
-  h2: (props: any) => <H2 size="$8" mt="$8" mb="$4" pt="$4" {...props} />,
+  h2: (props: any) => (
+    <H2
+      size="$7"
+      mt="$8"
+      mb="$4"
+      pt="$5"
+      fontFamily="$heading"
+      fontWeight="700"
+      color="$color12"
+      letterSpacing={-0.4}
+      borderTopWidth={1}
+      borderColor="$color4"
+      {...props}
+    />
+  ),
 
-  h3: (props: any) => <H3 size="$6" mt="$6" mb="$3" {...props} />,
+  h3: (props: any) => (
+    <H3 size="$6" mt="$6" mb="$2" fontFamily="$heading" fontWeight="700" color="$color12" {...props} />
+  ),
 
-  h4: (props: any) => <H4 size="$5" mt="$4" mb="$2" {...props} />,
+  h4: (props: any) => <H4 size="$5" mt="$4" mb="$2" color="$color12" {...props} />,
 
-  p: (props: any) => <Paragraph size="$6" my="$3" {...props} />,
+  p: (props: any) => <Paragraph size="$5" my="$2.5" lineHeight={26} color="$color11" {...props} />,
 
   ul: (props: any) => <UL {...props} />,
 
   ol: (props: any) => <OL {...props} />,
 
-  li: (props: any) => <LI size="$6" {...props} />,
+  li: ({ children, ...props }: any) => {
+    const { kind, rest } = getLeadingMarker(children)
+    const marker =
+      kind === 'star' ? (
+        <StarIcon size={14} color="$gold" />
+      ) : kind === 'index' ? (
+        <GlobeIcon size={14} color="$color10" />
+      ) : (
+        <View render="span" width={5} height={5} rounded={9999} bg="$color7" />
+      )
+    return (
+      <XStack
+        render="li"
+        gap="$2.5"
+        items="flex-start"
+        py="$0.5"
+        style={{ listStyleType: 'none' } as any}
+        {...props}
+      >
+        <View render="span" flexShrink={0} display="inline-flex" mt={kind ? 6 : 10}>
+          {marker}
+        </View>
+        <Paragraph flex={1} size="$5" lineHeight={26} color="$color11">
+          {rest}
+        </Paragraph>
+      </XStack>
+    )
+  },
 
   a: ({ href = '', children }: any) => {
+    const text = getNodeText(children)
+    // hide the redundant "◄◄ Back to Wiki Index" ornament (site has its own Header + Sidebar nav)
+    if (/◄◄|Back to Wiki Index/.test(text)) return null
+    // FMHY note/warning tooltip
+    if (href.includes('.vitepress/notes/')) return <NoteLink href={href}>{children}</NoteLink>
+
     const isExternal = href?.startsWith('http')
     return (
       <>
-        <Link href={href} {...(isExternal && { target: '_blank' })}>
+        <Link
+          href={href}
+          {...(isExternal && { target: '_blank' })}
+          color="$accent11"
+          textDecorationLine="none"
+          hoverStyle={{ color: '$accent12', textDecorationLine: 'underline' }}
+          // replaces Link.tsx's own $platform-web (which pins color:'inherit') so the blue applies on web,
+          // while still inheriting size/weight from the surrounding text/strong
+          $platform-web={{ fontSize: 'inherit', fontWeight: 'inherit', lineHeight: 'inherit' }}
+        >
           {children}
-          {isExternal && (
-            <Text render="span" display="inline" whiteSpace="nowrap">
-              &#8288;
-              <View
-                render="span"
-                ml={4}
-                opacity={0.5}
-                display="inline-flex"
-                style={{
-                  marginRight: -5,
-                  transform: 'translateY(-9px) translateX(-2px)',
-                }}
-              >
-                <ArrowUpRightIcon size={8} />
-              </View>
-            </Text>
-          )}
         </Link>
-        {/* word joiner after link to prevent line break before following punctuation */}
+        {/* word-joiner keeps trailing " / " separators from wrapping oddly */}
         &#8288;
       </>
     )
   },
 
   strong: (props: any) => (
-    <Text whiteSpace="normal" render="strong" fontWeight="600" {...props} />
+    <Text render="strong" fontWeight="700" whiteSpace="normal" {...props} />
   ),
 
   em: (props: any) => <Text render="em" fontStyle="italic" {...props} />,
@@ -126,11 +203,7 @@ export const components = {
     </View>
   ),
 
-  hr: () => (
-    <YStack my="$8" mx="auto" width="50%">
-      <View height={1} bg="$color2" />
-    </YStack>
-  ),
+  hr: () => <View render="hr" my="$2" height={1} width="100%" bg="$color4" borderWidth={0} />,
 
   img: (props: any) => (
     <View render="span" display="block" my="$4">

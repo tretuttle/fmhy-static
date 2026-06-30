@@ -74,6 +74,15 @@ const extraColorsDark = {
   background0075: opacify(darkPalette[0]!, 0.075),
   background005: opacify(darkPalette[0]!, 0.05),
   background0025: opacify(darkPalette[0]!, 0.025),
+  gold: '#fbbf24',
+  goldSoft: 'hsla(43, 96%, 56%, 0.16)',
+  tipBg: 'hsl(146, 30%, 11%)',
+  tipBorder: 'hsl(146, 28%, 24%)',
+  tipText: 'hsl(146, 45%, 68%)',
+  warnBg: 'hsl(40, 48%, 11%)',
+  warnBorder: 'hsl(40, 52%, 26%)',
+  warnText: 'hsl(43, 88%, 64%)',
+  dangerText: 'hsl(0, 72%, 66%)',
 }
 
 const extraColorsLight = {
@@ -102,6 +111,15 @@ const extraColorsLight = {
   background0075: opacify(lightPalette[0]!, 0.075),
   background005: opacify(lightPalette[0]!, 0.05),
   background0025: opacify(lightPalette[0]!, 0.025),
+  gold: '#d98a04',
+  goldSoft: 'hsla(38, 92%, 50%, 0.14)',
+  tipBg: 'hsl(146, 50%, 96%)',
+  tipBorder: 'hsl(146, 40%, 80%)',
+  tipText: 'hsl(146, 45%, 30%)',
+  warnBg: 'hsl(42, 85%, 95%)',
+  warnBorder: 'hsl(42, 60%, 75%)',
+  warnText: 'hsl(33, 80%, 38%)',
+  dangerText: 'hsl(0, 68%, 45%)',
 }
 
 const darkShadows = {
@@ -152,6 +170,18 @@ const whiteColors = {
   white12: lightPalette[11]!,
 }
 
+// FMHY swarm-blue accent ramp (brand-1 = step 11 ≈ swarm.400)
+const swarmDark = [
+  'hsl(212, 45%, 9%)',  'hsl(212, 46%, 12%)', 'hsl(212, 50%, 17%)', 'hsl(212, 53%, 22%)',
+  'hsl(213, 55%, 28%)', 'hsl(214, 56%, 35%)', 'hsl(215, 57%, 43%)', 'hsl(214, 60%, 51%)',
+  'hsl(211, 63%, 61%)', 'hsl(208, 64%, 66%)', 'hsl(207, 65%, 70%)', 'hsl(205, 72%, 89%)',
+]
+const swarmLight = [
+  'hsl(206, 70%, 98%)', 'hsl(206, 66%, 95%)', 'hsl(206, 65%, 90%)', 'hsl(206, 65%, 84%)',
+  'hsl(207, 65%, 78%)', 'hsl(207, 64%, 70%)', 'hsl(208, 62%, 62%)', 'hsl(211, 60%, 56%)',
+  'hsl(215, 57%, 53%)', 'hsl(217, 55%, 49%)', 'hsl(218, 53%, 45%)', 'hsl(220, 48%, 24%)',
+]
+
 export const themes = createThemes({
   componentThemes: {},
 
@@ -184,8 +214,8 @@ export const themes = createThemes({
 
   accent: {
     palette: {
-      dark: lightPalette,
-      light: darkPalette,
+      dark: swarmDark,
+      light: swarmLight,
     },
   },
 

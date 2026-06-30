@@ -1,7 +1,7 @@
 import { getMDXComponent } from 'mdx-bundler/client'
 import { Head, useParams } from 'one'
 import { useMemo } from 'react'
-import { H1, SizableText, View, XStack, YStack } from 'tamagui'
+import { H1, Paragraph, SizableText, XStack, YStack } from 'tamagui'
 
 import { Container } from '~/components/Container'
 import { HeadInfo } from '~/components/HeadInfo'
@@ -26,18 +26,8 @@ export function BlogPostLayout({
   const { slug } = useParams()
   const Component = useMemo(() => getMDXComponent(code), [code])
 
-  const date = frontmatter.publishedAt
-    ? new Date(frontmatter.publishedAt).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-    : null
-
-  const hasImage = Boolean(frontmatter.image && frontmatter.imageMeta)
-
   return (
-    <Container position="relative" py="$5" gap="$5" flex={1}>
+    <Container position="relative" py="$4" gap="$3" maxW={880} flex={1}>
       <Head>
         <HeadInfo
           title={isDraft ? `${frontmatter.title} (Draft)` : frontmatter.title}
@@ -65,18 +55,15 @@ export function BlogPostLayout({
         />
       </Head>
 
-      <YStack
-        $lg={{
-          pr: hasImage ? 260 : 0,
-        }}
-        gap="$2"
-        pt="$10"
-      >
+      <YStack gap="$2" pt="$2">
         <XStack items="center" gap="$3" flexWrap="wrap">
           <H1
-            size="$10"
-            $md={{ size: '$12', letterSpacing: -3 }}
-            letterSpacing={-2}
+            size="$8"
+            $md={{ size: '$9' }}
+            fontFamily="$heading"
+            fontWeight="700"
+            color="$color12"
+            letterSpacing={-0.5}
             select="none"
           >
             {frontmatter.title}
@@ -97,53 +84,16 @@ export function BlogPostLayout({
           )}
         </XStack>
 
-        <XStack>
-          <SizableText size="$5" color="$color9" fontFamily="$mono" select="none">
-            {!!date && date}
-            {!!frontmatter.description && <> · {frontmatter.description}</>}
-          </SizableText>
-        </XStack>
+        {!!frontmatter.description && (
+          <Paragraph size="$5" color="$color10" maxW={760}>
+            {frontmatter.description}
+          </Paragraph>
+        )}
       </YStack>
 
-      {hasImage && (
-        <View
-          my="$2"
-          mb="$4"
-          rounded="$4"
-          overflow="hidden"
-          $lg={{
-            position: 'absolute',
-            t: 15,
-            r: -10,
-            width: 280,
-            maxH: 280,
-            rotate: '3deg',
-          }}
-          style={{
-            aspectRatio: `${frontmatter.imageMeta!.width} / ${frontmatter.imageMeta!.height}`,
-            background: frontmatter.imageMeta!.blurDataURL
-              ? `url(${frontmatter.imageMeta!.blurDataURL}) center/cover no-repeat`
-              : undefined,
-          }}
-        >
-          <img
-            src={frontmatter.image}
-            alt={frontmatter.title}
-            width={frontmatter.imageMeta!.width}
-            height={frontmatter.imageMeta!.height}
-            style={{
-              width: '100%',
-              height: 'auto',
-              display: 'block',
-              borderRadius: 8,
-            }}
-          />
-        </View>
-      )}
+      <TableOfContents headings={frontmatter.headings} />
 
-      <TableOfContents hasImage={hasImage} headings={frontmatter.headings} />
-
-      <YStack py="$2">
+      <YStack pt="$1">
         <Component components={components} />
       </YStack>
     </Container>

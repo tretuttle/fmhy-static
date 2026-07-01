@@ -13,7 +13,6 @@ import { LinkEntryRow } from './LinkEntryRow'
 import { openExternal } from './openExternal'
 import { useWikiFilters } from './useWikiFilters'
 import { WikiNotice } from './WikiNotice'
-import { useShowNsfw } from './wikiSettingsStorage'
 
 import type { Href } from 'one'
 import type { ReactNode } from 'react'
@@ -180,8 +179,7 @@ const SectionBlock = ({
 
 export function WikiSectionList({ page }: { page: WikiPage }) {
   const { starredOnly, indexesOnly } = useWikiFilters()
-  const [showNsfw] = useShowNsfw()
-  const filters: EntryVisibilityFilters = { starredOnly, indexesOnly, showNsfw }
+  const filters: EntryVisibilityFilters = { starredOnly, indexesOnly }
   const filterActive = starredOnly || indexesOnly
   const unsafe = page.kind === 'unsafe'
 

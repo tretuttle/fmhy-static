@@ -3,15 +3,14 @@ import type { WikiEntry } from './types'
 export type EntryVisibilityFilters = {
   starredOnly: boolean
   indexesOnly: boolean
-  showNsfw: boolean
 }
 
-// nsfw === 'partial' stays visible, nsfw === true is hidden unless showNsfw
+// nsfw entries always render — fmhy.net has no client-side nsfw filter; its
+// nsfw segregation is editorial (separate pages), not a display toggle
 export function isEntryVisible(
   entry: WikiEntry,
   filters: EntryVisibilityFilters,
 ): boolean {
-  if (entry.nsfw === true && !filters.showNsfw) return false
   if (filters.starredOnly && !entry.starred) return false
   if (filters.indexesOnly && entry.marker !== 'index') return false
   return true

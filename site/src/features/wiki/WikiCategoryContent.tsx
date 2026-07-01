@@ -4,25 +4,10 @@ import { Link } from '~/components/Link'
 import { ChatCircleIcon } from '~/icons/phosphor/ChatCircleIcon'
 import { H1, SubHeading } from '~/interface/text/Headings'
 
-import { countVisible, type EntryVisibilityFilters } from './entryVisibility'
-import { useWikiFilters } from './useWikiFilters'
 import { WikiSectionList } from './WikiSectionList'
-import { useShowNsfw } from './wikiSettingsStorage'
 
 import type { WikiPage } from './types'
 import type { Href } from 'one'
-
-const countPageVisible = (page: WikiPage, filters: EntryVisibilityFilters) =>
-  page.sections.reduce(
-    (sum, section) =>
-      sum +
-      countVisible(section.entries, filters) +
-      section.subsections.reduce(
-        (subSum, sub) => subSum + countVisible(sub.entries, filters),
-        0
-      ),
-    0
-  )
 
 // fmhy.net's subtle "Got feedback?" card under the page title
 const FeedbackCard = () => (
@@ -67,10 +52,6 @@ const FeedbackCard = () => (
 )
 
 export function WikiCategoryContent({ page }: { page: WikiPage }) {
-  const { starredOnly, indexesOnly } = useWikiFilters()
-  const [showNsfw] = useShowNsfw()
-  const visible = countPageVisible(page, { starredOnly, indexesOnly, showNsfw })
-
   return (
     <YStack pb="$10" gap="$2">
       <YStack gap="$2" pt="$4" pb="$2">
@@ -87,12 +68,6 @@ export function WikiCategoryContent({ page }: { page: WikiPage }) {
         {!!page.description && <SubHeading size="$5">{page.description}</SubHeading>}
 
         <FeedbackCard />
-
-        <SizableText size="$3" color="$color9">
-          {visible === page.entryCount
-            ? `${page.entryCount} entries`
-            : `${visible} of ${page.entryCount} entries shown`}
-        </SizableText>
       </YStack>
 
       <WikiSectionList page={page} />

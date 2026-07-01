@@ -13,7 +13,7 @@ import {
   windowExcerpt,
   type HighlightSegment,
 } from './searchHighlight'
-import { recentSearchesStorage, useShowNsfw } from './wikiSettingsStorage'
+import { recentSearchesStorage } from './wikiSettingsStorage'
 
 import type { SearchDoc, WikiEntry, WikiPage, WikiSubsection } from './types'
 
@@ -103,7 +103,6 @@ function buildResult(doc: SearchDoc, score: number, words: string[]): WikiSearch
 function runSearch(
   index: SearchIndex,
   rawQuery: string,
-  showNsfw: boolean,
   fuzzy: boolean
 ): WikiSearchResult[] {
   const query = normalize(rawQuery)
@@ -122,7 +121,6 @@ function runSearch(
   for (const hit of hits) {
     const doc = index.byId.get(hit.id)
     if (!doc) continue
-    if (doc.nsfw === true && !showNsfw) continue
     seen.add(hit.id)
     results.push(buildResult(doc, hit.score, words))
   }
@@ -135,7 +133,6 @@ function runSearch(
     for (const doc of index.byId.values()) {
       if (results.length >= MAX_RESULTS) break
       if (seen.has(doc.id)) continue
-      if (doc.nsfw === true && !showNsfw) continue
       const haystack = normalize(
         `${doc.title} ${doc.pageTitle} ${doc.sectionPath} ${doc.description ?? ''} ${doc.altTitles.join(' ')}`
       )
@@ -222,7 +219,7 @@ function buildExcerptText(entry: WikiEntry | null): string | null {
 // generated build, like fmhy.net's own globalExcerptCache) plus an in-flight
 // promise map so concurrent rows requesting the same entry share one load.
 // exposed through the same useSyncExternalStore-backed emitter idiom the rest
-// of the app uses for shared reactive state (searchOpen, showNsfw) — a plain
+// of the app uses for shared reactive state (searchOpen, theme prefs) — a plain
 // useState+setTimeout tick was tried first but proved unreliable here: with
 // many rows resolving in the same batch (e.g. toggling detailed view after a
 // large result set is already mounted), some rows' re-renders were silently
@@ -304,7 +301,7 @@ export function getExcerptMatches(
 
 // up to ~5 autocomplete suggestions: titles whose tokens prefix-match the
 // last query word, used when a search returns nothing
-function buildSuggestions(index: SearchIndex, rawQuery: string, showNsfw: boolean) {
+function buildSuggestions(index: SearchIndex, rawQuery: string) {
   const words = normalize(rawQuery).split(/\s+/).filter(Boolean)
   const last = words[words.length - 1]
   if (!last || last.length < 2) return []
@@ -312,7 +309,6 @@ function buildSuggestions(index: SearchIndex, rawQuery: string, showNsfw: boolea
   const seen = new Set<string>()
   const out: string[] = []
   for (const doc of index.byId.values()) {
-    if (doc.nsfw === true && !showNsfw) continue
     if (!tokenize(doc.title).some((token) => token.startsWith(last))) continue
     if (seen.has(doc.title)) continue
     seen.add(doc.title)
@@ -332,7 +328,6 @@ export function useWikiSearch() {
   const [recent, setRecent] = useState<string[]>([])
   const [fuzzy, setFuzzyState] = useState(false)
   const [detailedView, setDetailedViewState] = useState(false)
-  const [showNsfw] = useShowNsfw()
   const generation = useRef(0)
 
   useEffect(() => {
@@ -362,16 +357,16 @@ export function useWikiSearch() {
     const timeout = setTimeout(async () => {
       const index = await getSearchIndex()
       if (generation.current !== id) return
-      const next = runSearch(index, query, showNsfw, fuzzy)
+      const next = runSearch(index, query, fuzzy)
       setResults(next)
-      setSuggestions(next.length === 0 ? buildSuggestions(index, query, showNsfw) : [])
+      setSuggestions(next.length === 0 ? buildSuggestions(index, query) : [])
       setLoading(false)
     }, 250)
 
     return () => {
       clearTimeout(timeout)
     }
-  }, [query, showNsfw, fuzzy])
+  }, [query, fuzzy])
 
   const setFuzzy = useCallback((value: boolean) => {
     setFuzzyState(value)

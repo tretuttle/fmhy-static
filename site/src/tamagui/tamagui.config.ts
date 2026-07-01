@@ -34,7 +34,7 @@ const baseFontSizes = {
 const monoFamily = isWeb ? '"JetBrains Mono", monospace' : 'JetBrains Mono'
 // fmhy.net uses Inter sans-serif everywhere (mono is only for code)
 const systemFamily = isWeb
-  ? 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  ? '"Inter Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
   : 'System'
 
 const body = createSystemFont({

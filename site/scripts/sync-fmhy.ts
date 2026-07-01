@@ -19,9 +19,17 @@ const git = (...args: string[]) =>
 git('fetch', '--depth', '1', 'upstream', 'main')
 git('checkout', 'upstream/main', '--', 'docs/')
 
+// regenerate the wiki dataset (pages/nav/search-corpus/notes JSON) from the
+// fresh docs, then re-emit the +ssg routes. generate.ts must run first —
+// convert-fmhy reads its output and refuses to run without it.
+execFileSync('bun', [join(import.meta.dir, 'wiki', 'generate.ts')], {
+  stdio: 'inherit',
+  cwd: SITE,
+})
+
 execFileSync('bun', [join(import.meta.dir, 'convert-fmhy.ts')], {
   stdio: 'inherit',
   cwd: SITE,
 })
 
-console.info('✓ synced fmhy content + regenerated posts')
+console.info('✓ synced fmhy content + regenerated wiki data and routes')

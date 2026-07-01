@@ -606,7 +606,7 @@ export function parsePage(
     // bullets
     let b = BULLET_RE.exec(line)
     if (b) {
-      pushEntry(b[1]!, /^\* /.test(line))
+      pushEntry(b[1]!, line.startsWith('* '))
       continue
     }
     b = TIGHT_BULLET_RE.exec(line)

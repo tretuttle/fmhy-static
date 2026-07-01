@@ -1,6 +1,9 @@
 // pure search text helpers shared by the wiki search hook + ui:
-// normalize/tokenize match the fmhy.net build tokenizer, and buildHighlightSegments
-// produces case-insensitive highlight spans over the original display text.
+// normalize/tokenize match the fmhy.net build tokenizer, buildHighlightSegments
+// produces case-insensitive highlight spans over the original display text, and
+// windowExcerpt trims a longer excerpt down to a readable snippet around a match
+// (fmhy.net's detailed search view does the same, just via a full rendered page
+// section instead of our flattened entry text).
 
 const INVISIBLE_RE = /[⁠​‌‍﻿]/g
 // fmhy tokenizer split set: whitespace + # % * , = / : ; ? [ ] { } ( ) &
@@ -29,7 +32,7 @@ export type HighlightSegment = {
 // substrings (longest first so overlapping terms prefer the bigger match).
 export function buildHighlightSegments(
   display: string,
-  terms: string[],
+  terms: string[]
 ): HighlightSegment[] {
   if (!display) return []
   const cleaned = terms
@@ -60,4 +63,37 @@ export function buildHighlightSegments(
     }
   }
   return segments
+}
+
+const EXCERPT_WINDOW = 220
+
+// trims `text` down to a ~EXCERPT_WINDOW-char slice centered on the first
+// occurrence of any term, with ellipses where content was cut. text shorter
+// than the window (the common case for our per-entry excerpts) passes through
+// unchanged; falls back to a leading slice when no term is found.
+export function windowExcerpt(
+  text: string,
+  terms: string[],
+  window = EXCERPT_WINDOW
+): string {
+  if (text.length <= window) return text
+
+  const lower = text.toLowerCase()
+  let at = -1
+  for (const term of terms) {
+    const needle = normalize(term)
+    if (!needle) continue
+    const idx = lower.indexOf(needle)
+    if (idx !== -1 && (at === -1 || idx < at)) at = idx
+  }
+  if (at === -1) return `${text.slice(0, window)}…`
+
+  const half = Math.floor(window / 2)
+  let start = Math.max(0, at - half)
+  const end = Math.min(text.length, start + window)
+  start = Math.max(0, end - window)
+
+  const prefix = start > 0 ? '…' : ''
+  const suffix = end < text.length ? '…' : ''
+  return `${prefix}${text.slice(start, end)}${suffix}`
 }

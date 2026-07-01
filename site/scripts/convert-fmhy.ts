@@ -68,6 +68,42 @@ for (const ex of EXTRA) {
   console.info(`✓ parsed extra page ${ex.id} → generated/pages/${ex.id}.json`)
 }
 
+// feedback.md is prose testimonials (`* *"quote"*`), not wiki link-entry
+// bullets, so it doesn't go through parsePage — extract the quoted strings
+// directly into generated/feedback.json for app/feedback+ssg.tsx (hand-authored).
+const FEEDBACK_SOURCE = join(ROOT, 'docs', 'feedback.md')
+
+// strips the bullet marker + a surrounding *"…"* (italic + straight quotes) —
+// tolerant of quotes missing one side (seen once upstream) since each mark
+// is stripped independently rather than matched as a single pattern
+function extractFeedbackQuote(line: string): string | null {
+  const bulletText = line.match(/^\*\s+(.*)$/)?.[1]
+  if (bulletText == null) return null
+  const text = bulletText
+    .trim()
+    .replace(/^\*/, '')
+    .replace(/\*$/, '')
+    .trim()
+    .replace(/^"/, '')
+    .replace(/"$/, '')
+    .trim()
+  return text.length > 0 ? text : null
+}
+
+if (existsSync(FEEDBACK_SOURCE)) {
+  const quotes = readFileSync(FEEDBACK_SOURCE, 'utf8')
+    .split('\n')
+    .map(extractFeedbackQuote)
+    .filter((quote): quote is string => !!quote)
+  writeFileSync(
+    join(SITE, 'src', 'features', 'wiki', 'generated', 'feedback.json'),
+    JSON.stringify(quotes),
+  )
+  console.info(`✓ parsed ${quotes.length} feedback quotes → generated/feedback.json`)
+} else {
+  console.warn('skipping feedback quotes: docs/feedback.md missing')
+}
+
 const slugs = readdirSync(PAGES)
   .filter((f) => f.endsWith('.json'))
   .map((f) => f.replace(/\.json$/, ''))

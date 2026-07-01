@@ -74,12 +74,7 @@ Open [http://localhost:8081](http://localhost:8081) to see your site.
 app/                    # routes
   _layout.tsx          # root layout with header/footer
   index+ssg.tsx        # homepage
-  writing+ssg.tsx      # blog index
-  [slug]+ssg.tsx       # blog post pages
   og/[slug]+api.tsx    # dynamic OG image generation
-
-data/
-  blog/                # mdx blog posts
 
 docs/                  # documentation (auto-linked as claude code skills)
 
@@ -123,39 +118,6 @@ Edit `app/index+ssg.tsx`:
 ### Theme
 
 Edit `src/tamagui/themes-in.ts` to customize colors and `src/tamagui/breakpoints.ts` for responsive breakpoints.
-
-## Writing Blog Posts
-
-Create a new file in `data/blog/your-post.mdx`:
-
-```mdx
----
-title: Your Post Title
-publishedAt: '2024-01-15'
-description: 'A brief description for SEO and previews.'
-image: '/your-image.webp'
-draft: false
----
-
-Your content here...
-```
-
-### Frontmatter
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `title` | Yes | Post title |
-| `publishedAt` | Yes | Publication date (YYYY-MM-DD) |
-| `description` | No | SEO description |
-| `image` | No | Featured image path (triggers OG image + thumbnail) |
-| `draft` | No | Set to `true` to hide in production |
-
-### MDX Components
-
-Available custom components:
-
-- `<Notice>` - Callout box for important info
-- `<Details>` / `<Summary>` - Collapsible sections
 
 ## Image Workflow
 

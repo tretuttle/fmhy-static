@@ -30,7 +30,11 @@ type CircleButtonProps = ViewProps & {
 export function CircleButton({ tooltip, children, ...props }: CircleButtonProps) {
   return (
     <TooltipSimple label={tooltip}>
-      <Circle {...props}>{children}</Circle>
+      {/* render as a real <button> — a plain styled(View) is a <div onClick>,
+          not reachable by Tab or operable with Enter/Space for keyboard users */}
+      <Circle render="button" {...props}>
+        {children}
+      </Circle>
     </TooltipSimple>
   )
 }

@@ -65,6 +65,13 @@ export const TooltipSimple = memo(({ children, label, ...props }: TooltipSimpleP
       onMouseLeave={() => {
         isHoveredRef.current = false
       }}
+      onFocus={() => {
+        isHoveredRef.current = true
+        tooltipEmitter.emit({ label, ...props })
+      }}
+      onBlur={() => {
+        isHoveredRef.current = false
+      }}
     >
       {child}
     </Tooltip.Trigger>

@@ -21,6 +21,7 @@ import { MagnifyingGlassIcon } from '~/icons/phosphor/MagnifyingGlassIcon'
 import { RedditLogoIcon } from '~/icons/phosphor/RedditLogoIcon'
 
 import { ThemeMenu } from '~/features/theme/ThemeMenu'
+import { wikiNav } from '~/features/wiki/data'
 import { openSearch } from '~/features/wiki/searchModal'
 
 import { CircleButton, CircleLink } from './CircleButton'
@@ -57,11 +58,11 @@ type EcosystemItem = {
 
 const ECOSYSTEM_ITEMS: EcosystemItem[] = [
   { emoji: '🌐', label: 'Search', href: '/search' },
-  { emoji: '❓', label: 'FAQ', href: 'https://fmhy.net/other/faq', external: true },
+  { emoji: '❓', label: 'FAQ', href: 'https://fmhy.net/other/FAQ', external: true },
   {
     emoji: '🔖',
     label: 'Bookmarks',
-    href: 'https://fmhy.net/other/bookmarklets',
+    href: 'https://github.com/fmhy/bookmarks',
     external: true,
   },
   {
@@ -80,10 +81,10 @@ const ECOSYSTEM_ITEMS: EcosystemItem[] = [
   {
     emoji: '💡',
     label: 'Site Hunting',
-    href: 'https://fmhy.net/sitehunting',
+    href: 'https://www.reddit.com/r/FREEMEDIAHECKYEAH/wiki/find-new-sites/',
     external: true,
   },
-  { emoji: '😎', label: 'SFW FMHY', href: 'https://sfw.fmhy.net/', external: true },
+  { emoji: '😎', label: 'SFW FMHY', href: 'https://fmhy.xyz/', external: true },
   {
     emoji: '🏠',
     label: 'Selfhosting',
@@ -93,11 +94,15 @@ const ECOSYSTEM_ITEMS: EcosystemItem[] = [
   {
     emoji: '🖼️',
     label: 'Wallpapers',
-    href: 'https://fmhy.net/wallpapers',
+    href: 'https://fmhy.net/other/wallpapers',
     external: true,
   },
   { emoji: '💙', label: 'Feedback', href: '/feedback' },
 ]
+
+// "Search" opens the live ⌘K modal instead of routing anywhere — desktop and
+// mobile both need to special-case it out of the plain link-rendering loop
+const isSearchItem = (item: EcosystemItem) => item.label === 'Search'
 
 type SocialLink = {
   label: string
@@ -114,7 +119,7 @@ const SOCIAL_LINKS: SocialLink[] = [
 const Logo = () => (
   <Link href="/" aria-label="Home">
     <XStack items="center" gap="$2">
-      <Image src="/fmhy-logo.webp" width={22} height={22} aria-label="FMHY logo" />
+      <Image src="/fmhy-logo.webp" width={22} height={22} alt="FMHY logo" />
       <SizableText
         select="none"
         fontFamily="$heading"
@@ -168,7 +173,7 @@ const EcosystemRowInner = ({ item }: { item: EcosystemItem }) => (
 
 const EcosystemRow = ({ item }: { item: EcosystemItem }) => {
   // "Search" opens the live ⌘K content-search modal, not a route
-  if (item.label === 'Search') {
+  if (isSearchItem(item)) {
     return (
       <XStack render="button" bg="transparent" borderWidth={0} onPress={() => openSearch()}>
         <EcosystemRowInner item={item} />
@@ -325,6 +330,23 @@ const SheetRow = ({ label, emoji, icon, href, external, onPress }: SheetRowProps
   )
 }
 
+// uppercase group label mirrors WikiSidebar's GroupLabel, for the wiki-category
+// fold-out below — below $lg there's no persistent sidebar, so the sheet is the
+// only place a phone user can get from one wiki category to another
+const SheetGroupLabel = ({ label }: { label: string }) => (
+  <SizableText
+    size="$2"
+    fontFamily="$body"
+    textTransform="uppercase"
+    opacity={0.225}
+    select="none"
+    px="$2"
+    pt="$2"
+  >
+    {label}
+  </SizableText>
+)
+
 const MobileMenu = () => {
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)
@@ -378,6 +400,32 @@ const MobileMenu = () => {
 
                 <Separator my="$2" />
 
+                {/* wiki categories: below $lg there's no persistent sidebar, so this
+                    sheet is the only way to switch categories on a phone */}
+                <SheetRow
+                  label="Beginners Guide"
+                  emoji="📚"
+                  href="/beginners-guide"
+                  onPress={close}
+                />
+                {wikiNav.groups.map((group) => (
+                  <YStack key={group.title} gap="$0.5">
+                    <SheetGroupLabel label={group.title} />
+                    {group.items.map((item) => (
+                      <SheetRow
+                        key={item.slug}
+                        label={item.title}
+                        emoji={item.emoji}
+                        href={item.externalUrl ?? item.route}
+                        external={!!item.externalUrl}
+                        onPress={close}
+                      />
+                    ))}
+                  </YStack>
+                ))}
+
+                <Separator my="$2" />
+
                 {NAV_LINKS.map((l) => (
                   <SheetRow
                     key={l.label}
@@ -391,7 +439,7 @@ const MobileMenu = () => {
 
                 <Separator my="$2" />
 
-                {ECOSYSTEM_ITEMS.map((item) => (
+                {ECOSYSTEM_ITEMS.filter((item) => !isSearchItem(item)).map((item) => (
                   <SheetRow
                     key={item.label}
                     label={item.label}

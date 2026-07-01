@@ -4,10 +4,16 @@ import { createEmitter, useEmitterValue } from '~/lib/emitter'
 import { createStorageValue } from '~/lib/storage'
 
 // note: base light/dark/system mode lives in the tamagui scheme provider.
-// these settings cover the extra fmhy.net theming layers: amoled, accent, monochrome.
+// these settings cover the extra fmhy.net theming layers: amoled, accent, theme.
+//
+// "accent" and "theme" are independent axes on fmhy.net (ColorPicker vs
+// ThemeSelector, docs/.vitepress/theme/themes/README.md): accent only
+// recolors the brand/link scale, while a theme (catppuccin, monochrome)
+// replaces the full palette — backgrounds, text, tip/warning callouts, and
+// the brand scale together. A theme's own brand colors win over the accent
+// pick while active (see the CSS cascade in app/root.css).
 
 // the 7 named accent palettes from fmhy.net (docs/.vitepress/theme/utils/colors.ts)
-// plus catppuccin, fmhy.net's catppuccin theme brand mapped as an accent.
 export type AccentName =
   | 'swarm'
   | 'turquoise'
@@ -16,7 +22,6 @@ export type AccentName =
   | 'meadow'
   | 'merlin'
   | 'blue-violet'
-  | 'catppuccin'
 
 export const ACCENT_NAMES: readonly AccentName[] = [
   'swarm',
@@ -26,11 +31,9 @@ export const ACCENT_NAMES: readonly AccentName[] = [
   'meadow',
   'merlin',
   'blue-violet',
-  'catppuccin',
 ] as const
 
 // swatch = each palette's 500 shade, mirroring the fmhy.net ColorPicker swatches
-// (catppuccin uses its main mauve)
 export const ACCENT_SWATCHES: Record<AccentName, string> = {
   swarm: 'hsl(211, 63%, 61%)',
   turquoise: 'hsl(188, 86%, 43%)',
@@ -39,17 +42,32 @@ export const ACCENT_SWATCHES: Record<AccentName, string> = {
   meadow: 'hsl(158, 77%, 42%)',
   merlin: 'hsl(45, 93%, 47%)',
   'blue-violet': 'hsl(242, 91%, 64%)',
+}
+
+// full palette themes from fmhy.net (docs/.vitepress/theme/themes/configs) —
+// each replaces background/surface/text/callout/brand colors together, not
+// just the accent scale
+export type ThemeName = 'default' | 'catppuccin' | 'monochrome'
+
+export const THEME_NAMES: readonly ThemeName[] = [
+  'default',
+  'catppuccin',
+  'monochrome',
+] as const
+
+export const THEME_SWATCHES: Record<Exclude<ThemeName, 'default'>, string> = {
   catppuccin: '#9345ed',
+  monochrome: '#808080',
 }
 
 export const amoledStorage = createStorageValue<boolean>('theme.amoled')
 export const accentStorage = createStorageValue<AccentName>('theme.accent')
-export const monochromeStorage = createStorageValue<boolean>('theme.monochrome')
+export const themeStorage = createStorageValue<ThemeName>('theme.name')
 
 // emitters seed with defaults so ssr + first client render match; storage syncs after mount
 const amoledEmitter = createEmitter<boolean>('theme.amoled', false)
 const accentEmitter = createEmitter<AccentName>('theme.accent', 'swarm')
-const monochromeEmitter = createEmitter<boolean>('theme.monochrome', false)
+const themeEmitter = createEmitter<ThemeName>('theme.name', 'default')
 
 export function setAmoled(value: boolean) {
   amoledStorage.set(value)
@@ -65,10 +83,10 @@ export function setAccent(value: AccentName) {
   }
 }
 
-export function setMonochrome(value: boolean) {
-  monochromeStorage.set(value)
-  if (monochromeEmitter.value !== value) {
-    monochromeEmitter.emit(value)
+export function setThemeName(value: ThemeName) {
+  themeStorage.set(value)
+  if (themeEmitter.value !== value) {
+    themeEmitter.emit(value)
   }
 }
 
@@ -98,15 +116,15 @@ export function useAccent(): readonly [AccentName, (value: AccentName) => void] 
   return [value, setAccent] as const
 }
 
-export function useMonochrome(): readonly [boolean, (value: boolean) => void] {
-  const value = useEmitterValue(monochromeEmitter)
+export function useThemeName(): readonly [ThemeName, (value: ThemeName) => void] {
+  const value = useEmitterValue(themeEmitter)
 
   useEffect(() => {
-    const stored = monochromeStorage.get()
-    if (stored != null && stored !== monochromeEmitter.value) {
-      monochromeEmitter.emit(stored)
+    const stored = themeStorage.get()
+    if (stored != null && stored !== themeEmitter.value) {
+      themeEmitter.emit(stored)
     }
   }, [])
 
-  return [value, setMonochrome] as const
+  return [value, setThemeName] as const
 }

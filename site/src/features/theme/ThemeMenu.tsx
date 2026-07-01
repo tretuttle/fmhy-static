@@ -6,9 +6,10 @@ import { MoonStarsIcon } from '~/icons/phosphor/MoonStarsIcon'
 import { SunIcon } from '~/icons/phosphor/SunIcon'
 import { Text } from '~/interface/text/Text'
 
-import { useAmoled, useMonochrome } from './themeSettings'
+import { THEME_NAMES, useAmoled, useThemeName } from './themeSettings'
 
 import type { IconComponent } from '~/icons/types'
+import type { ThemeName } from './themeSettings'
 
 // base light/dark/system reuses the tamagui scheme provider (same mechanism as ThemeSwitch).
 // amoled/accent/monochrome are the extra fmhy theming layers wired through themeSettings.
@@ -104,11 +105,60 @@ function ToggleRow({
   )
 }
 
+const THEME_LABELS: Record<ThemeName, string> = {
+  default: 'Default',
+  catppuccin: 'Catppuccin',
+  monochrome: 'Monochrome',
+}
+
+// full palette themes are their own axis from accent (see themeSettings.ts) —
+// this picks between them, independent of the accent swatches in OptionsCard.
+function ThemeSegment({
+  active,
+  onSelect,
+}: {
+  active: ThemeName
+  onSelect: (theme: ThemeName) => void
+}) {
+  return (
+    <XStack gap="$1" bg="$color3" rounded="$4" p="$1">
+      {THEME_NAMES.map((name) => {
+        const isActive = active === name
+        return (
+          <XStack
+            key={name}
+            render="button"
+            onPress={() => onSelect(name)}
+            aria-label={`${THEME_LABELS[name]} theme`}
+            flex={1}
+            items="center"
+            justify="center"
+            py="$1.5"
+            rounded="$3"
+            cursor="pointer"
+            bg={isActive ? '$color1' : 'transparent'}
+            hoverStyle={isActive ? {} : { bg: '$color2' }}
+            pressStyle={{ bg: '$color4' }}
+          >
+            <Text
+              size="$2"
+              color={isActive ? '$color12' : '$color10'}
+              fontWeight={isActive ? '600' : '400'}
+            >
+              {THEME_LABELS[name]}
+            </Text>
+          </XStack>
+        )
+      })}
+    </XStack>
+  )
+}
+
 // inner theme controls, reusable inside any popover/sheet (e.g. the header overflow menu)
 export function ThemeMenuContents() {
   const userScheme = useUserScheme()
   const [amoled, setAmoled] = useAmoled()
-  const [monochrome, setMonochrome] = useMonochrome()
+  const [themeName, setThemeName] = useThemeName()
 
   const onSelectMode = (mode: ModeId) => {
     userScheme.set(mode)
@@ -129,13 +179,13 @@ export function ThemeMenuContents() {
         <ModeSegment active={userScheme.setting} onSelect={onSelectMode} />
       </YStack>
 
+      <YStack gap="$2">
+        <SectionLabel>Theme</SectionLabel>
+        <ThemeSegment active={themeName} onSelect={setThemeName} />
+      </YStack>
+
       <YStack gap="$2.5">
         <ToggleRow label="AMOLED" checked={amoled} onCheckedChange={onAmoledChange} />
-        <ToggleRow
-          label="Monochrome"
-          checked={monochrome}
-          onCheckedChange={setMonochrome}
-        />
       </YStack>
     </YStack>
   )

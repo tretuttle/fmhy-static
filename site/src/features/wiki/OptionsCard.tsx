@@ -6,8 +6,10 @@ import { StarIcon } from '~/icons/phosphor/StarIcon'
 import {
   ACCENT_NAMES,
   ACCENT_SWATCHES,
+  THEME_NAMES,
+  THEME_SWATCHES,
   useAccent,
-  useMonochrome,
+  useThemeName,
 } from '~/features/theme/themeSettings'
 
 import { useWikiFilters } from './useWikiFilters'
@@ -65,11 +67,9 @@ function ToggleRow({
   )
 }
 
-// round swatch per accent + a trailing grey monochrome swatch; active gets a 2px
-// ring (mirrors the fmhy.net ColorPicker). monochrome is an independent toggle.
+// round swatch per accent; active gets a 2px ring (mirrors the fmhy.net ColorPicker).
 function AccentPicker() {
   const [accent, setAccent] = useAccent()
-  const [monochrome, setMonochrome] = useMonochrome()
 
   return (
     <XStack flexWrap="wrap" gap="$2">
@@ -93,29 +93,64 @@ function AccentPicker() {
           />
         )
       })}
+    </XStack>
+  )
+}
+
+// full palette themes (catppuccin, monochrome) — independent from the accent
+// scale above; swaps background/text/callout colors too, not just the brand
+// scale (mirrors fmhy.net's separate ThemeSelector, docs/.vitepress/theme/
+// themes/README.md). "Default" clears back to the base light/dark palette.
+function ThemePicker() {
+  const [themeName, setThemeName] = useThemeName()
+
+  return (
+    <XStack flexWrap="wrap" gap="$2">
       <XStack
         render="button"
-        onPress={() => setMonochrome(!monochrome)}
-        aria-label="Monochrome"
+        onPress={() => setThemeName('default')}
+        aria-label="Default"
         width={24}
         height={24}
         rounded={100}
         cursor="pointer"
         borderWidth={2}
-        borderColor={monochrome ? '$color12' : 'transparent'}
-        hoverStyle={{ borderColor: monochrome ? '$color12' : '$color7' }}
-        style={{ backgroundColor: '#888888' }}
+        borderColor={themeName === 'default' ? '$color12' : '$color6'}
+        hoverStyle={{ borderColor: '$color12' }}
+        bg="$color4"
       />
+      {THEME_NAMES.filter((name) => name !== 'default').map((name) => {
+        const isActive = themeName === name
+        const label = capitalizeAccent(name)
+        return (
+          <XStack
+            key={name}
+            render="button"
+            onPress={() => setThemeName(name)}
+            aria-label={label}
+            width={24}
+            height={24}
+            rounded={100}
+            cursor="pointer"
+            borderWidth={2}
+            borderColor={isActive ? '$color12' : 'transparent'}
+            hoverStyle={{ borderColor: isActive ? '$color12' : '$color7' }}
+            style={{
+              backgroundColor: THEME_SWATCHES[name as Exclude<typeof name, 'default'>],
+            }}
+          />
+        )
+      })}
     </XStack>
   )
 }
 
-// legend + starred/indexes toggles + accent picker, pinned in the wiki sidebar
+// legend + starred/indexes toggles + accent/theme pickers, pinned in the wiki sidebar
 export function OptionsCard() {
   const { starredOnly, indexesOnly, setStarredOnly, setIndexesOnly } =
     useWikiFilters()
   const [accent] = useAccent()
-  const [monochrome] = useMonochrome()
+  const [themeName] = useThemeName()
 
   return (
     <YStack
@@ -152,10 +187,18 @@ export function OptionsCard() {
         onCheckedChange={setIndexesOnly}
       />
 
+      <SizableText size="$2" color="$color10">
+        Accent
+      </SizableText>
       <AccentPicker />
 
       <SizableText size="$2" color="$color10">
-        Theme: {monochrome ? 'Monochrome' : capitalizeAccent(accent)}
+        Theme
+      </SizableText>
+      <ThemePicker />
+
+      <SizableText size="$2" color="$color10">
+        {themeName === 'default' ? capitalizeAccent(accent) : capitalizeAccent(themeName)}
       </SizableText>
     </YStack>
   )

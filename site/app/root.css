@@ -268,9 +268,11 @@ html {
 
 /*
   theme controller overrides (applied at runtime by ThemeController via html classes,
-  mirroring fmhy.net: AMOLED black bg, accent presets, monochrome grayscale filter).
+  mirroring fmhy.net: AMOLED black bg, accent presets, full palette themes).
   these override the semantic tamagui vars from src/tamagui/tamagui.css; the extra
-  class raises specificity so the override wins. swarm is the shipped baseline (no class).
+  class raises specificity so the override wins. swarm/default are the shipped
+  baselines (no class). full-palette theme blocks live further down this file and
+  are ordered after the accent-* block so their brand colors win the cascade.
 */
 
 /* AMOLED: pure black backgrounds, dark mode only */
@@ -402,9 +404,30 @@ html.accent-blue-violet.t_light {
   --accent2: hsl(231, 100%, 94%);
 }
 
-/* catppuccin — fmhy.net's catppuccin theme brand mapped onto the accent scale.
-   accent9 = main mauve (#9345ed), accent10 = #7c3aed, accent11 = soft #a78bfa (link). */
-html.accent-catppuccin.t_dark {
+/*
+  full palette themes — fmhy.net's ThemeSelector (docs/.vitepress/theme/themes/configs),
+  independent from the accent presets above. these override background/surface,
+  text, tip/warning callouts, and the brand scale together, mirroring
+  themeHandler.ts's applyCSSVariables. selectors come after the accent-* block
+  above so a theme's own brand colors win the cascade while active.
+*/
+
+/* catppuccin (configs/catppuccin.ts). dark mode omits `text` upstream —
+   falls through to the base scale, same as they do. */
+html.theme-catppuccin.t_dark {
+  --background: #1f1e2e;
+  --backgroundHover: #1e1e29;
+  --backgroundPress: #1e1e29;
+  --backgroundFocus: #1e1e29;
+  --color1: #1f1e2e;
+  --color2: #1e1e29;
+  --color3: #1e1e29;
+  --tipBg: #022c22;
+  --tipBorder: #065f46;
+  --tipText: #a7f3d0;
+  --warnBg: #451a03;
+  --warnBorder: #92400e;
+  --warnText: #fef08a;
   --accent9: #9345ed;
   --accent10: #7c3aed;
   --accent11: #a78bfa;
@@ -412,7 +435,27 @@ html.accent-catppuccin.t_dark {
   --accent1: #2e1065;
   --accent2: #4c1d95;
 }
-html.accent-catppuccin.t_light {
+html.theme-catppuccin.t_dark ::selection {
+  background: #0f2c47;
+}
+html.theme-catppuccin.t_light {
+  --background: #f8fafc;
+  --backgroundHover: #eef2f5;
+  --backgroundPress: #eef2f5;
+  --backgroundFocus: #eef2f5;
+  --color1: #f8fafc;
+  --color2: #eef2f5;
+  --color3: #eef2f5;
+  --color9: #6b7280;
+  --color10: #6b7280;
+  --color11: #334155;
+  --color12: #353638;
+  --tipBg: #d1fae5;
+  --tipBorder: #065f46;
+  --tipText: #065f46;
+  --warnBg: #fef3c7;
+  --warnBorder: #92400e;
+  --warnText: #92400e;
   --accent9: #9345ed;
   --accent10: #7c3aed;
   --accent11: #9345ed;
@@ -420,8 +463,65 @@ html.accent-catppuccin.t_light {
   --accent1: #f5f3ff;
   --accent2: #ede9fe;
 }
+html.theme-catppuccin.t_light ::selection {
+  background: #5586a6;
+}
 
-/* monochrome — exactly the live site's mechanism */
-html.monochrome {
-  filter: grayscale(1);
+/* monochrome (configs/monochrome.ts) — real grayscale-family literal colors,
+   not a CSS filter over the existing colored palette. */
+html.theme-monochrome.t_dark {
+  --background: #000000;
+  --backgroundHover: #0a0a0a;
+  --backgroundPress: #0a0a0a;
+  --backgroundFocus: #0a0a0a;
+  --color1: #000000;
+  --color2: #0a0a0a;
+  --color3: #0a0a0a;
+  --color9: #808080;
+  --color10: #808080;
+  --color11: #cccccc;
+  --color12: #ffffff;
+  --tipBg: #1a1a1a;
+  --tipBorder: #cccccc;
+  --tipText: #e0e0e0;
+  --warnBg: #1a1a1a;
+  --warnBorder: #999999;
+  --warnText: #cccccc;
+  --accent9: #ffffff;
+  --accent10: #e0e0e0;
+  --accent11: #ffffff;
+  --accent12: #cccccc;
+  --accent1: #0a0a0a;
+  --accent2: #1a1a1a;
+}
+html.theme-monochrome.t_dark ::selection {
+  background: #333333;
+}
+html.theme-monochrome.t_light {
+  --background: #ffffff;
+  --backgroundHover: #f5f5f5;
+  --backgroundPress: #f5f5f5;
+  --backgroundFocus: #f5f5f5;
+  --color1: #ffffff;
+  --color2: #f5f5f5;
+  --color3: #f5f5f5;
+  --color9: #808080;
+  --color10: #808080;
+  --color11: #333333;
+  --color12: #000000;
+  --tipBg: #f5f5f5;
+  --tipBorder: #333333;
+  --tipText: #1a1a1a;
+  --warnBg: #f5f5f5;
+  --warnBorder: #666666;
+  --warnText: #333333;
+  --accent9: #000000;
+  --accent10: #1a1a1a;
+  --accent11: #000000;
+  --accent12: #333333;
+  --accent1: #f5f5f5;
+  --accent2: #e0e0e0;
+}
+html.theme-monochrome.t_light ::selection {
+  background: #cccccc;
 }

@@ -2,17 +2,18 @@ import { useEffect } from 'react'
 
 import {
   ACCENT_NAMES,
+  THEME_NAMES,
   accentStorage,
   amoledStorage,
-  monochromeStorage,
+  themeStorage,
   useAccent,
   useAmoled,
-  useMonochrome,
+  useThemeName,
 } from './themeSettings'
 
-import type { AccentName } from './themeSettings'
+import type { AccentName, ThemeName } from './themeSettings'
 
-function applyClasses(amoled: boolean, accent: AccentName, monochrome: boolean) {
+function applyClasses(amoled: boolean, accent: AccentName, themeName: ThemeName) {
   if (typeof document === 'undefined') {
     return
   }
@@ -20,11 +21,16 @@ function applyClasses(amoled: boolean, accent: AccentName, monochrome: boolean) 
   const list = document.documentElement.classList
 
   list.toggle('amoled', amoled)
-  list.toggle('monochrome', monochrome)
 
   for (const name of ACCENT_NAMES) {
     // swarm is the shipped baseline, no class
     list.toggle(`accent-${name}`, name !== 'swarm' && accent === name)
+  }
+
+  for (const name of THEME_NAMES) {
+    // default is the shipped baseline, no class. a theme's own palette
+    // overrides the accent classes above via CSS cascade order (root.css).
+    list.toggle(`theme-${name}`, name !== 'default' && themeName === name)
   }
 }
 
@@ -35,7 +41,7 @@ if (typeof document !== 'undefined') {
     applyClasses(
       amoledStorage.get() ?? false,
       accentStorage.get() ?? 'swarm',
-      monochromeStorage.get() ?? false,
+      themeStorage.get() ?? 'default',
     )
   } catch (err) {
     console.info('[ThemeController] pre-paint apply skipped', err)
@@ -46,11 +52,11 @@ if (typeof document !== 'undefined') {
 export function ThemeController() {
   const [amoled] = useAmoled()
   const [accent] = useAccent()
-  const [monochrome] = useMonochrome()
+  const [themeName] = useThemeName()
 
   useEffect(() => {
-    applyClasses(amoled, accent, monochrome)
-  }, [amoled, accent, monochrome])
+    applyClasses(amoled, accent, themeName)
+  }, [amoled, accent, themeName])
 
   return null
 }

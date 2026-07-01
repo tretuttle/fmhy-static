@@ -38,14 +38,14 @@ const REDDIT_URL = 'https://www.reddit.com/r/FREEMEDIAHECKYEAH/'
 type NavLink = { emoji: string; label: string; href: string; arrow?: boolean }
 
 const NAV_LINKS: NavLink[] = [
-  { emoji: '📋', label: 'Changelog', href: '/changelog' },
+  { emoji: '📋', label: 'Changelog', href: '/posts/changelog-sites' },
   {
     emoji: '📖',
     label: 'Glossary',
     href: 'https://rentry.org/The-Piracy-Glossary',
     arrow: true,
   },
-  { emoji: '💾', label: 'Backups', href: '/backups' },
+  { emoji: '💾', label: 'Backups', href: '/other/backups' },
 ]
 
 // fmhy ecosystem menu. internal where a route exists; the rest deep-link to fmhy.net

@@ -7,8 +7,16 @@
  *
  * Run AFTER scripts/wiki/generate.ts (sync-fmhy does both). Run: bun scripts/convert-fmhy.ts
  */
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { dirname, join } from 'node:path'
 
 import { profileFor } from './wiki/constants'
 import { parsePage } from './wiki/parse'
@@ -31,6 +39,8 @@ type ExtraPage = {
   id: string
   title: string
   description: string
+  /** route path when it differs from the id — must match the real fmhy.net URL */
+  route?: string
   file?: string
   content?: string
 }
@@ -40,6 +50,7 @@ const EXTRA: ExtraPage[] = [
     id: 'backups',
     title: 'Backups',
     description: 'FMHY mirrors & backups',
+    route: 'other/backups',
     file: join(ROOT, 'docs', 'other', 'backups.md'),
   },
   {
@@ -48,6 +59,7 @@ const EXTRA: ExtraPage[] = [
     id: 'changelog',
     title: 'Changelog',
     description: 'Links added, updated, or removed — tracked from GitHub.',
+    route: 'posts/changelog-sites',
     content: [
       '* ⭐ **[FMHY Tracker](https://fmhy-tracker.pages.dev/)** - Links added, updated, or removed, tracked by watching GitHub for changes',
       '* **[Discord](https://redd.it/17f8msf)** - We post the bigger monthly changes here — follow along',
@@ -104,24 +116,35 @@ if (existsSync(FEEDBACK_SOURCE)) {
   console.warn('skipping feedback quotes: docs/feedback.md missing')
 }
 
+// pages whose URL differs from their JSON id — must match the real fmhy.net URL
+const ROUTE_OVERRIDES: Record<string, string> = Object.fromEntries(
+  EXTRA.filter((ex) => ex.route).map((ex) => [ex.id, ex.route!]),
+)
+
 const slugs = readdirSync(PAGES)
   .filter((f) => f.endsWith('.json'))
   .map((f) => f.replace(/\.json$/, ''))
   .sort()
 
-// fresh slate: drop prior generated routes (index+ssg is hand-authored, no marker)
-for (const f of readdirSync(APP)) {
+// fresh slate: drop prior generated routes (index+ssg is hand-authored, no
+// marker), including nested ones emitted for ROUTE_OVERRIDES
+for (const f of readdirSync(APP, { recursive: true }) as string[]) {
+  const full = join(APP, f)
   if (
     f.endsWith('+ssg.tsx') &&
-    readFileSync(join(APP, f), 'utf8').startsWith(MARKER)
+    statSync(full).isFile() &&
+    readFileSync(full, 'utf8').startsWith(MARKER)
   ) {
-    rmSync(join(APP, f))
+    rmSync(full)
   }
 }
 
 for (const slug of slugs) {
+  const routePath = ROUTE_OVERRIDES[slug] ?? slug
+  const routeFile = join(APP, `${routePath}+ssg.tsx`)
+  mkdirSync(dirname(routeFile), { recursive: true })
   writeFileSync(
-    join(APP, `${slug}+ssg.tsx`),
+    routeFile,
     `${MARKER}
 import { createRoute, Head, useLoader } from 'one'
 
@@ -130,7 +153,7 @@ import { WikiCategoryContent } from '~/features/wiki/WikiCategoryContent'
 
 import type { WikiPage } from '~/features/wiki/types'
 
-const route = createRoute<'/${slug}'>()
+const route = createRoute<'/${routePath}'>()
 
 export const loader = route.createLoader(async () => {
   const mod = await import('~/features/wiki/generated/pages/${slug}.json')

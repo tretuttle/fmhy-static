@@ -6,7 +6,7 @@ import { WikiCategoryContent } from '~/features/wiki/WikiCategoryContent'
 
 import type { WikiPage } from '~/features/wiki/types'
 
-const route = createRoute<'/backups'>()
+const route = createRoute<'/other/backups'>()
 
 export const loader = route.createLoader(async () => {
   const mod = await import('~/features/wiki/generated/pages/backups.json')

@@ -16,14 +16,24 @@ const INVISIBLE_RE = /[\u2060\u200B\u200C\u200D\uFEFF]/g
 
 export const stripInvisible = (s: string) => s.replace(INVISIBLE_RE, '')
 
-// github-slugger compatible: lowercase, strip punctuation except '-'/'_' and
-// unicode letters/numbers/marks, spaces to '-', dedupe with -1/-2 suffixes
+// VitePress (@mdit-vue/shared) slugify, ported verbatim: anchors must match
+// fmhy.net 1:1 so real-site deep links (#_3d-tools, #czech-cestina, …) resolve
+// on the mirror. NFKD+strip accents, specials→'-', collapse runs, trim ends,
+// '_' before a leading digit. Dedupe with -1/-2 suffixes (markdown-it-anchor).
+const rControl = /[\u0000-\u001f]/g
+const rSpecial = /[\s~`!@#$%^&*()\-_+=[\]{}|\\;:"'“”‘’<>,.?/]+/g
+const rCombining = /[\u0300-\u036F]/g
+
 const slugify = (value: string) =>
   stripInvisible(value)
+    .normalize('NFKD')
+    .replace(rCombining, '')
+    .replace(rControl, '')
+    .replace(rSpecial, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/^(\d)/, '_$1')
     .toLowerCase()
-    .trim()
-    .replace(/[^\p{L}\p{N}\p{M} _-]/gu, '')
-    .replace(/ /g, '-')
 
 export class Slugger {
   private occurrences = new Map<string, number>()
@@ -537,13 +547,15 @@ export function parsePage(
         openSubsection(h[1]!)
         continue
       }
-      // lenient fallbacks (the glyphs are always present today)
+      // lenient fallbacks — tolerate a mismatched glyph (e.g. '## ► Coding
+      // Tutorials' in educational.md) so the marker never leaks into the
+      // title/anchor; the real site strips it and anchors as 'coding-tutorials'
       if ((h = /^# (.+)$/.exec(line))) {
-        openSection(h[1]!)
+        openSection(h[1]!.replace(/^[►▷]\s*/u, ''))
         continue
       }
       if ((h = /^## (.+)$/.exec(line))) {
-        openSubsection(h[1]!)
+        openSubsection(h[1]!.replace(/^[►▷]\s*/u, ''))
         continue
       }
     } else if (kind === 'storage') {

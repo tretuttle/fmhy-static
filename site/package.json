@@ -25,6 +25,7 @@
     "up": "tko upgrade"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
     "@tamagui/config": "^2.0.0-rc.23",
     "@tamagui/react-native-svg": "^2.0.0-rc.23",
     "@tamagui/vite-plugin": "^2.0.0-rc.23",
@@ -32,6 +33,7 @@
     "@vxrn/mdx": "^1.2.70",
     "expo-linear-gradient": "^15.0.8",
     "mdx-bundler": "^10.0.2",
+    "minisearch": "^7.2.0",
     "one": "^1.2.70",
     "react": "19.1.0",
     "react-dom": "19.1.0",

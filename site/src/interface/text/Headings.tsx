@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Separator, SizableText, XStack, styled, type FontSizeTokens } from 'tamagui'
 
 import type { ReactNode } from 'react'
@@ -60,18 +61,60 @@ export const SubHeading = styled(SizableText, {
   },
 })
 
+// VitePress .header-anchor: a real <a href="#id"> permalink on the heading,
+// invisible until the heading is hovered (or the anchor is keyboard-focused),
+// accent colored. hover is tracked in state since tamagui has no parent-hover
+// selector to reach the child from here.
 export const SepHeading = ({
   children,
   size = '$4',
+  anchorId,
 }: {
   children: ReactNode
   size?: FontSizeTokens
+  anchorId?: string
 }) => {
+  const [hovered, setHovered] = useState(false)
+
   return (
-    <XStack mt="$6" mb="$4" items="center" gap="$6">
-      <H3 size={size} color="$color10">
-        {children}
-      </H3>
+    <XStack
+      mt="$6"
+      mb="$4"
+      items="center"
+      gap="$6"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <XStack items="center" gap="$2">
+        <H3 size={size} color="$color10">
+          {children}
+        </H3>
+        {!!anchorId && (
+          <SizableText
+            render={
+              <a
+                href={`#${anchorId}`}
+                aria-label={
+                  typeof children === 'string'
+                    ? `Permalink to "${children}"`
+                    : 'Permalink'
+                }
+              />
+            }
+            size={size}
+            fontWeight="500"
+            color="$accent11"
+            textDecorationLine="none"
+            select="none"
+            opacity={hovered ? 1 : 0}
+            transition="200ms"
+            hoverStyle={{ color: '$accent12' }}
+            focusVisibleStyle={{ opacity: 1 }}
+          >
+            #
+          </SizableText>
+        )}
+      </XStack>
       <Separator opacity={0.5} />
     </XStack>
   )

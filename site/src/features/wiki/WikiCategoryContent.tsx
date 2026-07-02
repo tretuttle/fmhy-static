@@ -4,6 +4,7 @@ import { Link } from '~/components/Link'
 import { ChatCircleIcon } from '~/icons/phosphor/ChatCircleIcon'
 import { H1, SubHeading } from '~/interface/text/Headings'
 
+import { WikiDocFooter } from './WikiDocFooter'
 import { WikiSectionList } from './WikiSectionList'
 
 import type { WikiPage } from './types'
@@ -55,12 +56,14 @@ export function WikiCategoryContent({ page }: { page: WikiPage }) {
   return (
     <YStack pb="$10" gap="$2">
       <YStack gap="$2" pt="$4" pb="$2">
+        {/* .vp-doc h1: 32px/40px 600, tight tracking, plain text color — fmhy.net
+            does not underline or accent page titles */}
         <H1
           fontSize={32}
           lineHeight={40}
           fontWeight="600"
-          color="$accent11"
-          textDecorationLine="underline"
+          letterSpacing={-0.64}
+          color="$color12"
         >
           {page.title}
         </H1>
@@ -71,6 +74,8 @@ export function WikiCategoryContent({ page }: { page: WikiPage }) {
       </YStack>
 
       <WikiSectionList page={page} />
+
+      <WikiDocFooter page={page} />
     </YStack>
   )
 }

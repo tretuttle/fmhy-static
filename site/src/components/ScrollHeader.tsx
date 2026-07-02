@@ -1,83 +1,128 @@
+import { usePathname } from 'one'
 import { useEffect, useState } from 'react'
-import { XStack, YStack, isClient } from 'tamagui'
+import { XStack, isClient } from 'tamagui'
+
+import { breakpoints } from '~/tamagui/breakpoints'
 
 import type { ReactNode } from 'react'
 
-// ported from fmhy-app: fixed header that turns into a floating, blurred
-// rounded pill once the page is scrolled past 30px. below $md it stays a
-// flush full-width bar; at $md+ it floats with a shadow and rounded corners.
-export const ScrollHeader = ({ children }: { children: ReactNode }) => {
-  const [isScrolled, setIsScrolled] = useState(false)
+// fixed header height — must match HEADER_H in app/_layout.tsx, which pads the
+// page content to clear this bar (fmhy.net: --vp-nav-height, 64px there)
+export const HEADER_HEIGHT = 56
+
+// fmhy.net's VPNav.vue refuses to hide the bar while the mobile "On this page"
+// dropdown is open (it checks for `.VPLocalNavOutlineDropdown .items` in the
+// DOM). LocalNav reports its dropdown state here so the scroll handler can do
+// the same without a DOM query.
+let localNavDropdownOpen = false
+export const setLocalNavDropdownOpen = (open: boolean) => {
+  localNavDropdownOpen = open
+}
+
+// minimum scroll delta before the mobile bar toggles (VPNav.vue SCROLL_THRESHOLD)
+const SCROLL_THRESHOLD = 12
+
+// ported from fmhy.net's custom VPNav.vue scroll logic: the bar NEVER hides on
+// desktop; below the mobile-nav breakpoint (960px there — our hamburger
+// breakpoint $lg here) scrolling down more than 12px hides it, scrolling up or
+// reaching the very top brings it back
+export function useMobileNavHidden(): boolean {
+  const [hidden, setHidden] = useState(false)
 
   useEffect(() => {
     if (!isClient) return
 
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 30)
+    let lastY = window.scrollY
+
+    const onScroll = () => {
+      const y = window.scrollY
+      const diff = y - lastY
+      lastY = y
+
+      // keep the bar pinned while the mobile ToC dropdown is open
+      if (localNavDropdownOpen) return
+
+      // at the very top, always show
+      if (y <= 0) {
+        setHidden(false)
+        return
+      }
+
+      // desktop: static bar, never hidden
+      if (window.innerWidth >= breakpoints.lg) {
+        setHidden(false)
+        return
+      }
+
+      if (Math.abs(diff) > SCROLL_THRESHOLD) {
+        setHidden(diff > 0)
+      }
     }
 
-    handleScroll()
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+    // resizing up to desktop resets the bar to visible
+    const onResize = () => {
+      if (window.innerWidth >= breakpoints.lg) setHidden(false)
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onResize)
+    }
   }, [])
+
+  return hidden
+}
+
+// the fixed top bar, mirroring VPNavBar: a static full-width bar with a solid
+// background and a 1px bottom divider. it is transparent only at the very top
+// of the home page (VPNavBar's `.home.top` state). on mobile it slides away
+// via translateY(-100%) when `hidden` (VPNav.vue's `.nav-hidden`).
+export const ScrollHeader = ({
+  children,
+  hidden = false,
+}: {
+  children: ReactNode
+  hidden?: boolean
+}) => {
+  const isHome = usePathname() === '/'
+  const [atTop, setAtTop] = useState(true)
+
+  useEffect(() => {
+    if (!isClient) return
+    const onScroll = () => setAtTop(window.scrollY < 1)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  const transparent = isHome && atTop
 
   return (
     <XStack
+      render="header"
       t={0}
       l={0}
       r={0}
       z={50}
+      width="100%"
+      height={HEADER_HEIGHT}
       items="center"
       justify="center"
-      width="100%"
-      render="header"
+      bg={transparent ? 'transparent' : '$background'}
+      borderBottomWidth={1}
+      borderBottomColor={transparent ? 'transparent' : '$color4'}
       $platform-web={{ position: 'fixed', maxW: '100vw' }}
+      style={{
+        transform: hidden ? 'translateY(-100%)' : 'translateY(0)',
+        // VPNav: background-color .5s, transform .25s ease-in-out
+        transition:
+          'transform 0.25s ease-in-out, background-color 0.5s, border-bottom-color 0.5s',
+      }}
     >
-      <XStack width="100%" position="relative" maxW={1200}>
-        <XStack
-          transition="medium"
-          flex={1}
-          overflow="hidden"
-          contain="paint"
-          $md={{
-            rounded: '$10',
-            y: 0,
-            shadowColor: 'transparent',
-            ...(isScrolled && {
-              y: 6,
-              shadowColor: '$shadow3',
-              shadowRadius: 8,
-              shadowOffset: { height: 2, width: 0 },
-            }),
-          }}
-        >
-          {/* frosted backdrop + tint: transparent at the top, fades in once
-              scrolled — fmhy.net's header is clear over the hero, frosted on scroll */}
-          <YStack
-            position="absolute"
-            transition="medium"
-            inset={0}
-            opacity={isScrolled ? 1 : 0}
-            $md={{ rounded: '$10' }}
-            style={{
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-            }}
-          />
-
-          <YStack
-            position="absolute"
-            transition="medium"
-            inset={0}
-            opacity={isScrolled ? 0.85 : 0}
-            bg="$color2"
-            $md={{ rounded: '$10' }}
-          />
-
-          <XStack z={1} width="100%" items="center">
-            {children}
-          </XStack>
-        </XStack>
+      <XStack width="100%" maxW={1200} items="center">
+        {children}
       </XStack>
     </XStack>
   )

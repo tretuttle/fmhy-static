@@ -899,6 +899,14 @@ html.t_dark .VPLocalSearchBox {
 /* searchHighlight.ts and removed after the animation)                     */
 /* ----------------------------------------------------------------------- */
 
+/* upstream style.scss: freeze the hide-on-scroll chrome while search's
+   post-navigation jump runs, so the target offset stays correct */
+html.vp-search-scrolling header,
+html.vp-search-scrolling #local-nav {
+  transform: none !important;
+  transition: none !important;
+}
+
 .vp-search-highlight-target {
   border-radius: 4px;
   outline: 2px solid #ffd54f;

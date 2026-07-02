@@ -130,6 +130,9 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
       $xl={{ display: 'none' }}
       z={40}
       width="100%"
+      // search's post-navigation scroll measures this bar (offset) and locks
+      // it (html.vp-search-scrolling) — see searchHighlight.ts getNavbarHeight
+      {...({ id: 'local-nav' } as object)}
       // the header is fixed (out of flow): clear it, then hand the space back
       // so page content (padded for the header only) starts right below us
       mt={HEADER_HEIGHT}

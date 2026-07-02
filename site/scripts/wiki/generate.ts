@@ -646,6 +646,22 @@ function buildWikiPageSearch(page: WikiPage, routeBase: string, excerptPageId: s
     emitted++
   }
 
+  // page-lead doc — the real index emits the h1 section (page title +
+  // description paragraph), which is how queries matching a page description
+  // ("chatbots" → Artificial Intelligence) surface the page itself
+  const leadText = stripInvisible(page.description ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (leadText) {
+    searchDocs.push({
+      id: routeBase,
+      title: page.title,
+      titles: pageTitle ? [pageTitle] : [],
+      text: leadText,
+    })
+    emitted++
+  }
+
   for (const section of page.sections) {
     addDoc(section, [])
     for (const sub of section.subsections) addDoc(sub, [section.title])

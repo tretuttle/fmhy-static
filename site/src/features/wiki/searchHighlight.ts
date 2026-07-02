@@ -222,6 +222,9 @@ export function centerMarkInExcerpt(
 
 const HEADER_HEIGHT = 56
 const HIGHLIGHT_CLASS = 'vp-search-highlight-target'
+// freezes the (mobile) hide-on-scroll header + local-nav while we jump
+// (upstream html.vp-search-scrolling, style.scss)
+const SCROLLING_CLASS = 'vp-search-scrolling'
 
 let activeScrollId = 0
 let activeObserver: MutationObserver | null = null
@@ -229,6 +232,18 @@ let highlightTimeout: ReturnType<typeof setTimeout> | null = null
 
 function getContentRoot(): Element | null {
   return document.getElementById('main-content') ?? document.body
+}
+
+// upstream getNavbarHeight: fixed header plus the sticky mobile local-nav bar
+// when it is visible — without it the match lands hidden under the bar
+function getNavbarHeight(): number {
+  let navHeight = HEADER_HEIGHT
+  const localNav = document.getElementById('local-nav')
+  if (localNav) {
+    const rect = localNav.getBoundingClientRect()
+    if (rect.height > 0) navHeight += rect.height
+  }
+  return navHeight
 }
 
 function scrollToMatchInSection(
@@ -346,9 +361,10 @@ function doScrollAndHighlight(el: Element): void {
   }
 
   // place the match at 18% of the remaining viewport height below the navbar
+  const navHeight = getNavbarHeight()
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
-  const remainingHeight = Math.max(200, viewportHeight - HEADER_HEIGHT)
-  const desiredOffset = HEADER_HEIGHT + Math.floor(remainingHeight * 0.18)
+  const remainingHeight = Math.max(200, viewportHeight - navHeight)
+  const desiredOffset = navHeight + Math.floor(remainingHeight * 0.18)
 
   const rect = el.getBoundingClientRect()
   const targetY = Math.max(0, rect.top + window.scrollY - desiredOffset)
@@ -377,6 +393,9 @@ export function cancelPendingScroll(): void {
   if (highlightTimeout) {
     clearTimeout(highlightTimeout)
     highlightTimeout = null
+  }
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.remove(SCROLLING_CLASS)
   }
 }
 
@@ -412,12 +431,26 @@ export function scheduleScrollToMatch(
 ): void {
   cancelPendingScroll()
 
+  // lock the (mobile) navbar in place so the instant jump can't animate it
+  // away mid-scroll (upstream html.vp-search-scrolling)
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.add(SCROLLING_CLASS)
+  }
+
   const scrollId = activeScrollId
   let attempts = 0
   const maxAttempts = 15
   const intervalMs = 120
 
   const isStale = () => scrollId !== activeScrollId
+
+  // only the active operation may remove the lock; a stale op must not strip
+  // the class belonging to a newer scroll (upstream complete())
+  function unlock() {
+    if (!isStale() && typeof document !== 'undefined') {
+      document.documentElement.classList.remove(SCROLLING_CLASS)
+    }
+  }
 
   function tryScroll(): boolean {
     if (isStale()) return true
@@ -434,9 +467,13 @@ export function scheduleScrollToMatch(
     if (hash && !sectionEl) return false
 
     const found = scrollToMatchInSection(sectionEl, query, matchContext)
-    if (found && activeObserver && !isStale()) {
-      activeObserver.disconnect()
-      activeObserver = null
+    if (found) {
+      if (activeObserver && !isStale()) {
+        activeObserver.disconnect()
+        activeObserver = null
+      }
+      // defer so the browser processes the scroll before the navbar unfreezes
+      setTimeout(unlock, 100)
     }
     return found
   }
@@ -455,7 +492,10 @@ export function scheduleScrollToMatch(
   function startObserver() {
     if (isStale()) return
     const contentRoot = getContentRoot()
-    if (!contentRoot) return
+    if (!contentRoot) {
+      unlock()
+      return
+    }
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -488,6 +528,7 @@ export function scheduleScrollToMatch(
         clearTimeout(debounceTimer)
         debounceTimer = null
       }
+      unlock()
     }, 5000)
   }
 

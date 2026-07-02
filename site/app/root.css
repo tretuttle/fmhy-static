@@ -123,20 +123,10 @@ a {
   text-decoration-thickness: 0px;
 }
 
-/* underline in-content links only (prose / entries), not chrome links (cards, nav, sidebar) */
-.is_Paragraph a,
-p a,
-[data-tint-link] {
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-decoration-color: var(--color5);
-  text-underline-offset: 4px;
-  transition: all ease-in 100ms;
-}
-
-a:hover {
-  text-decoration-color: var(--color9);
-}
+/* (takeout-starter blanket underline rules removed: fmhy.net's link mechanic
+   is per-component — see .vp-link-reveal below and LinkEntryRow. The old
+   `.is_Paragraph a / p a` rule outranked it and forced 2px color5 underlines
+   on every in-paragraph link.) */
 
 /* prevent orphaned punctuation after links in paragraphs */
 .is_Paragraph a::after,
@@ -586,4 +576,16 @@ html:not(.t_dark)::view-transition-new(root) {
 html.theme-view-transition,
 html.theme-view-transition * {
   transition: none !important;
+}
+
+/* fmhy.net entry-link mechanic (upstream .vp-doc a): constant color, underline
+   revealed on hover via text-decoration-color (LinkEntryRow underlineRevealProps) */
+.vp-link-reveal {
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.25s;
+}
+.vp-link-reveal:hover {
+  text-decoration-color: var(--accent11);
 }

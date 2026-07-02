@@ -107,16 +107,12 @@ const MarkerIcon = ({ marker }: { marker: WikiEntry['marker'] }) => {
 
 // fmhy.net's link mechanic (upstream style.scss .vp-doc a): constant brand
 // color; the underline is always present but transparent and fades in on
-// hover via text-decoration-color, offset 4px below the baseline
-const UNDERLINE_REVEAL_STYLE = {
-  textUnderlineOffset: 4,
-  transition: 'text-decoration-color 0.25s',
-} as const
-
+// hover via text-decoration-color, offset 4px below the baseline. A plain CSS
+// class (root.css .vp-link-reveal): the tamagui textDecorationColor prop
+// leaked onto the DOM as an unknown attribute (React warning), and an inline
+// style could never be overridden by the :hover rule.
 const underlineRevealProps = {
-  textDecorationLine: 'underline',
-  textDecorationColor: 'transparent',
-  hoverStyle: { textDecorationColor: '$accent11' },
+  className: 'vp-link-reveal',
 } as const
 
 // fmhy.net's primary name: constant blue rgb(120,179,226); bold only when the
@@ -142,7 +138,6 @@ const NameLink = ({
         color="$accent11"
         fontWeight={weight}
         {...underlineRevealProps}
-        style={UNDERLINE_REVEAL_STYLE}
         $platform-web={INHERIT_SIZE}
         aria-label={title}
       >
@@ -168,7 +163,6 @@ const NameLink = ({
       color="$accent11"
       fontWeight={weight}
       {...underlineRevealProps}
-      style={UNDERLINE_REVEAL_STYLE}
       $platform-web={INHERIT_SIZE}
       aria-label={title}
       onPress={(e) => {
@@ -189,7 +183,7 @@ const MirrorLink = ({ url, index }: { url: string; index: number }) => (
     color="$accent11"
     {...underlineRevealProps}
     $platform-web={INHERIT_WEIGHT}
-    style={{ verticalAlign: 'super', ...UNDERLINE_REVEAL_STYLE }}
+    style={{ verticalAlign: 'super' }}
     aria-label={`Mirror ${index}`}
     onPress={(e) => {
       e.preventDefault()
@@ -205,7 +199,6 @@ const MirrorLink = ({ url, index }: { url: string; index: number }) => (
 const subLinkProps = {
   color: '$accent11',
   ...underlineRevealProps,
-  style: UNDERLINE_REVEAL_STYLE,
   '$platform-web': INHERIT_SIZE_WEIGHT,
 } as const
 

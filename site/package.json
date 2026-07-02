@@ -54,5 +54,9 @@
     "rollup-plugin-visualizer": "^6.0.5",
     "typescript": "^5.9.3",
     "vite": "^7.3.0"
+  },
+  "patchedDependencies": {
+    "@tamagui/use-element-layout@2.0.0-rc.23": "patches/@tamagui%2Fuse-element-layout@2.0.0-rc.23.patch",
+    "one@1.2.71": "patches/one@1.2.71.patch"
   }
 }

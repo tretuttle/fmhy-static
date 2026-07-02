@@ -8,6 +8,7 @@
  * Run AFTER scripts/wiki/generate.ts (sync-fmhy does both). Run: bun scripts/convert-fmhy.ts
  */
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -221,3 +222,27 @@ export default function Page() {
 }
 
 console.info(`✓ generated ${proseIds.length} prose routes → app/**+ssg.tsx`)
+
+// ---------------------------------------------------------------------------
+// publish the client-fetched dataset: src/features/wiki/data.ts fetches these
+// from /data/*.json in the browser (they are deliberately NOT bundled as JS —
+// that shipped every page twice and let hover-preload pull megabytes). copied
+// fresh on every sync; public/data/ is gitignored.
+// ---------------------------------------------------------------------------
+
+const GENERATED = join(SITE, 'src', 'features', 'wiki', 'generated')
+const PUBLIC_DATA = join(SITE, 'public', 'data')
+
+rmSync(PUBLIC_DATA, { recursive: true, force: true })
+mkdirSync(join(PUBLIC_DATA, 'pages'), { recursive: true })
+let published = 0
+for (const f of readdirSync(join(GENERATED, 'pages'))) {
+  if (!f.endsWith('.json')) continue
+  copyFileSync(join(GENERATED, 'pages', f), join(PUBLIC_DATA, 'pages', f))
+  published++
+}
+for (const f of ['search-corpus.json', 'notes.json']) {
+  copyFileSync(join(GENERATED, f), join(PUBLIC_DATA, f))
+  published++
+}
+console.info(`✓ published ${published} data files → public/data/`)

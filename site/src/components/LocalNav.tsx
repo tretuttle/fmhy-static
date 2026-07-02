@@ -89,6 +89,9 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
       setActiveId(active)
     }
     const schedule = () => {
+      // gate BEFORE scheduling: at desktop widths the bar is hidden, so don't
+      // burn a rAF per scroll event just to early-return inside update()
+      if (window.innerWidth >= breakpoints.xl) return
       if (scheduled) return
       scheduled = true
       requestAnimationFrame(() => {

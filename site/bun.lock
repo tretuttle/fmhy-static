@@ -33,6 +33,10 @@
       },
     },
   },
+  "patchedDependencies": {
+    "one@1.2.71": "patches/one@1.2.71.patch",
+    "@tamagui/use-element-layout@2.0.0-rc.23": "patches/@tamagui%2Fuse-element-layout@2.0.0-rc.23.patch",
+  },
   "overrides": {
     "esbuild": "0.27.2",
     "react-native-web": "npm:@tamagui/react-native-web-lite@2.0.0-rc.23",

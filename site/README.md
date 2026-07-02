@@ -1,54 +1,26 @@
-# Takeout Static
+# FMHY Static
 
-A beautiful, minimal personal site and blog template built with [One](https://onestack.dev) and [Tamagui](https://tamagui.dev).
+An unofficial, auto-updating static mirror of [FMHY](https://fmhy.net) — the largest collection of free stuff on the internet — built with [One](https://onestack.dev) and [Tamagui](https://tamagui.dev), deployed at [fmhy-static.expo.app](https://fmhy-static.expo.app).
+
+Wiki content lives in the repo-root `docs/` folder (a mirror of [fmhy/edit](https://github.com/fmhy/edit)) and is parsed into structured JSON that the app renders.
 
 ## Features
 
-### Core
-
-- **Static Site Generation** - Fast, SEO-friendly pages with One's SSG mode
-- **MDX Blog** - Write posts in markdown with React components
-- **Tamagui UI** - Beautiful, performant universal components
-- **Dark/Light/System Mode** - Three-way theme toggle with system preference support
-- **Responsive Design** - Mobile-first with configurable breakpoints
+- **Static Site Generation** — every wiki page prerendered with One's SSG mode
+- **Wiki parity** — sections, entries, starred items, notices, tooltips and NSFW entries matching fmhy.net rendering
+- **MiniSearch-powered search** — flat results, detailed view, excerpts, match cycling and pagination mirroring fmhy.net's local search
+- **Catppuccin / Monochrome theming** — dark/light/system with the fmhy.net theme palettes
+- **SEO / head parity** — per-page canonical, Open Graph and Twitter tags with the `:title • freemediaheckyeah` title scheme
+- **OG cards** — 1200x630 branded Open Graph image generated per route at prebuild (satori + sharp)
+- **PWA basics** — `manifest.webmanifest`, favicon.ico, apple-touch and PWA icons generated from the FMHY logo
+- **sitemap.xml + robots.txt** — sitemap generated from the SSG output after each build
 
 ### Performance
 
-- **Aggressive Script Loading** - Deferred JS loading after LCP for fast initial paint
-- **Inline Layout CSS** - Critical CSS inlined for instant styling
-- **React Compiler** - Automatic memoization for optimal re-renders
-- **Tamagui Optimization** - Style extraction and tree-shaking in production
-- **Chunk Optimization** - Aggressive code splitting with 30KB minimum chunks
-
-### Images
-
-- **OG Image Generation** - Dynamic Open Graph images via `/og/[slug]` API route
-- **Automatic Thumbnails** - `bun thumbs` generates 400px thumbnails from blog images
-- **Image Optimization** - Convert and resize images to WebP at 2x retina (1640px max)
-- **Blur Placeholders** - Low-quality image placeholders for smooth loading
-
-### Blog
-
-- **Auto Table of Contents** - Horizontal scrolling section links extracted from headings
-- **Smart Typography** - Automatic curly quotes, em-dashes via remark-smartypants
-- **Rich MDX Components** - Styled headings, code blocks, blockquotes, lists, notices, details/summary
-- **External Link Icons** - Automatic arrow indicator on outbound links
-- **Draft Support** - Hide posts with `draft: true` in production
-
-### Developer Experience
-
-- **Claude Code Skills** - Auto-generated AI coding assistant documentation from `docs/`
-- **oxlint + oxfmt** - Fast linting and formatting
-- **TypeScript** - Full type safety with strict mode
-- **Vercel Deploy** - Zero-config deployment with `vercel.json`
-- **Bundle Analysis** - `ANALYZE=1 bun build` for size visualization
-
-### UI Polish
-
-- **Floating Header** - Scroll-aware header with blur backdrop and shadow
-- **Tooltips** - Hover tooltips on icon buttons
-- **JetBrains Mono** - Clean monospace typography throughout
-- **Smooth Transitions** - CSS-only animations for theme and hover states
+- **Aggressive Script Loading** — deferred JS loading after LCP for fast initial paint
+- **Inline Layout CSS** — critical CSS inlined for instant styling
+- **React Compiler** — automatic memoization for optimal re-renders
+- **Tamagui Optimization** — style extraction and tree-shaking in production
 
 ## Getting Started
 
@@ -59,110 +31,70 @@ bun install
 # start dev server
 bun dev
 
-# build for production
-bun build
-
-# generate thumbnails
-bun thumbs
+# build for production (runs prebuild image generation + post-build sitemap)
+bun run build
 ```
 
-Open [http://localhost:8081](http://localhost:8081) to see your site.
+Open [http://localhost:8081](http://localhost:8081) to see the site.
 
 ## Project Structure
 
 ```
-app/                    # routes
-  _layout.tsx          # root layout with header/footer
-  index+ssg.tsx        # homepage
-  og/[slug]+api.tsx    # dynamic OG image generation
+app/                     # routes (generated wiki routes + home/feedback)
+  _layout.tsx            # root layout: header, sidebar, toc, search modal
+  index+ssg.tsx          # homepage
+  <category>+ssg.tsx     # one route per wiki category
 
-docs/                  # documentation (auto-linked as claude code skills)
+docs/                    # site docs (auto-linked as claude code skills)
 
-public/                # static assets
-  *.webp              # images
-  thumbs/             # auto-generated thumbnails
-  *.woff2             # fonts
-  favicon.svg
+public/                  # static assets
+  og/                    # generated og cards (gitignored, built by prebuild)
+  favicon.ico            # generated from fmhy-logo.webp at prebuild
+  manifest.webmanifest   # PWA manifest
+  robots.txt
 
 scripts/
-  generate-thumbnails.ts  # thumbnail generation
-  generate-skills.ts      # claude code skill generation
-  optimize-images.ts      # image optimization
+  generate-images.tsx    # prebuild: og cards + favicon/pwa icons
+  sitemap-gen.ts         # post-build: sitemap.xml (+ feed.rss when posts exist)
+  wiki/                  # docs/*.md -> src/features/wiki/generated/*.json
+  sync-fmhy.ts           # pull latest wiki content from fmhy/edit
+  generate-skills.ts     # claude code skill generation
 
 src/
-  components/          # ui components
-  icons/              # svg icons
-  interface/          # shared ui primitives
-  tamagui/            # tamagui config & themes
+  components/            # header, sidebar, toc, head meta, ...
+  features/wiki/         # wiki rendering, search, filters, generated data
+  tamagui/               # tamagui config & themes
 ```
 
-## Customization
+## Content Pipeline
 
-### Site Info
-
-Update these files with your details:
-
-1. `src/components/HeadInfo.tsx` - `SITE_NAME` and `SITE_URL`
-2. `src/components/Header.tsx` - Name and social links
-3. `src/components/Footer.tsx` - Name and social links
-4. `app/_layout.tsx` - `og:site_name` meta tag
-5. `app/[slug]+ssg.tsx` - Article author name
-6. `app/og/[slug]+api.tsx` - OG image site name
-
-### Homepage
-
-Edit `app/index+ssg.tsx`:
-- `projects` array - Your work/projects
-- `timeline` array - Your history/experience
-
-### Theme
-
-Edit `src/tamagui/themes-in.ts` to customize colors and `src/tamagui/breakpoints.ts` for responsive breakpoints.
-
-## Image Workflow
-
-1. Add image to `public/` (any format)
-2. Run `bun scripts/optimize-images.ts` to convert to WebP
-3. Reference in frontmatter: `image: '/your-image.webp'`
-4. Run `bun thumbs` to generate thumbnail
-5. Blur placeholder is auto-generated by @vxrn/mdx
-
-## Deployment
-
-### Vercel (Recommended)
-
-1. Push to GitHub
-2. Import in [Vercel](https://vercel.com)
-3. Deploy
-
-### Other Platforms
-
-```bash
-bun build
-```
-
-Static output: `.vercel/output/static/`
+1. `bun scripts/sync-fmhy.ts` — sync `docs/` from the fmhy/edit mirror
+2. `bun scripts/wiki/generate.ts` — parse markdown into `src/features/wiki/generated/`
+3. `bun run build` — prebuild og/icon generation, `one build`, then sitemap generation
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
 | `bun dev` | Start dev server |
-| `bun build` | Production build |
-| `bun thumbs` | Generate thumbnails |
+| `bun run build` | Production build (prebuild images + SSG + sitemap) |
+| `bun images` | Regenerate og cards and icons only |
 | `bun skills` | Generate Claude Code skills |
 | `bun lint:fix` | Lint and format |
-| `ANALYZE=1 bun build` | Build with bundle analysis |
+| `ANALYZE=1 bun run build` | Build with bundle analysis |
+
+## Deployment
+
+Static output lands in `dist/client/` and is served by EAS Hosting (`eas deploy`).
 
 ## Tech Stack
 
 - [One](https://onestack.dev) - Universal React framework
 - [Tamagui](https://tamagui.dev) - Universal UI components
 - [Vite](https://vitejs.dev) - Build tool
-- [MDX](https://mdxjs.com) - Markdown with React
-- [@vercel/og](https://vercel.com/docs/functions/edge-functions/og-image-generation) - OG image generation
-- [sharp](https://sharp.pixelplumbing.com/) - Image processing
+- [MiniSearch](https://lucaong.github.io/minisearch/) - Client-side search
+- [satori](https://github.com/vercel/satori) + [sharp](https://sharp.pixelplumbing.com/) - OG image generation
 
 ## License
 
-MIT
+Parsing/transform rules in `scripts/wiki/**` derive from Apache-2.0 licensed code, Copyright (c) taskylizard (the fmhy/edit website source). Site code MIT.

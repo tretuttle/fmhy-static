@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "one dev",
     "prebuild": "bun scripts/generate-images.tsx",
-    "build": "one build",
+    "build": "one build && bun scripts/sitemap-gen.ts",
     "images": "bun scripts/generate-images.tsx",
     "serve": "one serve",
     "format": "oxfmt",
@@ -30,15 +30,11 @@
     "@tamagui/react-native-svg": "^2.0.0-rc.23",
     "@tamagui/vite-plugin": "^2.0.0-rc.23",
     "@vxrn/color-scheme": "^1.2.70",
-    "@vxrn/mdx": "^1.2.70",
-    "expo-linear-gradient": "^15.0.8",
-    "mdx-bundler": "^10.0.2",
     "minisearch": "^7.2.0",
     "one": "^1.2.70",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native-svg": "^15.15.1",
-    "remark-smartypants": "^3.0.2",
     "satori": "^0.19.1",
     "sharp": "^0.34.5",
     "tamagui": "^2.0.0-rc.23"
@@ -55,7 +51,6 @@
     "bun-types": "^1.3.5",
     "oxfmt": "^0.16.0",
     "oxlint": "^1.31.0",
-    "playwright": "^1.57.0",
     "rollup-plugin-visualizer": "^6.0.5",
     "typescript": "^5.9.3",
     "vite": "^7.3.0"

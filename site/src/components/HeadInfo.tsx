@@ -1,7 +1,20 @@
+import { usePathname } from 'one'
 import { Fragment } from 'react'
 
-const SITE_NAME = 'FMHY'
+// tab titles mirror fmhy.net's vitepress titleTemplate ':title • freemediaheckyeah'
+const TITLE_SUFFIX = 'freemediaheckyeah'
 const SITE_URL = process.env.ONE_SERVER_URL || 'https://fmhy-static.expo.app'
+
+const OG_IMAGE_WIDTH = 1200
+const OG_IMAGE_HEIGHT = 630
+
+// og cards are prebuilt into public/og/<slug>.webp by scripts/generate-images.tsx.
+// the slug scheme must match ogSlugForRoute() there: '/' -> 'home', nested
+// routes join segments with '-' ('/other/backups' -> 'other-backups').
+function ogSlugFromPathname(pathname: string): string {
+  const clean = pathname.split(/[?#]/)[0]!.replace(/^\/+|\/+$/g, '')
+  return clean === '' ? 'home' : clean.replace(/\//g, '-')
+}
 
 export function HeadInfo({
   title,
@@ -22,17 +35,39 @@ export function HeadInfo({
     }
   }
 }) {
-  const fullTitle = title?.includes(SITE_NAME) ? title : `${title} - ${SITE_NAME}`
+  const pathname = usePathname()
+
+  // canonical/og:url derive from the active route; the explicit override wins
+  const path = openGraph?.url ?? pathname ?? '/'
+  const pageUrl = `${SITE_URL}${path.startsWith('/') ? path : `/${path}`}`
+
+  // fmhy.net emits the suffixed title only in <title>; og/twitter get the raw title
+  const fullTitle = title?.includes(TITLE_SUFFIX) ? title : `${title} • ${TITLE_SUFFIX}`
+
+  const images = openGraph?.images?.length
+    ? openGraph.images
+    : [
+        {
+          url: `/og/${ogSlugFromPathname(path)}.webp`,
+          width: OG_IMAGE_WIDTH,
+          height: OG_IMAGE_HEIGHT,
+        },
+      ]
 
   return (
     <>
       {noindex && <meta name="robots" content="noindex, nofollow" />}
 
+      <link rel="canonical" href={pageUrl} />
+      <meta property="og:url" content={pageUrl} />
+      <meta name="twitter:url" content={pageUrl} />
+      <meta property="og:type" content={openGraph?.type ?? 'website'} />
+
       {title && (
         <>
           <title>{fullTitle}</title>
-          <meta property="og:title" content={fullTitle} />
-          <meta name="twitter:title" content={fullTitle} />
+          <meta property="og:title" content={title} />
+          <meta name="twitter:title" content={title} />
         </>
       )}
 
@@ -44,51 +79,29 @@ export function HeadInfo({
         </>
       )}
 
-      {openGraph && (
+      {images.map((image) => {
+        const imageUrl = image.url.startsWith('http') ? image.url : `${SITE_URL}${image.url}`
+        return (
+          <Fragment key={image.url}>
+            <meta property="og:image" content={imageUrl} />
+            {image.width && <meta property="og:image:width" content={`${image.width}`} />}
+            {image.height && <meta property="og:image:height" content={`${image.height}`} />}
+            {title && <meta property="og:image:alt" content={title} />}
+            <meta name="twitter:image" content={imageUrl} />
+            {image.width && <meta name="twitter:image:width" content={`${image.width}`} />}
+            {image.height && <meta name="twitter:image:height" content={`${image.height}`} />}
+            {title && <meta name="twitter:image:alt" content={title} />}
+          </Fragment>
+        )
+      })}
+
+      {openGraph?.article && (
         <>
-          <meta property="og:site_name" content={SITE_NAME} />
-          <meta property="og:locale" content="en_US" />
-
-          {openGraph.url && (
-            <>
-              <meta property="og:url" content={`${SITE_URL}${openGraph.url}`} />
-              <link rel="canonical" href={`${SITE_URL}${openGraph.url}`} />
-            </>
+          {openGraph.article.publishedTime && (
+            <meta property="article:published_time" content={openGraph.article.publishedTime} />
           )}
-
-          {openGraph.type && <meta property="og:type" content={openGraph.type} />}
-
-          {openGraph.images?.map((image) => {
-            const imageUrl = image.url.startsWith('http')
-              ? image.url
-              : `${SITE_URL}${image.url}`
-            return (
-              <Fragment key={image.url}>
-                <meta property="og:image" content={imageUrl} />
-                <meta name="twitter:image" content={imageUrl} />
-                <meta name="twitter:card" content="summary_large_image" />
-                {image.width && (
-                  <meta property="og:image:width" content={`${image.width}`} />
-                )}
-                {image.height && (
-                  <meta property="og:image:height" content={`${image.height}`} />
-                )}
-              </Fragment>
-            )
-          })}
-
-          {openGraph.article && (
-            <>
-              {openGraph.article.publishedTime && (
-                <meta
-                  property="article:published_time"
-                  content={openGraph.article.publishedTime}
-                />
-              )}
-              {openGraph.article.author && (
-                <meta property="article:author" content={openGraph.article.author} />
-              )}
-            </>
+          {openGraph.article.author && (
+            <meta property="article:author" content={openGraph.article.author} />
           )}
         </>
       )}

@@ -13,7 +13,7 @@ export default function HomePage() {
     <>
       <Head>
         <HeadInfo
-          title="FMHY"
+          title="Welcome"
           description="An unofficial, auto-updating mirror of FMHY — the largest collection of free stuff on the internet."
           openGraph={{ type: 'website', url: '/' }}
         />

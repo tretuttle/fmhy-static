@@ -19,14 +19,7 @@ export default {
 
   ssr: {
     noExternal: true,
-    external: [
-      '@vxrn/mdx',
-      'remark-smartypants',
-      'retext',
-      'retext-smartypants',
-      'extend',
-      'sharp',
-    ],
+    external: ['sharp'],
   },
 
   // NOTE: chunk optimization can be enabled but may cause issues

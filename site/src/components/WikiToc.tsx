@@ -7,6 +7,7 @@ import { breakpoints } from '~/tamagui/breakpoints'
 import { Text } from '~/interface/text/Text'
 
 import type { TamaguiElement } from 'tamagui'
+import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
 
 export type TocEntry = {
   id: string
@@ -145,13 +146,9 @@ function useActiveAnchor(entries: TocEntry[], enabledMinWidth: number) {
 }
 
 export function tocScrollTo(id: string) {
-  if (typeof document === 'undefined') return
-  const el = document.getElementById(id)
-  if (!el) return
-  el.scrollIntoView({ behavior: 'smooth' })
-  if (typeof history !== 'undefined') {
-    history.replaceState(null, '', `#${id}`)
-  }
+  // settle-scroll instead of scrollIntoView: content-visibility placeholder
+  // layout makes scrollIntoView land wrong (or not at all) in Firefox/WebKit
+  scrollToAnchor(id)
 }
 
 function TocRow({

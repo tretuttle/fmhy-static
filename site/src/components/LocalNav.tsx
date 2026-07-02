@@ -9,6 +9,7 @@ import { HEADER_HEIGHT, setLocalNavDropdownOpen } from './ScrollHeader'
 import { useTocEntries, type TocEntry } from './WikiToc'
 
 import type { TamaguiElement } from 'tamagui'
+import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
 
 // mobile "On this page" sub-bar under the header, ported from vitepress
 // VPLocalNav + VPLocalNavOutlineDropdown (theme bundle + fmhy style.scss):
@@ -114,13 +115,9 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
 
   const onLinkPress = (id: string) => {
     setOpen(false)
-    const el = document.getElementById(id)
-    if (!el) return
-    el.scrollIntoView({ behavior: 'smooth' })
-    setActiveId(id)
-    if (typeof history !== 'undefined') {
-      history.replaceState(null, '', `#${id}`)
-    }
+    // settle-scroll: content-visibility placeholders break scrollIntoView on
+    // Firefox/WebKit (see scrollToAnchor.ts)
+    if (scrollToAnchor(id)) setActiveId(id)
   }
 
   return (
@@ -178,7 +175,10 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
             fontWeight="500"
             color={open ? '$color12' : '$color11'}
             $group-hover={{ color: '$color12' }}
-            style={{ transition: 'color 0.25s' }}
+            // the button sizes to min-content in its column parent — without
+            // nowrap the label wraps per-word into a ~200px-tall bar
+            style={{ transition: 'color 0.25s', whiteSpace: 'nowrap' }}
+            shrink={0}
           >
             On this page
           </SizableText>

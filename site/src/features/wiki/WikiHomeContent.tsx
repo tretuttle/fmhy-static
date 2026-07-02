@@ -17,8 +17,14 @@ const DISCORD_URL = 'https://github.com/fmhy/FMHY/wiki/FMHY-Discord'
 
 // gradient-text heading — the real --vp-home-hero-name-background from
 // upstream style.scss (the rainbow variant only exists behind html.june)
+// VPHero name scale: 32px phones, 48px tablets, 56px desktop — the previous
+// fixed $12 rendered 52px+ on a 390px viewport and clipped at both edges
 const HeroTitle = styled(H1, {
-  size: '$12',
+  fontSize: 32,
+  lineHeight: 40,
+  maxW: '100%',
+  $md: { fontSize: 48, lineHeight: 56 },
+  $xl: { fontSize: 56, lineHeight: 64 },
 
   '$platform-web': {
     backgroundImage: 'linear-gradient(120deg, #c4b5fd 30%, #7bc5e4)',
@@ -138,8 +144,9 @@ export function WikiHomeContent() {
       >
         {isWeb && (
           <YStack
-            width={300}
-            height={300}
+            width={192}
+            height={192}
+            $md={{ width: 300, height: 300 }}
             $xl={{ width: 400, height: 400 }}
             items="center"
             justify="center"
@@ -154,7 +161,14 @@ export function WikiHomeContent() {
           </YStack>
         )}
 
-        <YStack minW={280} gap="$5" items="center" $xl={{ flex: 1, items: 'flex-start' }}>
+        <YStack
+          minW={0}
+          maxW="100%"
+          gap="$5"
+          items="center"
+          $md={{ minW: 280 }}
+          $xl={{ flex: 1, items: 'flex-start' }}
+        >
           {/* announcement badge (upstream Announcement.vue): soft pill, no border */}
           <XStack
             {...({ render: 'a', href: ANNOUNCEMENT.link } as object)}

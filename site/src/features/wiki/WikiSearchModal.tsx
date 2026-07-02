@@ -1,5 +1,5 @@
 import { router, type Href } from 'one'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Input,
   ScrollView,
@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
   styled,
+  type TamaguiElement,
 } from 'tamagui'
 
 import { Link } from '~/components/Link'
@@ -36,6 +37,11 @@ import type { SearchDoc } from './types'
 // since we don't paginate a results-info line update on every keystroke
 const INITIAL_RESULTS = 20
 const RESULTS_PAGE_SIZE = 16
+
+// tabbable-element query for the native focus trap below — mirrors what
+// focus-trap/tabbable considers focusable within the modal panel
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 // inline highlight renderer — must live inside a SizableText/Text parent
 function HighlightedText({ segments }: { segments: HighlightSegment[] }) {
@@ -208,6 +214,7 @@ function MatchNav({
 
 function ResultRow({
   result,
+  optionId,
   selected,
   detailedView,
   activeMatch,
@@ -217,6 +224,9 @@ function ResultRow({
   onCycleMatch,
 }: {
   result: WikiSearchResult
+  // listbox option id ("localsearch-item-N") referenced by the input's
+  // aria-activedescendant — index-based, matching VPLocalSearchBox
+  optionId: string
   selected: boolean
   detailedView: boolean
   // current occurrence index within this result's excerpt (only meaningful
@@ -289,7 +299,7 @@ function ResultRow({
   )
 
   return (
-    <YStack>
+    <YStack id={optionId} role="option" aria-selected={selected}>
       {doc.url ? (
         <Row
           render="button"
@@ -312,7 +322,14 @@ function ResultRow({
   )
 }
 
-function ModalInner() {
+function ModalInner({
+  onListVisibleChange,
+}: {
+  // reports whether the results listbox is currently rendered so the modal
+  // wrapper can point aria-owns at it only while it exists (VPLocalSearchBox
+  // gates its wrapper aria-owns on results.length the same way)
+  onListVisibleChange: (visible: boolean) => void
+}) {
   const {
     query,
     setQuery,
@@ -347,6 +364,14 @@ function ModalInner() {
     [results, visibleCount]
   )
   const hasMore = visibleCount < results.length
+
+  // the results listbox only exists in the DOM while we have rows to show —
+  // aria-controls/aria-owns/aria-activedescendant must not reference it
+  // otherwise (VPLocalSearchBox conditions the same ids on results.length)
+  const listVisible = !loading && visibleResults.length > 0
+  useEffect(() => {
+    onListVisibleChange(listVisible)
+  }, [listVisible, onListVisibleChange])
 
   useEffect(() => {
     setSelected(0)
@@ -424,15 +449,33 @@ function ModalInner() {
   return (
     <YStack gap="$3">
       <XStack items="center" gap="$3">
-        <MagnifyingGlassIcon size={20} color="$color10" />
+        {/* label + combobox attrs mirror VPLocalSearchBox's markup: the label
+            (search icon) names the input/list via aria-labelledby, and the
+            input drives the listbox with aria-controls/aria-activedescendant */}
+        <XStack
+          render="label"
+          id="localsearch-label"
+          items="center"
+          // dom-only <label> attrs tamagui's prop types don't know about
+          {...({ htmlFor: 'localsearch-input', title: 'Search' } as any)}
+        >
+          <MagnifyingGlassIcon size={20} color="$color10" />
+        </XStack>
         <Input
           key={openCount}
+          id="localsearch-input"
           flex={1}
           placeholder="Search the wiki..."
           value={query}
           onChangeText={setQuery}
           onKeyDown={onInputKeyDown}
           autoFocus
+          aria-autocomplete="both"
+          aria-labelledby="localsearch-label"
+          aria-controls={listVisible ? 'localsearch-list' : undefined}
+          aria-activedescendant={
+            listVisible ? `localsearch-item-${selected}` : undefined
+          }
         />
       </XStack>
 
@@ -459,7 +502,14 @@ function ModalInner() {
       <Separator opacity={0.4} />
 
       <ScrollView maxHeight={440} showsVerticalScrollIndicator={false}>
-        <YStack gap="$1">
+        <YStack
+          gap="$1"
+          id={listVisible ? 'localsearch-list' : undefined}
+          aria-labelledby={listVisible ? 'localsearch-label' : undefined}
+          tabIndex={-1}
+          // 'listbox' is missing from tamagui's Role union but valid ARIA
+          {...({ role: listVisible ? 'listbox' : undefined } as any)}
+        >
           {!query.trim() && recent.length > 0 && (
             <YStack gap="$2" px="$2" pb="$2">
               <XStack items="center" justify="space-between">
@@ -587,6 +637,7 @@ function ModalInner() {
               <ResultRow
                 key={result.doc.id}
                 result={result}
+                optionId={`localsearch-item-${index}`}
                 selected={index === selected}
                 detailedView={detailedView}
                 activeMatch={activeMatchByDoc[result.doc.id] ?? 0}
@@ -628,9 +679,81 @@ function ModalInner() {
 export function WikiSearchModal() {
   const open = useSearchOpen()
   const [hasOpenedOnce, setHasOpenedOnce] = useState(false)
+  const [listVisible, setListVisible] = useState(false)
+  const panelRef = useRef<TamaguiElement | null>(null)
 
   useEffect(() => {
     if (open) setHasOpenedOnce(true)
+  }, [open])
+
+  // VPLocalSearchBox parity, active only while the modal is open:
+  // 1. focus trap — the real site runs focus-trap with { allowOutsideClick,
+  //    clickOutsideDeactivates, escapeDeactivates } (returnFocusOnDeactivate
+  //    defaults true). done natively: Tab/Shift+Tab cycle the panel's
+  //    focusables; the pre-open activeElement is captured here (before the
+  //    input's key-remount autofocus fires on the next commit) and restored
+  //    on close. click-outside/Escape closing already exist elsewhere.
+  // 2. body scroll lock — the real site uses vueuse useScrollLock(body).
+  //    root.css puts overflow:auto on BOTH html and body (the :has
+  //    .body-scrollable rules), and body's overflow only propagates to the
+  //    viewport when html's is `visible`, so html is the actual page
+  //    scroller here — lock both with inline styles (inline beats the
+  //    stylesheet rule) and restore the prior values on close.
+  // 3. back-button close — the real bundle runs
+  //    `window.history.pushState && window.history.pushState(null,'',null)`
+  //    on mount and closes on popstate; it never calls history.back() on a
+  //    non-popstate close (the entry is left behind), so we match that.
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return
+
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+
+    const html = document.documentElement
+    const body = document.body
+    const prevHtmlOverflow = html.style.overflow
+    const prevBodyOverflow = body.style.overflow
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+
+    if (window.history.pushState) window.history.pushState(null, '', null)
+    const onPopState = () => closeSearch()
+    window.addEventListener('popstate', onPopState)
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const panel = panelRef.current as HTMLElement | null
+      if (!panel) return
+      const focusables = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      )
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      if (!first || !last) {
+        event.preventDefault()
+        return
+      }
+      const active = document.activeElement
+      const activeInPanel = active instanceof HTMLElement && panel.contains(active)
+      if (event.shiftKey) {
+        if (!activeInPanel || active === first) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (!activeInPanel || active === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('popstate', onPopState)
+      html.style.overflow = prevHtmlOverflow
+      body.style.overflow = prevBodyOverflow
+      if (previouslyFocused?.isConnected) previouslyFocused.focus()
+    }
   }, [open])
 
   if (!hasOpenedOnce) return null
@@ -646,9 +769,21 @@ export function WikiSearchModal() {
       display={open ? 'flex' : 'none'}
       pointerEvents={open ? 'auto' : 'none'}
       onPress={() => closeSearch()}
+      // wrapper a11y contract copied from the real bundle's root div
+      // (role="button" + haspopup/expanded/owns/labelledby — VitePress does
+      // not use role="dialog" here)
+      role="button"
+      aria-expanded={true}
+      aria-labelledby="localsearch-label"
+      // aria-haspopup/aria-owns are absent from tamagui's prop types
+      {...({
+        'aria-haspopup': 'listbox',
+        'aria-owns': listVisible ? 'localsearch-list' : undefined,
+      } as any)}
     >
       <YStack position="absolute" inset={0} bg="$shadow6" backdropFilter="blur(3px)" />
       <YStack
+        ref={panelRef}
         position="relative"
         z={1}
         width="100%"
@@ -667,7 +802,7 @@ export function WikiSearchModal() {
         shadowOffset={{ height: 20, width: 0 }}
         onPress={(e) => e.stopPropagation()}
       >
-        <ModalInner />
+        <ModalInner onListVisibleChange={setListVisible} />
       </YStack>
     </YStack>
   )

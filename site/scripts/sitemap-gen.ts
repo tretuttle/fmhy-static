@@ -8,7 +8,7 @@
  * Wired into package.json: "build": "one build && bun scripts/sitemap-gen.ts"
  */
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const SITE_URL = process.env.ONE_SERVER_URL || 'https://fmhy-static.expo.app'
@@ -46,17 +46,34 @@ function collectHtmlFiles(dir: string): string[] {
   return files
 }
 
-const routes = collectHtmlFiles(distClient)
-  .map((file) => relative(distClient, file).replaceAll('\\', '/'))
-  // '+not-found.html' and any other special files aren't real routes
-  .filter((path) => !path.split('/').some((segment) => segment.startsWith('+')))
-  .map((path) => {
-    const noExt = path.slice(0, -'.html'.length)
-    if (noExt === 'index') return '/'
-    if (noExt.endsWith('/index')) return `/${noExt.slice(0, -'/index'.length)}`
-    return `/${noExt}`
-  })
-  .sort()
+// EAS Hosting maps extensionless /foo to foo.html but NOT to foo/index.html,
+// so /posts would 404 while /posts/ works — flatten each directory index into
+// a sibling <dir>.html (skipping the site root's own index.html)
+for (const file of collectHtmlFiles(distClient)) {
+  const rel = relative(distClient, file).replaceAll('\\', '/')
+  if (rel !== 'index.html' && rel.endsWith('/index.html')) {
+    const flat = join(distClient, `${rel.slice(0, -'/index.html'.length)}.html`)
+    if (!existsSync(flat)) {
+      copyFileSync(file, flat)
+      console.info(`sitemap-gen: flattened ${rel} → ${relative(distClient, flat)}`)
+    }
+  }
+}
+
+const routes = [
+  ...new Set(
+    collectHtmlFiles(distClient)
+      .map((file) => relative(distClient, file).replaceAll('\\', '/'))
+      // '+not-found.html' and any other special files aren't real routes
+      .filter((path) => !path.split('/').some((segment) => segment.startsWith('+')))
+      .map((path) => {
+        const noExt = path.slice(0, -'.html'.length)
+        if (noExt === 'index') return '/'
+        if (noExt.endsWith('/index')) return `/${noExt.slice(0, -'/index'.length)}`
+        return `/${noExt}`
+      }),
+  ),
+].sort()
 
 const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

@@ -22,13 +22,18 @@ import {
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import type {
+  SearchCorpus,
   SearchDoc,
+  SearchExcerptMap,
+  SearchLinkMetadata,
+  WikiEntry,
   WikiNav,
   WikiNavGroup,
   WikiNote,
   WikiNotice,
   WikiPage,
   WikiPostMeta,
+  WikiProseBlock,
   WikiProsePage,
   WikiSection,
   WikiSubsection,
@@ -322,39 +327,378 @@ const navGroups: WikiNavGroup[] = NAV_GROUPS.map((group) => ({
 const nav: WikiNav = { generatedAt: new Date().toISOString(), groups: navGroups }
 
 // ---------------------------------------------------------------------------
-// search corpus
+// search corpus + excerpts — section-level docs mirroring the real site's
+// local-search index (docs/.vitepress/constants.ts _splitIntoSections +
+// extractLinkMetadata + stripNoteBlocks) plus per-page rendered excerpt HTML
+// (the build-time equivalent of VPLocalSearchBox's client-side page render).
 // ---------------------------------------------------------------------------
 
 const searchDocs: SearchDoc[] = []
-let skippedUntitled = 0
+const searchMetadata: SearchLinkMetadata = {}
+// pageId ('video', 'other/backups', 'posts/x') → { anchor → section html }
+const searchExcerpts = new Map<string, SearchExcerptMap>()
 
-for (const page of pages.values()) {
+// sidebar page titles WITH the emoji our sidebar renders — the real client
+// prepends the sidebar item text (findPageTitle) to every result's breadcrumb;
+// we bake it into `titles` at build time. pages absent from the sidebar
+// (posts/*, other/FAQ|selfhosting|wallpapers|backups) get no prepend, exactly
+// like the real client when findPageTitle misses.
+const SEARCH_PAGE_TITLES: Record<string, string> = {
+  'beginners-guide': '📚 Beginners Guide',
+  'other/contributing': '💡 Contribute',
+}
+for (const group of NAV_GROUPS) {
+  for (const item of group.items) {
+    if (!item.route.startsWith('/') || item.route.includes('#')) continue
+    SEARCH_PAGE_TITLES[item.route.slice(1)] = `${item.emoji} ${item.title}`
+  }
+}
+
+const escapeHtml = (s: string): string =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+// same token grammar as src/features/wiki/InlineMarkdown.tsx
+const INLINE_TOKEN_RE =
+  /(`[^`]+`)|(\*\*(?:[^*]|\*(?!\*))+\*\*)|(\[[^\]]+\]\([^()\s]+\))|(<img\b[^>]*?\/?>)/g
+const INLINE_LINK_RE = /^\[([^\]]+)\]\(([^()\s]+)\)$/
+
+type InlinePiece =
+  | { kind: 'text'; text: string; bold: boolean }
+  | { kind: 'code'; text: string }
+  | { kind: 'link'; text: string; url: string; bold: boolean }
+
+function parseInline(markdown: string, bold = false): InlinePiece[] {
+  const out: InlinePiece[] = []
+  let last = 0
+  for (const m of markdown.matchAll(INLINE_TOKEN_RE)) {
+    const at = m.index ?? 0
+    if (at > last) out.push({ kind: 'text', text: markdown.slice(last, at), bold })
+    const token = m[0]
+    if (token.startsWith('`')) out.push({ kind: 'code', text: token.slice(1, -1) })
+    else if (token.startsWith('**')) out.push(...parseInline(token.slice(2, -2), true))
+    else if (token.startsWith('<img')) {
+      // drop raw <img> from search excerpts/text (rare, note-only content)
+    } else {
+      const link = token.match(INLINE_LINK_RE)
+      if (link) out.push({ kind: 'link', text: link[1]!, url: link[2]!, bold })
+      else out.push({ kind: 'text', text: token, bold })
+    }
+    last = at + token.length
+  }
+  if (last < markdown.length) out.push({ kind: 'text', text: markdown.slice(last), bold })
+  return out
+}
+
+const linkOpen = (url: string): string =>
+  url.startsWith('/')
+    ? `<a href="${escapeHtml(url)}">`
+    : `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">`
+
+function inlineToHtml(markdown: string): string {
+  let html = ''
+  for (const piece of parseInline(markdown)) {
+    if (piece.kind === 'code') html += `<code>${escapeHtml(piece.text)}</code>`
+    else if (piece.kind === 'link') {
+      const inner = `${linkOpen(piece.url)}${escapeHtml(piece.text)}</a>`
+      html += piece.bold ? `<strong>${inner}</strong>` : inner
+    } else {
+      html += piece.bold
+        ? `<strong>${escapeHtml(piece.text)}</strong>`
+        : escapeHtml(piece.text)
+    }
+  }
+  return html
+}
+
+const inlineToText = (markdown: string): string =>
+  parseInline(markdown)
+    .map((piece) => piece.text)
+    .join('')
+
+// hyperlink phrases inside inline markdown, for the l/s metadata tiers
+const inlineLinkPhrases = (markdown: string): { text: string; bold: boolean }[] =>
+  parseInline(markdown)
+    .filter((piece): piece is Extract<InlinePiece, { kind: 'link' }> => piece.kind === 'link')
+    .map((piece) => ({ text: piece.text, bold: piece.bold }))
+
+// extractLinkMetadata's cleanText: strip invisibles, collapse ws, lowercase
+const cleanPhrase = (s: string): string =>
+  stripInvisible(s).replace(/\s+/g, ' ').trim().toLowerCase()
+
+type LinkPhrase = { phrase: string; starredBold: boolean }
+
+const MARKER_TWEMOJI_CODE: Record<string, string> = {
+  starred: '2b50',
+  index: '1f310',
+  crossref: '1f501',
+}
+
+// entry → excerpt <li> html, mirroring the real page's rendered list rows:
+// ⭐ <a><strong>Name</strong></a> [2] or Alt - Description / SubLink / icons
+// the parser flattens inline description links ("Use [Adblock](url)") into
+// plain text AND extracts them into entry.links — rendering both duplicates
+// the label ("Use Adblock / Adblock") where the real page shows one inline
+// anchor. Re-linkify the first word-bounded occurrence of each such label
+// back into the description markdown and mark that link consumed so the
+// trailing sub-link loop skips it.
+function relinkifyDescription(entry: WikiEntry): {
+  description: string | null
+  consumed: Set<number>
+} {
+  const consumed = new Set<number>()
+  let description = entry.description
+  if (!description) return { description, consumed }
+  entry.links.forEach((link, i) => {
+    if (link.icon || link.noteId) return
+    const href = link.route ?? link.url
+    // label/url must survive the [label](url) inline grammar round-trip
+    if (/[[\]()]/.test(link.label) || /[()\s]/.test(href)) return
+    const idx = description!.indexOf(link.label)
+    if (idx === -1) return
+    const before = description![idx - 1]
+    const after = description![idx + link.label.length]
+    if (before && /[\p{L}\p{N}]/u.test(before)) return
+    if (after && /[\p{L}\p{N}]/u.test(after)) return
+    description =
+      description!.slice(0, idx) +
+      `[${link.label}](${href})` +
+      description!.slice(idx + link.label.length)
+    consumed.add(i)
+  })
+  return { description, consumed }
+}
+
+function entryHtml(entry: WikiEntry): string {
+  const parts: string[] = []
+  const code = entry.marker ? MARKER_TWEMOJI_CODE[entry.marker] : undefined
+  if (code) parts.push(`<img class="vpe-tw" src="/twemoji/${code}.svg" alt="" /> `)
+
+  const title = entry.title ?? entry.url ?? ''
+  const nameUrl = entry.crossrefRoute ?? entry.url
+  if (nameUrl) {
+    const inner = `${linkOpen(nameUrl)}${escapeHtml(title)}</a>`
+    parts.push(entry.bold ? `<strong>${inner}</strong>` : inner)
+  } else if (title) {
+    parts.push(`<strong>${escapeHtml(title)}</strong>`)
+  }
+
+  entry.mirrors.forEach((mirror, i) => {
+    parts.push(` <sup>${linkOpen(mirror)}${i + 2}</a></sup>`)
+  })
+
+  for (const alt of entry.alternatives) {
+    const inner = `${linkOpen(alt.route ?? alt.url)}${escapeHtml(alt.title)}</a>`
+    parts.push(` or ${alt.bold ? `<strong>${inner}</strong>` : inner}`)
+    alt.mirrors.forEach((mirror, i) => {
+      parts.push(` <sup>${linkOpen(mirror)}${i + 2}</a></sup>`)
+    })
+  }
+
+  const tail: string[] = []
+  const { description, consumed } = relinkifyDescription(entry)
+  if (description) tail.push(inlineToHtml(description))
+  for (const [linkIndex, link] of entry.links.entries()) {
+    if (consumed.has(linkIndex)) continue // rendered inline in the description
+    if (link.noteId) continue // real site strips <Tooltip> notes from search
+    const href = link.route ?? link.url
+    if (link.icon) {
+      tail.push(
+        `${linkOpen(href)}<span class="vpsic vpsic-${link.icon}" title="${escapeHtml(link.label)}"></span></a>`,
+      )
+    } else {
+      tail.push(`${linkOpen(href)}${escapeHtml(link.label)}</a>`)
+    }
+  }
+  if (entry.platforms.length > 0) {
+    tail.push(
+      entry.platforms
+        .map((p) => `<span class="vpsic vpsic-${p}" title="${escapeHtml(p)}"></span>`)
+        .join(' '),
+    )
+  }
+  tail.forEach((piece, i) => {
+    parts.push(i === 0 ? ' - ' : ' / ')
+    parts.push(piece)
+  })
+
+  const cls = entry.starred ? ' class="starred"' : ''
+  return `<li${cls}>${parts.join('')}</li>`
+}
+
+// entry → tag-free searchable text (what clearHtmlTags(sectionHtml) yields on
+// the real site: names + descriptions + text sub-link labels; icons are empty)
+function entryText(entry: WikiEntry): string {
+  const parts: string[] = []
+  const title = entry.title ?? entry.url ?? ''
+  if (title) parts.push(title)
+  for (const alt of entry.alternatives) parts.push(`or ${alt.title}`)
+  if (entry.description) parts.push(`- ${inlineToText(entry.description)}`)
+  const { consumed } = relinkifyDescription(entry)
+  for (const [linkIndex, link] of entry.links.entries()) {
+    if (link.noteId || link.icon) continue
+    if (consumed.has(linkIndex)) continue // its label is already in the description text
+    parts.push(`/ ${link.label}`)
+  }
+  return parts.join(' ')
+}
+
+function entryLinkPhrases(entry: WikiEntry): LinkPhrase[] {
+  const phrases: LinkPhrase[] = []
+  const starredLi = entry.starred
+  const title = entry.title ?? entry.url ?? ''
+  if ((entry.url || entry.crossrefRoute) && title) {
+    phrases.push({ phrase: title, starredBold: starredLi && entry.bold })
+  }
+  entry.mirrors.forEach((_, i) => phrases.push({ phrase: String(i + 2), starredBold: false }))
+  for (const alt of entry.alternatives) {
+    phrases.push({ phrase: alt.title, starredBold: starredLi && alt.bold })
+    alt.mirrors.forEach((_, i) =>
+      phrases.push({ phrase: String(i + 2), starredBold: false }),
+    )
+  }
+  if (entry.description) {
+    for (const link of inlineLinkPhrases(entry.description)) {
+      phrases.push({ phrase: link.text, starredBold: starredLi && link.bold })
+    }
+  }
+  for (const link of entry.links) {
+    if (link.noteId || link.icon) continue
+    phrases.push({ phrase: link.label, starredBold: false })
+  }
+  return phrases
+}
+
+// register a section's curated-link metadata (constants.ts globalLinkMetadata)
+function registerMetadata(sectionId: string, phrases: LinkPhrase[]) {
+  const links = new Set<string>()
+  const starredBold = new Set<string>()
+  for (const { phrase, starredBold: sb } of phrases) {
+    const cleaned = cleanPhrase(phrase)
+    if (!cleaned) continue
+    if (sb) starredBold.add(cleaned)
+    else links.add(cleaned)
+  }
+  starredBold.forEach((w) => links.delete(w))
+  if (links.size > 0 || starredBold.size > 0) {
+    searchMetadata[sectionId] = { l: [...links], s: [...starredBold] }
+  }
+}
+
+// a (sub)section's OWN searchable content: guide prose blocks (notices
+// excluded, mirroring stripNoteBlocks) followed by its entry list
+function containerSearchParts(container: WikiSubsection): {
+  text: string
+  html: string
+  phrases: LinkPhrase[]
+} {
+  const textParts: string[] = []
+  const htmlParts: string[] = []
+  const phrases: LinkPhrase[] = []
+
+  for (const block of container.blocks) {
+    if (block.kind === 'notice') continue // stripNoteBlocks equivalent
+    const inner = inlineToHtml(block.markdown)
+    if (block.kind === 'blockquote') htmlParts.push(`<blockquote><p>${inner}</p></blockquote>`)
+    else htmlParts.push(`<p>${inner}</p>`)
+    textParts.push(inlineToText(block.markdown))
+    for (const link of inlineLinkPhrases(block.markdown)) {
+      phrases.push({ phrase: link.text, starredBold: false })
+    }
+  }
+
+  if (container.entries.length > 0) {
+    htmlParts.push(`<ul>${container.entries.map(entryHtml).join('')}</ul>`)
+    for (const entry of container.entries) {
+      textParts.push(entryText(entry))
+      phrases.push(...entryLinkPhrases(entry))
+    }
+  }
+
+  return {
+    text: stripInvisible(textParts.join(' ')).replace(/\s+/g, ' ').trim(),
+    html: htmlParts.join(''),
+    phrases,
+  }
+}
+
+// build docs + metadata + excerpts for one structured wiki page
+function buildWikiPageSearch(page: WikiPage, routeBase: string, excerptPageId: string) {
+  const pageTitle = SEARCH_PAGE_TITLES[excerptPageId] ?? SEARCH_PAGE_TITLES[page.id] ?? null
+  const excerptMap: SearchExcerptMap = {}
+  let emitted = 0
+
+  const addDoc = (container: WikiSubsection, ancestors: string[]) => {
+    const { text, html, phrases } = containerSearchParts(container)
+    if (!container.title || !text) return
+    const id = `${routeBase}#${container.id}`
+    searchDocs.push({
+      id,
+      title: container.title,
+      titles: pageTitle ? [pageTitle, ...ancestors] : [...ancestors],
+      text,
+    })
+    if (html) excerptMap[container.id] = html
+    registerMetadata(id, phrases)
+    emitted++
+  }
+
   for (const section of page.sections) {
-    const walk = (container: WikiSubsection, sectionPath: string) => {
-      for (const entry of container.entries) {
-        if (!entry.title) {
-          skippedUntitled++
-          continue
-        }
-        searchDocs.push({
-          id: entry.id,
-          pageId: page.id,
-          pageTitle: page.title,
-          sectionPath,
-          anchor: container.id,
-          title: entry.title,
-          altTitles: entry.alternatives.map((a) => a.title),
-          url: entry.url,
-          description: entry.description,
-          tags: entry.tags,
-          starred: entry.starred,
-          isIndex: entry.marker === 'index',
-          nsfw: entry.nsfw,
-        })
+    addDoc(section, [])
+    for (const sub of section.subsections) addDoc(sub, [section.title])
+  }
+
+  // heading-less pages (other/backups.md is bold-paragraph structured): emit a
+  // single lead doc for the whole page — lead docs (no '#') carry no excerpt,
+  // matching the real client's lookupExcerptText early-return for hash-less ids
+  if (emitted === 0) {
+    const texts: string[] = []
+    const phrases: LinkPhrase[] = []
+    for (const section of page.sections) {
+      for (const container of [section, ...section.subsections]) {
+        const parts = containerSearchParts(container)
+        if (parts.text) texts.push(parts.text)
+        phrases.push(...parts.phrases)
       }
     }
-    walk(section, section.title)
-    for (const sub of section.subsections) walk(sub, `${section.title} › ${sub.title}`)
+    const text = texts.join(' ')
+    if (text) {
+      searchDocs.push({
+        id: routeBase,
+        title: page.title,
+        titles: pageTitle ? [pageTitle] : [],
+        text,
+      })
+      registerMetadata(routeBase, phrases)
+    }
+    return
+  }
+
+  if (Object.keys(excerptMap).length > 0) searchExcerpts.set(excerptPageId, excerptMap)
+}
+
+for (const page of pages.values()) {
+  buildWikiPageSearch(page, `/${page.id}`, page.id)
+}
+
+// other/backups.md is a wiki-bullet page routed at /other/backups (parsed for
+// routes in convert-fmhy.ts) — the real site indexes it, so parse it here too
+{
+  const backupsFile = join(DOCS_DIR, 'other', 'backups.md')
+  if (existsSync(backupsFile)) {
+    const { page: backupsPage } = parsePage(
+      'backups',
+      'Backups',
+      'FMHY mirrors & backups',
+      profileFor('backups'),
+      readFileSync(backupsFile, 'utf8'),
+    )
+    buildWikiPageSearch(backupsPage, '/other/backups', 'other/backups')
+  } else {
+    console.warn('missing docs/other/backups.md — skipped from search corpus')
   }
 }
 
@@ -471,7 +815,10 @@ const removed = generateRemovedMarkdown(ROOT)
 // prose search docs — mirrors the real site's indexing rules
 // (docs/.vitepress/constants.ts): other/* always, posts younger than 60 days,
 // sandbox/startpage/feedback excluded, <!-- search-exclude --> spans dropped,
-// admonition-container prose dropped (stripNoteBlocks), :::details kept
+// admonition-container prose dropped (stripNoteBlocks), :::details kept,
+// preamble before the first heading dropped (result.shift()). excerpts render
+// the FULL page blocks (the real site renders the live page component, where
+// search-exclude spans still exist).
 // ---------------------------------------------------------------------------
 
 const SEARCH_EXCLUDE_SPAN_RE =
@@ -481,6 +828,95 @@ const postCutoff = new Date()
 postCutoff.setMonth(postCutoff.getMonth() - 2)
 
 let proseSearchDocs = 0
+
+// prose block → simple excerpt HTML. info/tip/warning/danger containers are
+// excluded like the real excerpt builder (processExcerpts skips custom
+// blocks); :::details content stays.
+function proseBlockHtml(block: WikiProseBlock): string {
+  switch (block.kind) {
+    case 'paragraph':
+      return `<p>${inlineToHtml(block.markdown)}</p>`
+    case 'blockquote':
+      return `<blockquote><p>${inlineToHtml(block.markdown)}</p></blockquote>`
+    case 'list': {
+      const items = block.items
+        .map(
+          (item) =>
+            `<li>${inlineToHtml(item.markdown)}${item.children.map(proseBlockHtml).join('')}</li>`,
+        )
+        .join('')
+      return block.ordered ? `<ol>${items}</ol>` : `<ul>${items}</ul>`
+    }
+    case 'code':
+      return `<pre><code>${escapeHtml(block.code)}</code></pre>`
+    case 'container':
+      if (block.variant === 'details') return block.blocks.map(proseBlockHtml).join('')
+      return ''
+    case 'image':
+      return `<p><img src="${escapeHtml(block.src)}" alt="${escapeHtml(block.alt)}" loading="lazy" /></p>`
+    default:
+      return ''
+  }
+}
+
+// hyperlink phrases in a prose block (details recursed, notices skipped)
+function proseBlockPhrases(block: WikiProseBlock, out: LinkPhrase[]) {
+  switch (block.kind) {
+    case 'paragraph':
+    case 'blockquote':
+      for (const link of inlineLinkPhrases(block.markdown)) {
+        out.push({ phrase: link.text, starredBold: false })
+      }
+      break
+    case 'list':
+      for (const item of block.items) {
+        const starredLi = item.markdown.includes('⭐') || item.markdown.includes('🌟')
+        for (const link of inlineLinkPhrases(item.markdown)) {
+          out.push({ phrase: link.text, starredBold: starredLi && link.bold })
+        }
+        for (const child of item.children) proseBlockPhrases(child, out)
+      }
+      break
+    case 'container':
+      if (block.variant === 'details') {
+        for (const child of block.blocks) proseBlockPhrases(child, out)
+      }
+      break
+    default:
+      break
+  }
+}
+
+// per-anchor excerpt html + metadata phrases for a prose block stream
+function proseSectionData(blocks: WikiProseBlock[]): {
+  excerpts: SearchExcerptMap
+  phrasesByAnchor: Map<string, LinkPhrase[]>
+} {
+  const excerpts: SearchExcerptMap = {}
+  const phrasesByAnchor = new Map<string, LinkPhrase[]>()
+  let anchor: string | null = null
+  let html = ''
+  let phrases: LinkPhrase[] = []
+  const flush = () => {
+    if (anchor) {
+      if (html) excerpts[anchor] = html
+      if (phrases.length > 0) phrasesByAnchor.set(anchor, phrases)
+    }
+    html = ''
+    phrases = []
+  }
+  for (const block of blocks) {
+    if (block.kind === 'heading') {
+      flush()
+      anchor = block.id
+      continue
+    }
+    html += proseBlockHtml(block)
+    proseBlockPhrases(block, phrases)
+  }
+  flush()
+  return { excerpts, phrasesByAnchor }
+}
 
 for (const page of prosePages) {
   if (page.id === 'sandbox') continue
@@ -493,23 +929,53 @@ for (const page of prosePages) {
     page.id === 'recently-removed'
       ? parseProse(removed.markdown.replace(SEARCH_EXCLUDE_SPAN_RE, '')).blocks
       : page.blocks
+
+  const pageTitle = SEARCH_PAGE_TITLES[page.id] ?? null
+  const { excerpts, phrasesByAnchor } = proseSectionData(page.blocks)
+  // metadata must respect search-exclude spans (index-time semantics) — for
+  // recently-removed recompute the phrases from the stripped blocks
+  const indexPhrases =
+    page.id === 'recently-removed' ? proseSectionData(blocks).phrasesByAnchor : phrasesByAnchor
+
+  let emitted = false
   for (const section of splitForSearch(blocks)) {
+    // the real splitter drops content before the first heading
+    if (!section.anchor || !section.title) continue
+    if (!section.text) continue
+    const id = `${page.route}#${section.anchor}`
     searchDocs.push({
-      id: `${page.id}#${section.anchor || 'intro'}`,
-      pageId: page.id,
-      pageTitle: page.title,
-      sectionPath: section.path.join(' › '),
-      anchor: section.anchor,
-      title: section.title || page.title,
-      altTitles: [],
-      url: null,
-      description: section.text || null,
-      tags: [],
-      starred: false,
-      isIndex: false,
-      nsfw: false,
+      id,
+      title: section.title,
+      titles: pageTitle ? [pageTitle, ...section.path] : [...section.path],
+      text: stripInvisible(section.text).replace(/\s+/g, ' ').trim(),
     })
+    registerMetadata(id, indexPhrases.get(section.anchor) ?? [])
+    emitted = true
     proseSearchDocs++
+  }
+  if (emitted && Object.keys(excerpts).length > 0) {
+    searchExcerpts.set(page.id, excerpts)
+  }
+
+  // heading-less prose (recently-removed's generated body): one lead doc for
+  // the whole page — no excerpt, same as the real client's hash-less ids
+  if (!emitted) {
+    const text = splitForSearch(blocks)
+      .map((s) => s.text)
+      .filter(Boolean)
+      .join(' ')
+    if (text) {
+      const phrases: LinkPhrase[] = []
+      for (const block of blocks) proseBlockPhrases(block, phrases)
+      searchDocs.push({
+        id: page.route,
+        title: page.title,
+        titles: pageTitle ? [pageTitle] : [],
+        text: stripInvisible(text).replace(/\s+/g, ' ').trim(),
+      })
+      registerMetadata(page.route, phrases)
+      proseSearchDocs++
+    }
   }
 }
 
@@ -530,7 +996,13 @@ for (const page of prosePages) {
   writeFileSync(file, JSON.stringify(page))
 }
 writeFileSync(join(OUT_DIR, 'posts.json'), JSON.stringify(postsManifest))
-writeFileSync(join(OUT_DIR, 'search-corpus.json'), JSON.stringify(searchDocs))
+const searchCorpus: SearchCorpus = { docs: searchDocs, customMetadata: searchMetadata }
+writeFileSync(join(OUT_DIR, 'search-corpus.json'), JSON.stringify(searchCorpus))
+for (const [excerptPageId, excerptMap] of searchExcerpts) {
+  const file = join(OUT_DIR, 'excerpts', `${excerptPageId}.json`)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify(excerptMap))
+}
 writeFileSync(join(OUT_DIR, 'notes.json'), JSON.stringify(notes))
 writeFileSync(
   join(OUT_DIR, 'json-modules.d.ts'),
@@ -605,9 +1077,20 @@ console.info(
 console.info(
   `notes: ${Object.keys(notes).length} resolved${missingNotes.size ? `, MISSING: ${[...missingNotes].join(', ')}` : ''}`,
 )
-console.info(
-  `search corpus: ${searchDocs.length} docs (${skippedUntitled} untitled entries skipped, ${proseSearchDocs} prose docs)`,
-)
+{
+  // section-level corpus gate: every wiki page should contribute docs, and
+  // the metadata/excerpt maps must be populated alongside them
+  const ok =
+    searchDocs.length >= 500 &&
+    Object.keys(searchMetadata).length >= 400 &&
+    searchExcerpts.size >= pages.size
+  if (!ok) failed = true
+  console.info(
+    `search corpus: ${searchDocs.length} section docs (${proseSearchDocs} prose), ` +
+      `${Object.keys(searchMetadata).length} metadata sections, ` +
+      `${searchExcerpts.size} excerpt pages ${ok ? 'OK' : 'FAIL'}`,
+  )
+}
 console.info(`pages written: ${pages.size} → src/features/wiki/generated/`)
 {
   // prose pipeline gate: all nav-linked pages must exist, and the posts

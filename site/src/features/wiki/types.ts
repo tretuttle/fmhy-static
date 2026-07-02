@@ -184,20 +184,36 @@ export type WikiPostMeta = {
   description: string
 }
 
+// ---------------------------------------------------------------------------
+// search corpus — section-level docs mirroring fmhy.net's local-search index
+// (docs/.vitepress/constants.ts _splitIntoSections). one doc per (sub)section:
+// id is the in-app route ('/video#download-sites'), titles is the breadcrumb
+// (page title first — baked in at build time where the real client prepends
+// the sidebar title), text is the tag-free searchable content of the section's
+// OWN entries/prose (notices excluded, mirroring stripNoteBlocks).
+// ---------------------------------------------------------------------------
+
 export type SearchDoc = {
+  // '/pageId#anchor' — also the navigation target of the result row
   id: string
-  pageId: string
-  pageTitle: string
-  // "Section › Subsection"
-  sectionPath: string
-  // anchor of the (sub)section containing the entry
-  anchor: string
+  // the (sub)section's own title (the last breadcrumb segment)
   title: string
-  altTitles: string[]
-  url: string | null
-  description: string | null
-  tags: string[]
-  starred: boolean
-  isIndex: boolean
-  nsfw: boolean | 'partial'
+  // ancestor titles, page title first (e.g. ['📺 Movies / TV / Anime'])
+  titles: string[]
+  // tag-free searchable text of the section's own content
+  text: string
 }
+
+// per-section curated link phrases (constants.ts extractLinkMetadata):
+// l = regular hyperlink texts, s = starred-bold hyperlink texts — all
+// lowercased, invisible-chars-stripped, whitespace-collapsed
+export type SearchLinkMetadata = Record<string, { l?: string[]; s?: string[] }>
+
+export type SearchCorpus = {
+  docs: SearchDoc[]
+  customMetadata: SearchLinkMetadata
+}
+
+// generated/excerpts/<pageId>.json — rendered section HTML keyed by anchor,
+// the equivalent of fmhy.net's client-side page render + globalExcerptCache
+export type SearchExcerptMap = Record<string, string>

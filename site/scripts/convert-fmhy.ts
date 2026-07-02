@@ -245,4 +245,17 @@ for (const f of ['search-corpus.json', 'notes.json']) {
   copyFileSync(join(GENERATED, f), join(PUBLIC_DATA, f))
   published++
 }
+// search excerpt maps (generated/excerpts/**.json — nested for prose pages),
+// fetched on demand by the search modal's detailed view via loadExcerpts()
+const EXCERPTS = join(GENERATED, 'excerpts')
+if (existsSync(EXCERPTS)) {
+  for (const f of readdirSync(EXCERPTS, { recursive: true }) as string[]) {
+    const rel = f.replace(/\\/g, '/')
+    if (!rel.endsWith('.json') || !statSync(join(EXCERPTS, f)).isFile()) continue
+    const dest = join(PUBLIC_DATA, 'excerpts', rel)
+    mkdirSync(dirname(dest), { recursive: true })
+    copyFileSync(join(EXCERPTS, f), dest)
+    published++
+  }
+}
 console.info(`✓ published ${published} data files → public/data/`)

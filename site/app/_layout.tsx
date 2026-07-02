@@ -1,5 +1,6 @@
 import '@fontsource-variable/inter'
 import './root.css'
+import '~/features/wiki/search.css'
 
 import { Slot, usePathname } from 'one'
 import { useEffect, useRef } from 'react'

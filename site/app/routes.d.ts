@@ -10,7 +10,7 @@ declare module 'one' {
       DynamicRoutes: never
       DynamicRouteTemplate: never
       IsTyped: true
-
+      
     }
   }
 }

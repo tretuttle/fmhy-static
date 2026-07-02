@@ -1,713 +1,154 @@
+// wiki search modal — a faithful React port of fmhy.net's customized
+// VPLocalSearchBox.vue (template + behavior). markup keeps the upstream class
+// names and is styled by ./search.css (imported from app/_layout.tsx); the
+// engine lives in useWikiSearch.ts, DOM marking + scroll-to-match in
+// searchHighlight.ts.
+
 import { router, type Href } from 'one'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Input,
-  ScrollView,
-  Separator,
-  SizableText,
-  Spinner,
-  XStack,
-  YStack,
-  styled,
-  type TamaguiElement,
-} from 'tamagui'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { Link } from '~/components/Link'
-import { MagnifyingGlassIcon } from '~/icons/phosphor/MagnifyingGlassIcon'
-import { StarIcon } from '~/icons/phosphor/StarIcon'
-import { Text } from '~/interface/text/Text'
-
-import { openExternal } from './openExternal'
-import { toPlatformWikiRoute } from './routes'
 import { closeSearch, useSearchOpen } from './searchModal'
 import {
-  getExcerptMatches,
-  MAX_RESULTS,
-  peekExcerptSource,
-  useExcerptSource,
-  useWikiSearch,
-  type WikiSearchResult,
-} from './useWikiSearch'
+  centerMarkInExcerpt,
+  cancelPendingScroll,
+  formMarkRegex,
+  groupMarks,
+  isSamePath,
+  markRegExpIn,
+  mergeNearbyMarks,
+  scheduleScrollToMatch,
+  unmarkAll,
+} from './searchHighlight'
+import { useWikiSearch, type WikiDisplayResult } from './useWikiSearch'
 
-import type { HighlightSegment } from './searchHighlight'
-import type { SearchDoc } from './types'
-
-// initial slice + "show more" growth increment — mirrors fmhy.net's
-// RESULTS_PAGE_SIZE (VPLocalSearchBox.vue), just a slightly larger first page
-// since we don't paginate a results-info line update on every keystroke
-const INITIAL_RESULTS = 20
-const RESULTS_PAGE_SIZE = 16
-
-// tabbable-element query for the native focus trap below — mirrors what
-// focus-trap/tabbable considers focusable within the modal panel
+// tabbable-element query for the native focus trap — mirrors what
+// focus-trap/tabbable considers focusable within the modal shell
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
-// inline highlight renderer — must live inside a SizableText/Text parent
-function HighlightedText({ segments }: { segments: HighlightSegment[] }) {
-  if (segments.length === 0) return null
-  return (
-    <>
-      {segments.map((segment, index) =>
-        segment.match ? (
-          <Text key={index} color="$accent10" fontWeight="700">
-            {segment.text}
-          </Text>
-        ) : (
-          <Text key={index}>{segment.text}</Text>
-        )
-      )}
-    </>
-  )
+const LEAVE_DURATION_MS = 100
+
+const escapeHtml = (s: string): string =>
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+// upstream customTitles
+const TITLES = {
+  prevMatch: 'Previous match',
+  nextMatch: 'Next match',
+  fuzzyOn: 'Switch to Exact Search',
+  fuzzyOff: 'Switch to Fuzzy Search',
+  searching: 'Searching...',
+  cycleMatches: 'to cycle matches',
+  displayDetails: 'Display detailed list',
+  resetButtonTitle: 'Reset search',
+  backButtonTitle: 'Close search',
+  noResultsText: 'No results for',
+  buttonText: 'Search',
 }
 
-// detailed-view excerpt renderer: like HighlightedText, but each matched span
-// gets a stable id (for scrollIntoView) and the currently-active occurrence
-// is emphasized so match-cycling has something to visually land on
-function ExcerptText({
-  docId,
-  segments,
-  activeMatch,
+export function WikiSearchModal() {
+  const open = useSearchOpen()
+  const [hasOpenedOnce, setHasOpenedOnce] = useState(false)
+  // exit animation state: keep rendering with .vpl-leaving for a beat
+  const [visible, setVisible] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const visibleRef = useRef(false)
+
+  useEffect(() => {
+    if (open) {
+      setHasOpenedOnce(true)
+      setVisible(true)
+      visibleRef.current = true
+      setLeaving(false)
+      return
+    }
+    if (!visibleRef.current) return
+    setLeaving(true)
+    const timeout = setTimeout(() => {
+      setVisible(false)
+      visibleRef.current = false
+      setLeaving(false)
+    }, LEAVE_DURATION_MS)
+    return () => clearTimeout(timeout)
+  }, [open])
+
+  if (!hasOpenedOnce) return null
+  return <SearchBox open={open} visible={visible} leaving={leaving} />
+}
+
+function SearchBox({
+  open,
+  visible,
+  leaving,
 }: {
-  docId: string
-  segments: HighlightSegment[]
-  activeMatch: number
-}) {
-  let matchIndex = -1
-  return (
-    <>
-      {segments.map((segment, index) => {
-        if (!segment.match) {
-          return <Text key={index}>{segment.text}</Text>
-        }
-        matchIndex += 1
-        const isActive = matchIndex === activeMatch
-        return (
-          <Text
-            key={index}
-            id={`search-match-${docId}-${matchIndex}`}
-            color={isActive ? '$color1' : '$accent10'}
-            bg={isActive ? '$accent9' : undefined}
-            fontWeight="700"
-            rounded="$1"
-          >
-            {segment.text}
-          </Text>
-        )
-      })}
-    </>
-  )
-}
-
-// pill toggle replacing the native Switch — keeps the surface within tamagui primitives
-function PillToggle({
-  label,
-  ariaLabel,
-  value,
-  onChange,
-}: {
-  label: string
-  ariaLabel: string
-  value: boolean
-  onChange: (next: boolean) => void
-}) {
-  return (
-    <XStack
-      render="button"
-      aria-label={ariaLabel}
-      aria-pressed={value}
-      onPress={() => onChange(!value)}
-      items="center"
-      gap="$2"
-      px="$2.5"
-      py="$1.5"
-      rounded="$4"
-      cursor="pointer"
-      borderWidth={1}
-      borderColor={value ? '$accent8' : '$color5'}
-      bg={value ? '$accent4' : '$color2'}
-      hoverStyle={{ borderColor: value ? '$accent9' : '$color7' }}
-    >
-      <SizableText size="$2" color={value ? '$accent11' : '$color10'}>
-        {label}
-      </SizableText>
-    </XStack>
-  )
-}
-
-function routeFor(doc: SearchDoc): string {
-  return (
-    toPlatformWikiRoute(`/${doc.pageId}#${doc.anchor}`) ?? `/${doc.pageId}#${doc.anchor}`
-  )
-}
-
-// fmhy.net's result list is flat — every row shows its own full breadcrumb
-// (their `p.titles` array with chevron separators) instead of a shared
-// section header, e.g. "Internet Tools › Browser Tools"
-function breadcrumbFor(doc: SearchDoc): string {
-  return doc.sectionPath ? `${doc.pageTitle} › ${doc.sectionPath}` : doc.pageTitle
-}
-
-const Row = styled(XStack, {
-  items: 'center',
-  gap: '$2',
-  px: '$3',
-  py: '$2',
-  rounded: '$4',
-  cursor: 'pointer',
-  hoverStyle: { bg: '$color3' },
-
-  variants: {
-    selected: {
-      true: { bg: '$color4' },
-    },
-  } as const,
-})
-
-// small "‹ N / M ›" match navigator shown under a detailed-view excerpt when
-// it has more than one highlighted occurrence — mirrors fmhy.net's
-// match-nav-button / match-count (VPLocalSearchBox.vue ~:1804-1832)
-function MatchNav({
-  active,
-  count,
-  onPrev,
-  onNext,
-}: {
-  active: number
-  count: number
-  onPrev: () => void
-  onNext: () => void
-}) {
-  const safeActive = ((active % count) + count) % count
-  return (
-    <XStack items="center" gap="$1.5">
-      <SizableText
-        render="button"
-        aria-label="Previous match"
-        size="$3"
-        color="$color10"
-        cursor="pointer"
-        px="$1"
-        hoverStyle={{ color: '$color12' }}
-        onPress={onPrev}
-      >
-        ‹
-      </SizableText>
-      <SizableText size="$2" color="$color9" fontFamily="$mono">
-        {safeActive + 1} / {count}
-      </SizableText>
-      <SizableText
-        render="button"
-        aria-label="Next match"
-        size="$3"
-        color="$color10"
-        cursor="pointer"
-        px="$1"
-        hoverStyle={{ color: '$color12' }}
-        onPress={onNext}
-      >
-        ›
-      </SizableText>
-    </XStack>
-  )
-}
-
-function ResultRow({
-  result,
-  optionId,
-  selected,
-  detailedView,
-  activeMatch,
-  onHover,
-  onOpen,
-  onCommit,
-  onCycleMatch,
-}: {
-  result: WikiSearchResult
-  // listbox option id ("localsearch-item-N") referenced by the input's
-  // aria-activedescendant — index-based, matching VPLocalSearchBox
-  optionId: string
-  selected: boolean
-  detailedView: boolean
-  // current occurrence index within this result's excerpt (only meaningful
-  // once it has 2+ matches — see MatchNav)
-  activeMatch: number
-  onHover: () => void
-  // url results + keyboard activation: navigate programmatically
-  onOpen: () => void
-  // in-app results: <Link> navigates, this just commits the recent + closes
-  onCommit: () => void
-  onCycleMatch: (matchCount: number, direction: 1 | -1) => void
-}) {
-  const { doc, titleSegments, descriptionSegments, matchTerms } = result
-  const excerptSource = useExcerptSource(doc, detailedView)
-  const excerpt = detailedView ? getExcerptMatches(excerptSource, matchTerms) : null
-
-  const body = (
-    <YStack flex={1} gap="$0.5">
-      <SizableText size="$2" color="$color9">
-        {breadcrumbFor(doc)}
-      </SizableText>
-      <XStack items="center" gap="$2">
-        {doc.starred && <StarIcon size={12} color="$accent9" />}
-        <SizableText size="$4" fontWeight="600" color="$color12">
-          <HighlightedText segments={titleSegments} />
-        </SizableText>
-      </XStack>
-      {!detailedView && descriptionSegments.length > 0 && (
-        <SizableText size="$3" color="$color10" numberOfLines={2}>
-          <HighlightedText segments={descriptionSegments} />
-        </SizableText>
-      )}
-    </YStack>
-  )
-
-  // detailed view's excerpt + match-nav sit outside the pressable row/link so
-  // a nested <button> never lands inside an <a> (invalid + focus-order bugs)
-  const detailPanel = detailedView && (
-    <YStack px="$3" pb="$2" gap="$1.5" bg={selected ? '$color4' : undefined} rounded="$4">
-      {excerpt && excerpt.segments.length > 0 ? (
-        <>
-          <SizableText size="$3" color="$color10" lineHeight={20}>
-            <ExcerptText
-              docId={doc.id}
-              segments={excerpt.segments}
-              activeMatch={activeMatch}
-            />
-          </SizableText>
-          {excerpt.matchCount > 1 && (
-            <MatchNav
-              active={activeMatch}
-              count={excerpt.matchCount}
-              onPrev={() => onCycleMatch(excerpt.matchCount, -1)}
-              onNext={() => onCycleMatch(excerpt.matchCount, 1)}
-            />
-          )}
-        </>
-      ) : excerptSource === undefined ? (
-        <SizableText size="$3" color="$color8" fontStyle="italic">
-          Loading preview…
-        </SizableText>
-      ) : (
-        descriptionSegments.length > 0 && (
-          <SizableText size="$3" color="$color10" numberOfLines={2}>
-            <HighlightedText segments={descriptionSegments} />
-          </SizableText>
-        )
-      )}
-    </YStack>
-  )
-
-  return (
-    <YStack id={optionId} role="option" aria-selected={selected}>
-      {doc.url ? (
-        <Row
-          render="button"
-          aria-label={doc.title}
-          selected={selected}
-          onMouseEnter={onHover}
-          onPress={onOpen}
-        >
-          {body}
-        </Row>
-      ) : (
-        <Link href={routeFor(doc) as Href} asChild onPress={onCommit}>
-          <Row aria-label={doc.title} selected={selected} onMouseEnter={onHover}>
-            {body}
-          </Row>
-        </Link>
-      )}
-      {detailPanel}
-    </YStack>
-  )
-}
-
-function ModalInner({
-  onListVisibleChange,
-}: {
-  // reports whether the results listbox is currently rendered so the modal
-  // wrapper can point aria-owns at it only while it exists (VPLocalSearchBox
-  // gates its wrapper aria-owns on results.length the same way)
-  onListVisibleChange: (visible: boolean) => void
+  open: boolean
+  visible: boolean
+  leaving: boolean
 }) {
   const {
     query,
     setQuery,
     results,
-    loading,
+    totalResultsCount,
+    mayHaveMore,
+    isSearching,
+    enableNoResults,
     fuzzy,
     setFuzzy,
     detailedView,
     setDetailedView,
+    showMore,
     recent,
     commitRecent,
     removeRecent,
     clearRecent,
     suggestions,
+    shouldResetScrollRef,
   } = useWikiSearch()
 
-  const [selected, setSelected] = useState(0)
-  const [visibleCount, setVisibleCount] = useState(INITIAL_RESULTS)
-  const [activeMatchByDoc, setActiveMatchByDoc] = useState<Record<string, number>>({})
-  // bumped every time the modal opens so the input remounts and autoFocus
-  // re-fires — everything else here (query/results/selection/scroll) stays
-  // mounted across opens, so reopening ⌘K shows the same search state, the
-  // same way fmhy.net's module-level singleton refs survive modal remounts
-  const open = useSearchOpen()
-  const [openCount, setOpenCount] = useState(0)
-  useEffect(() => {
-    if (open) setOpenCount((c) => c + 1)
-  }, [open])
+  const [selectedIndex, setSelectedIndex] = useState(-1)
+  // match-navigation state per visible result index
+  const [resultMarks, setResultMarks] = useState<Map<number, HTMLElement[][]>>(new Map())
+  const [currentMarkIndex, setCurrentMarkIndex] = useState<Map<number, number>>(new Map())
 
-  const visibleResults = useMemo(
-    () => results.slice(0, visibleCount),
-    [results, visibleCount]
-  )
-  const hasMore = visibleCount < results.length
+  const shellRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const resultsElRef = useRef<HTMLUListElement>(null)
 
-  // the results listbox only exists in the DOM while we have rows to show —
-  // aria-controls/aria-owns/aria-activedescendant must not reference it
-  // otherwise (VPLocalSearchBox conditions the same ids on results.length)
-  const listVisible = !loading && visibleResults.length > 0
-  useEffect(() => {
-    onListVisibleChange(listVisible)
-  }, [listVisible, onListVisibleChange])
+  const disableMouseOver = useRef(true)
+  const isKeyboardAction = useRef(false)
 
-  useEffect(() => {
-    setSelected(0)
-    setVisibleCount(INITIAL_RESULTS)
-    setActiveMatchByDoc({})
-  }, [results])
+  // latest-value refs for the document-level keyboard handlers
+  const stateRef = useRef({
+    query,
+    results,
+    selectedIndex,
+    detailedView,
+    resultMarks,
+    currentMarkIndex,
+  })
+  stateRef.current = { query, results, selectedIndex, detailedView, resultMarks, currentMarkIndex }
 
-  const finish = () => {
-    commitRecent(query)
-    closeSearch()
-  }
+  const focusSearchInput = useCallback((select = true) => {
+    inputRef.current?.focus()
+    if (select) inputRef.current?.select()
+  }, [])
 
-  const openResult = (result: WikiSearchResult) => {
-    finish()
-    if (result.doc.url) {
-      openExternal(result.doc.url)
-    } else {
-      router.navigate(routeFor(result.doc) as Href)
-    }
-  }
-
-  const cycleMatch = (docId: string, matchCount: number, direction: 1 | -1) => {
-    if (matchCount <= 0) return
-    const current = activeMatchByDoc[docId] ?? 0
-    const next = (((current + direction) % matchCount) + matchCount) % matchCount
-    setActiveMatchByDoc((prev) => ({ ...prev, [docId]: next }))
-    if (typeof document !== 'undefined') {
-      document
-        .getElementById(`search-match-${docId}-${next}`)
-        ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    }
-  }
-
-  const onInputKeyDown = (e: { nativeEvent: KeyboardEvent }) => {
-    const ne = e.nativeEvent
-    const key = ne.key
-
-    if (key === 'ArrowDown') {
-      setSelected((s) => (visibleResults.length ? (s + 1) % visibleResults.length : 0))
-    } else if (key === 'ArrowUp') {
-      setSelected((s) =>
-        visibleResults.length
-          ? (s - 1 + visibleResults.length) % visibleResults.length
-          : 0
-      )
-    } else if (key === 'ArrowLeft' || key === 'ArrowRight') {
-      // detailed-view-only: cycle matches within the selected result when the
-      // caret sits at the edge the arrow points toward, so normal cursor
-      // movement inside the query text is left alone everywhere else
-      const target = visibleResults[selected]
-      if (!target || !detailedView) return
-      const excerpt = getExcerptMatches(peekExcerptSource(target.doc), target.matchTerms)
-      if (!excerpt || excerpt.matchCount <= 1) return
-      const input = ne.target as HTMLInputElement | null
-      const atStart = !input || (input.selectionStart === 0 && input.selectionEnd === 0)
-      const atEnd =
-        !input ||
-        (input.selectionStart === input.value.length &&
-          input.selectionEnd === input.value.length)
-      if (key === 'ArrowLeft' && atStart) {
-        ne.preventDefault()
-        cycleMatch(target.doc.id, excerpt.matchCount, -1)
-      } else if (key === 'ArrowRight' && atEnd) {
-        ne.preventDefault()
-        cycleMatch(target.doc.id, excerpt.matchCount, 1)
-      }
-    } else if (key === 'Enter') {
-      const result = visibleResults[selected] ?? visibleResults[0]
-      if (result) openResult(result)
-    } else if (key === 'Escape') {
-      closeSearch()
-    }
-  }
-
-  return (
-    <YStack gap="$3">
-      <XStack items="center" gap="$3">
-        {/* label + combobox attrs mirror VPLocalSearchBox's markup: the label
-            (search icon) names the input/list via aria-labelledby, and the
-            input drives the listbox with aria-controls/aria-activedescendant */}
-        <XStack
-          render="label"
-          id="localsearch-label"
-          items="center"
-          // dom-only <label> attrs tamagui's prop types don't know about
-          {...({ htmlFor: 'localsearch-input', title: 'Search' } as any)}
-        >
-          <MagnifyingGlassIcon size={20} color="$color10" />
-        </XStack>
-        <Input
-          key={openCount}
-          id="localsearch-input"
-          flex={1}
-          placeholder="Search the wiki..."
-          value={query}
-          onChangeText={setQuery}
-          onKeyDown={onInputKeyDown}
-          autoFocus
-          aria-autocomplete="both"
-          aria-labelledby="localsearch-label"
-          aria-controls={listVisible ? 'localsearch-list' : undefined}
-          aria-activedescendant={
-            listVisible ? `localsearch-item-${selected}` : undefined
-          }
-        />
-      </XStack>
-
-      <XStack items="center" justify="space-between" px="$1">
-        <SizableText size="$2" color="$color10">
-          {fuzzy ? 'Fuzzy matching on' : 'Exact matching'}
-        </SizableText>
-        <XStack items="center" gap="$2">
-          <PillToggle
-            label="Detailed"
-            ariaLabel="Toggle detailed view"
-            value={detailedView}
-            onChange={setDetailedView}
-          />
-          <PillToggle
-            label="Fuzzy"
-            ariaLabel="Toggle fuzzy search"
-            value={fuzzy}
-            onChange={setFuzzy}
-          />
-        </XStack>
-      </XStack>
-
-      <Separator opacity={0.4} />
-
-      <ScrollView maxHeight={440} showsVerticalScrollIndicator={false}>
-        <YStack
-          gap="$1"
-          id={listVisible ? 'localsearch-list' : undefined}
-          aria-labelledby={listVisible ? 'localsearch-label' : undefined}
-          tabIndex={-1}
-          // 'listbox' is missing from tamagui's Role union but valid ARIA
-          {...({ role: listVisible ? 'listbox' : undefined } as any)}
-        >
-          {!query.trim() && recent.length > 0 && (
-            <YStack gap="$2" px="$2" pb="$2">
-              <XStack items="center" justify="space-between">
-                <SizableText
-                  size="$2"
-                  fontWeight="600"
-                  color="$color10"
-                  textTransform="uppercase"
-                  letterSpacing={0.5}
-                >
-                  Recent
-                </SizableText>
-                <SizableText
-                  size="$2"
-                  color="$color9"
-                  cursor="pointer"
-                  onPress={clearRecent}
-                >
-                  Clear all
-                </SizableText>
-              </XStack>
-              <XStack gap="$2" flexWrap="wrap">
-                {recent.map((item) => (
-                  <XStack
-                    key={item}
-                    items="center"
-                    gap="$1.5"
-                    pl="$3"
-                    pr="$2"
-                    py="$1.5"
-                    rounded="$10"
-                    borderWidth={1}
-                    borderColor="$color5"
-                    bg="$color2"
-                    hoverStyle={{ borderColor: '$color7' }}
-                  >
-                    <SizableText
-                      render="button"
-                      aria-label={item}
-                      size="$3"
-                      color="$color11"
-                      cursor="pointer"
-                      onPress={() => setQuery(item)}
-                    >
-                      {item}
-                    </SizableText>
-                    <SizableText
-                      render="button"
-                      aria-label={`Remove ${item}`}
-                      size="$3"
-                      color="$color9"
-                      cursor="pointer"
-                      hoverStyle={{ color: '$color11' }}
-                      onPress={() => removeRecent(item)}
-                    >
-                      ×
-                    </SizableText>
-                  </XStack>
-                ))}
-              </XStack>
-            </YStack>
-          )}
-
-          {loading && (
-            <YStack items="center" py="$6" gap="$3">
-              <Spinner size="large" />
-            </YStack>
-          )}
-
-          {!loading && !!query.trim() && visibleResults.length === 0 && (
-            <YStack py="$4" gap="$3">
-              <SizableText size="$4" color="$color10" text="center">
-                No results found
-              </SizableText>
-              {!fuzzy && (
-                <XStack justify="center">
-                  <SizableText
-                    render="button"
-                    aria-label="Try fuzzy search"
-                    size="$3"
-                    color="$accent10"
-                    cursor="pointer"
-                    onPress={() => setFuzzy(true)}
-                  >
-                    Try fuzzy search?
-                  </SizableText>
-                </XStack>
-              )}
-              {suggestions.length > 0 && (
-                <YStack gap="$1">
-                  <SizableText size="$2" color="$color9" px="$2">
-                    Did you mean
-                  </SizableText>
-                  {suggestions.map((suggestion) => (
-                    <XStack
-                      key={suggestion}
-                      render="button"
-                      aria-label={suggestion}
-                      px="$3"
-                      py="$2"
-                      rounded="$4"
-                      cursor="pointer"
-                      hoverStyle={{ bg: '$color3' }}
-                      onPress={() => setQuery(suggestion)}
-                    >
-                      <SizableText size="$4" color="$color11">
-                        {suggestion}
-                      </SizableText>
-                    </XStack>
-                  ))}
-                </YStack>
-              )}
-            </YStack>
-          )}
-
-          {!loading && !!query.trim() && results.length > 0 && (
-            <SizableText size="$2" color="$color9" px="$2" pb="$1">
-              Showing {visibleResults.length} of {results.length}
-              {results.length >= MAX_RESULTS ? '+' : ''} matches
-            </SizableText>
-          )}
-
-          {!loading &&
-            visibleResults.map((result, index) => (
-              <ResultRow
-                key={result.doc.id}
-                result={result}
-                optionId={`localsearch-item-${index}`}
-                selected={index === selected}
-                detailedView={detailedView}
-                activeMatch={activeMatchByDoc[result.doc.id] ?? 0}
-                onHover={() => setSelected(index)}
-                onOpen={() => openResult(result)}
-                onCommit={finish}
-                onCycleMatch={(matchCount, direction) =>
-                  cycleMatch(result.doc.id, matchCount, direction)
-                }
-              />
-            ))}
-
-          {!loading && hasMore && (
-            <XStack justify="center" py="$2">
-              <SizableText
-                render="button"
-                aria-label="Show more results"
-                size="$3"
-                color="$accent10"
-                cursor="pointer"
-                onPress={() =>
-                  setVisibleCount((c) => Math.min(results.length, c + RESULTS_PAGE_SIZE))
-                }
-              >
-                Show more results ({results.length - visibleResults.length} remaining)
-              </SizableText>
-            </XStack>
-          )}
-        </YStack>
-      </ScrollView>
-    </YStack>
-  )
-}
-
-// the integrator mounts this once in _layout and owns the global ⌘K listener;
-// here we only render the overlay while the shared store says it is open.
-// ModalInner stays mounted after the first open (just hidden) so query/
-// results/scroll state survives closing and reopening the modal.
-export function WikiSearchModal() {
-  const open = useSearchOpen()
-  const [hasOpenedOnce, setHasOpenedOnce] = useState(false)
-  const [listVisible, setListVisible] = useState(false)
-  const panelRef = useRef<TamaguiElement | null>(null)
-
-  useEffect(() => {
-    if (open) setHasOpenedOnce(true)
-  }, [open])
-
-  // VPLocalSearchBox parity, active only while the modal is open:
-  // 1. focus trap — the real site runs focus-trap with { allowOutsideClick,
-  //    clickOutsideDeactivates, escapeDeactivates } (returnFocusOnDeactivate
-  //    defaults true). done natively: Tab/Shift+Tab cycle the panel's
-  //    focusables; the pre-open activeElement is captured here (before the
-  //    input's key-remount autofocus fires on the next commit) and restored
-  //    on close. click-outside/Escape closing already exist elsewhere.
-  // 2. body scroll lock — the real site uses vueuse useScrollLock(body).
-  //    root.css puts overflow:auto on BOTH html and body (the :has
-  //    .body-scrollable rules), and body's overflow only propagates to the
-  //    viewport when html's is `visible`, so html is the actual page
-  //    scroller here — lock both with inline styles (inline beats the
-  //    stylesheet rule) and restore the prior values on close.
-  // 3. back-button close — the real bundle runs
-  //    `window.history.pushState && window.history.pushState(null,'',null)`
-  //    on mount and closes on popstate; it never calls history.back() on a
-  //    non-popstate close (the entry is left behind), so we match that.
+  // -------------------------------------------------------------------------
+  // open side-effects: focus + select, scroll lock, pushState/popstate close,
+  // focus trap, focus restore (all verified against the production bundle)
+  // -------------------------------------------------------------------------
   useEffect(() => {
     if (!open || typeof document === 'undefined') return
 
     const previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null
+
+    focusSearchInput()
 
     const html = document.documentElement
     const body = document.body
@@ -720,13 +161,11 @@ export function WikiSearchModal() {
     const onPopState = () => closeSearch()
     window.addEventListener('popstate', onPopState)
 
-    const onKeyDown = (event: KeyboardEvent) => {
+    const onTrapKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') return
-      const panel = panelRef.current as HTMLElement | null
-      if (!panel) return
-      const focusables = Array.from(
-        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-      )
+      const shell = shellRef.current
+      if (!shell) return
+      const focusables = Array.from(shell.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
       const first = focusables[0]
       const last = focusables[focusables.length - 1]
       if (!first || !last) {
@@ -734,76 +173,824 @@ export function WikiSearchModal() {
         return
       }
       const active = document.activeElement
-      const activeInPanel = active instanceof HTMLElement && panel.contains(active)
+      const activeInShell = active instanceof HTMLElement && shell.contains(active)
       if (event.shiftKey) {
-        if (!activeInPanel || active === first) {
+        if (!activeInShell || active === first) {
           event.preventDefault()
           last.focus()
         }
-      } else if (!activeInPanel || active === last) {
+      } else if (!activeInShell || active === last) {
         event.preventDefault()
         first.focus()
       }
     }
-    document.addEventListener('keydown', onKeyDown, true)
+    document.addEventListener('keydown', onTrapKeyDown, true)
 
     return () => {
-      document.removeEventListener('keydown', onKeyDown, true)
+      document.removeEventListener('keydown', onTrapKeyDown, true)
       window.removeEventListener('popstate', onPopState)
       html.style.overflow = prevHtmlOverflow
       body.style.overflow = prevBodyOverflow
       if (previouslyFocused?.isConnected) previouslyFocused.focus()
     }
-  }, [open])
+  }, [open, focusSearchInput])
 
-  if (!hasOpenedOnce) return null
+  // -------------------------------------------------------------------------
+  // highlight marking — runs only when the rendered result set changes
+  // (upstream watcher 2's DOM half: mark → merge → center → group)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!open) return
+    const resultsEl = resultsElRef.current
+    if (!resultsEl) return
+
+    unmarkAll(resultsEl)
+
+    const newResultMarks = new Map<number, HTMLElement[][]>()
+    const newCurrentMarkIndex = new Map<number, number>()
+
+    if (query.trim() && results.length > 0) {
+      const terms = new Set<string>()
+      if (fuzzy) {
+        for (const r of results) for (const t of r.matchedTerms) terms.add(t)
+      } else {
+        terms.add(query)
+      }
+      const regex = formMarkRegex(terms, query, fuzzy)
+      const items = Array.from(resultsEl.querySelectorAll('.result-item'))
+      if (regex) {
+        for (const item of items) {
+          for (const target of Array.from(item.querySelectorAll('.titles, .excerpt'))) {
+            markRegExpIn(target, regex, ['.title-icon'])
+          }
+        }
+      }
+
+      const excerpts = Array.from(
+        resultsEl.querySelectorAll('.result .excerpt'),
+      ) as HTMLElement[]
+
+      if (fuzzy) mergeNearbyMarks(excerpts)
+
+      // batch-read then batch-write: center each excerpt on its first mark
+      const scrollTargets: { excerpt: HTMLElement; scrollTop: number }[] = []
+      for (const excerpt of excerpts) {
+        const markElement = excerpt.querySelector(
+          'mark[data-markjs="true"]',
+        ) as HTMLElement | null
+        if (markElement) {
+          let offsetTop = 0
+          let curr: HTMLElement | null = markElement
+          while (curr && curr !== excerpt) {
+            offsetTop += curr.offsetTop
+            curr = curr.offsetParent as HTMLElement | null
+          }
+          const scrollTop =
+            offsetTop - (excerpt.clientHeight || 80) / 2 + markElement.offsetHeight / 2
+          scrollTargets.push({ excerpt, scrollTop })
+        }
+      }
+      for (const { excerpt, scrollTop } of scrollTargets) {
+        excerpt.scrollTop = scrollTop
+      }
+
+      items.forEach((item, index) => {
+        const marks = Array.from(
+          item.querySelectorAll('.excerpt mark[data-markjs="true"]'),
+        ) as HTMLElement[]
+        if (marks.length > 0) {
+          newResultMarks.set(index, groupMarks(marks))
+          newCurrentMarkIndex.set(index, 0)
+        }
+      })
+    }
+
+    setResultMarks(newResultMarks)
+    setCurrentMarkIndex(newCurrentMarkIndex)
+
+    if (shouldResetScrollRef.current) {
+      resultsEl.scrollTop = 0
+      shouldResetScrollRef.current = false
+    }
+  }, [open, results, query, fuzzy, detailedView, shouldResetScrollRef])
+
+  // -------------------------------------------------------------------------
+  // selection bookkeeping
+  // -------------------------------------------------------------------------
+
+  const scrollToSelectedResult = useCallback(() => {
+    requestAnimationFrame(() => {
+      const selectedEl = resultsElRef.current?.querySelector('.result-item .result.selected')
+      selectedEl?.scrollIntoView({ block: 'nearest' })
+    })
+  }, [])
+
+  // results changed: keep selection on the same id when possible, else -1
+  const prevResultsRef = useRef<WikiDisplayResult[]>([])
+  useEffect(() => {
+    const oldR = prevResultsRef.current
+    prevResultsRef.current = results
+    // show-more expansion: first result unchanged and list grew — keep position
+    if (oldR.length > 0 && results.length > oldR.length && results[0]?.id === oldR[0]?.id) {
+      return
+    }
+    let newIdx = -1
+    const prevSelected = stateRef.current.selectedIndex
+    if (oldR.length > 0 && prevSelected >= 0 && prevSelected < oldR.length) {
+      const prevId = oldR[prevSelected]?.id
+      const foundIdx = results.findIndex((r) => r.id === prevId)
+      if (foundIdx !== -1) newIdx = foundIdx
+    }
+    setSelectedIndex(newIdx)
+    scrollToSelectedResult()
+  }, [results, scrollToSelectedResult])
+
+  // selection changed: move the yellow 'current' mark, keyboard-scroll excerpt
+  const prevSelectedIndexRef = useRef(-1)
+  useEffect(() => {
+    const oldIdx = prevSelectedIndexRef.current
+    prevSelectedIndexRef.current = selectedIndex
+
+    if (oldIdx >= 0 && oldIdx !== selectedIndex) {
+      const marks = resultMarks.get(oldIdx)
+      const curr = currentMarkIndex.get(oldIdx) ?? 0
+      marks?.[curr]?.forEach((m) => m.classList.remove('current'))
+    }
+
+    if (selectedIndex >= 0) {
+      const isKb = isKeyboardAction.current
+      isKeyboardAction.current = false
+      const marks = resultMarks.get(selectedIndex)
+      const curr = currentMarkIndex.get(selectedIndex) ?? 0
+      marks?.[curr]?.forEach((m) => m.classList.add('current'))
+      const activeMark = marks?.[curr]?.[0]
+      const excerpt = activeMark?.closest('.excerpt') as HTMLElement | null
+      // only smooth-scroll on keyboard-driven selection (upstream isKeyboardAction)
+      if (isKb && excerpt && activeMark) {
+        centerMarkInExcerpt(activeMark, excerpt, true)
+      }
+    }
+  }, [selectedIndex, resultMarks, currentMarkIndex])
+
+  // -------------------------------------------------------------------------
+  // match cycling (‹ N/M › + ArrowLeft/Right)
+  // -------------------------------------------------------------------------
+
+  const cycleMatch = useCallback(
+    (index: number, direction: 1 | -1) => {
+      const { resultMarks: marksMap, currentMarkIndex: currentMap } = stateRef.current
+      if (stateRef.current.selectedIndex !== index) setSelectedIndex(index)
+      const marks = marksMap.get(index)
+      if (!marks) return
+      let curr = currentMap.get(index) ?? 0
+
+      marks[curr]?.forEach((m) => m.classList.remove('current'))
+      curr = (curr + direction + marks.length) % marks.length
+
+      const nextMap = new Map(currentMap)
+      nextMap.set(index, curr)
+      setCurrentMarkIndex(nextMap)
+
+      const newGroup = marks[curr]
+      if (newGroup && newGroup.length > 0) {
+        newGroup.forEach((m) => m.classList.add('current'))
+        const newMark = newGroup[0]!
+        const excerpt = newMark.closest('.excerpt') as HTMLElement | null
+        if (excerpt) centerMarkInExcerpt(newMark, excerpt, true)
+      }
+    },
+    [],
+  )
+
+  // -------------------------------------------------------------------------
+  // navigation
+  // -------------------------------------------------------------------------
+
+  // text content of the container holding the active mark group — identifies
+  // the SPECIFIC item the user was looking at so we scroll to the right one
+  const getMatchContext = useCallback((resultIndex: number): string | null => {
+    const { resultMarks: marksMap, currentMarkIndex: currentMap } = stateRef.current
+    const marks = marksMap.get(resultIndex)
+    const curr = currentMap.get(resultIndex) ?? 0
+    if (!marks || !marks[curr] || marks[curr].length === 0) return null
+    const mark = marks[curr][0]!
+    const container = mark.closest('li, p, td, dd, blockquote')
+    if (!container) return null
+    return container.textContent?.trim() || null
+  }, [])
+
+  const navigateToResult = useCallback((id: string, matchContext: string | null) => {
+    // dismiss the mobile keyboard so the viewport settles before scrolling
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+
+    const [path = '', hash] = id.split('#')
+    const searchQuery = stateRef.current.query
+    let decodedHash: string | null = null
+    try {
+      decodedHash = hash ? decodeURIComponent(hash) : null
+    } catch {
+      /* malformed URI */
+    }
+
+    cancelPendingScroll()
+
+    if (decodedHash && isSamePath(path)) {
+      const targetEl = document.getElementById(decodedHash)
+      if (targetEl) {
+        closeSearch()
+        window.history.pushState(null, '', `#${hash}`)
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+        scheduleScrollToMatch(hash!, searchQuery, isMobile ? 300 : 80, matchContext)
+        return
+      }
+    }
+
+    closeSearch()
+    router.navigate(id as Href)
+    if (hash) {
+      scheduleScrollToMatch(hash, searchQuery, 150, matchContext, path)
+    }
+  }, [])
+
+  const activateResult = useCallback(
+    (index: number) => {
+      const result = stateRef.current.results[index]
+      if (!result) return
+      commitRecent(stateRef.current.query)
+      navigateToResult(result.id, getMatchContext(index))
+    },
+    [commitRecent, navigateToResult, getMatchContext],
+  )
+
+  const handleResultClick = useCallback(
+    (e: React.MouseEvent, index: number) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return
+      e.preventDefault()
+      activateResult(index)
+    },
+    [activateResult],
+  )
+
+  // -------------------------------------------------------------------------
+  // keyboard — exact onKeyStroke ports
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!open) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const { results: res, selectedIndex: selected, detailedView: detailed } = stateRef.current
+      const resultsEl = resultsElRef.current
+      const input = inputRef.current
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        isKeyboardAction.current = true
+        if (resultsEl && document.activeElement === resultsEl && selected === 0) {
+          setSelectedIndex(-1)
+          input?.focus()
+          return
+        }
+        if (resultsEl && document.activeElement === input) {
+          resultsEl.focus()
+          // fall through to wrap to bottom
+        }
+        let next = selected - 1
+        if (next < 0) next = res.length - 1
+        setSelectedIndex(next)
+        disableMouseOver.current = true
+        scrollToSelectedResult()
+        return
+      }
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        isKeyboardAction.current = true
+        if (resultsEl && document.activeElement === input) {
+          resultsEl.focus()
+          // fall through to select first item (from -1 to 0)
+        }
+        let next = selected + 1
+        if (next >= res.length) next = 0
+        setSelectedIndex(next)
+        disableMouseOver.current = true
+        scrollToSelectedResult()
+        return
+      }
+
+      if (event.key === 'Enter') {
+        if (event.isComposing) return
+        if (event.target instanceof HTMLButtonElement && event.target.type !== 'submit') {
+          return
+        }
+        let index = selected
+        // fall back to first result when Enter is pressed with no selection
+        if (index < 0 || index >= res.length) {
+          index = selected === -1 && res.length > 0 ? 0 : -1
+        }
+        if (event.target instanceof HTMLInputElement && index === -1) {
+          event.preventDefault()
+          return
+        }
+        if (index >= 0) activateResult(index)
+        return
+      }
+
+      if (event.key === 'Escape') {
+        closeSearch()
+        return
+      }
+
+      if (event.key === 'ArrowLeft') {
+        if (event.repeat) return
+        const targetIndex = selected === -1 ? 0 : selected
+        if (document.activeElement === input && input) {
+          if (event.altKey || event.ctrlKey) {
+            // modifier always forces nav
+          } else {
+            // hijack only when the caret sits at the start of the input
+            const { selectionStart, selectionEnd } = input
+            if (selectionStart !== 0 || selectionEnd !== 0) return
+            isKeyboardAction.current = true
+            if (selected === -1) setSelectedIndex(0)
+            resultsEl?.focus()
+            event.preventDefault()
+            return
+          }
+        }
+        if (detailed && (stateRef.current.resultMarks.get(targetIndex)?.length ?? 0) > 0) {
+          event.preventDefault()
+          cycleMatch(targetIndex, -1)
+        }
+        return
+      }
+
+      if (event.key === 'ArrowRight') {
+        if (event.repeat) return
+        const targetIndex = selected === -1 ? 0 : selected
+        if (document.activeElement === input && input) {
+          if (event.shiftKey) return
+          if (event.altKey || event.ctrlKey) {
+            // allow modifier to force nav
+          } else {
+            // hijack only when the caret sits at the end of the input
+            const { selectionStart, selectionEnd, value } = input
+            if (selectionStart !== value.length || selectionEnd !== value.length) return
+            isKeyboardAction.current = true
+            if (selected === -1) setSelectedIndex(0)
+            resultsEl?.focus()
+            event.preventDefault()
+            return
+          }
+        }
+        if (detailed && (stateRef.current.resultMarks.get(targetIndex)?.length ?? 0) > 0) {
+          event.preventDefault()
+          cycleMatch(targetIndex, 1)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [open, activateResult, cycleMatch, scrollToSelectedResult])
+
+  // disableMouseOver pattern: keyboard nav disables hover selection until a
+  // REAL mouse move (position actually changed)
+  const lastMouse = useRef({ x: 0, y: 0 })
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    if (e.clientX === lastMouse.current.x && e.clientY === lastMouse.current.y) return
+    lastMouse.current = { x: e.clientX, y: e.clientY }
+    if (disableMouseOver.current) {
+      disableMouseOver.current = false
+      return
+    }
+    const el = (e.target as HTMLElement | null)?.closest<HTMLElement>('.result-item')
+    const index = el?.dataset?.index ? Number.parseInt(el.dataset.index) : -1
+    if (index >= 0 && index !== stateRef.current.selectedIndex) {
+      setSelectedIndex(index)
+    }
+  }, [])
+
+  const onSearchBarPointerUp = useCallback(
+    (event: React.PointerEvent) => {
+      if (event.pointerType === 'mouse') focusSearchInput(false)
+    },
+    [focusSearchInput],
+  )
+
+  const applySuggestion = useCallback(
+    (s: string) => {
+      setQuery(s)
+      focusSearchInput(false)
+    },
+    [setQuery, focusSearchInput],
+  )
+
+  const resetSearch = useCallback(() => {
+    setQuery('')
+    requestAnimationFrame(() => focusSearchInput(false))
+  }, [setQuery, focusSearchInput])
+
+  // -------------------------------------------------------------------------
+  // render
+  // -------------------------------------------------------------------------
+
+  const hasResults = results.length > 0
+  const listId = hasResults ? 'localsearch-list' : undefined
+  const showNoResults = !!query && !hasResults && !isSearching && enableNoResults
+  const showMoreVisible = !isSearching && (results.length < totalResultsCount || mayHaveMore)
 
   return (
-    <YStack
-      position="fixed"
-      inset={0}
-      z={400_000}
-      items="center"
-      pt="$10"
-      px="$4"
-      display={open ? 'flex' : 'none'}
-      pointerEvents={open ? 'auto' : 'none'}
-      onPress={() => closeSearch()}
-      // wrapper a11y contract copied from the real bundle's root div
-      // (role="button" + haspopup/expanded/owns/labelledby — VitePress does
-      // not use role="dialog" here)
+    <div
       role="button"
+      aria-owns={listId}
       aria-expanded={true}
+      aria-haspopup="listbox"
       aria-labelledby="localsearch-label"
-      // aria-haspopup/aria-owns are absent from tamagui's prop types
-      {...({
-        'aria-haspopup': 'listbox',
-        'aria-owns': listVisible ? 'localsearch-list' : undefined,
-      } as any)}
+      className={`VPLocalSearchBox${leaving ? ' vpl-leaving' : ''}`}
+      style={{ display: visible ? 'flex' : 'none' }}
     >
-      <YStack position="absolute" inset={0} bg="$shadow6" backdropFilter="blur(3px)" />
-      <YStack
-        ref={panelRef}
-        position="relative"
-        z={1}
-        width="100%"
-        maxW={640}
-        maxH="70vh"
-        overflow="hidden"
-        bg="$background08"
-        borderWidth={0.5}
-        borderColor="$color3"
-        rounded="$8"
-        p="$3"
-        gap="$2"
-        backdropFilter="blur(25px)"
-        shadowColor="$shadow3"
-        shadowRadius={20}
-        shadowOffset={{ height: 20, width: 0 }}
-        onPress={(e) => e.stopPropagation()}
+      <div className="backdrop" onClick={() => closeSearch()} />
+
+      <div className="shell" ref={shellRef}>
+        <form
+          className="search-bar"
+          onPointerUp={onSearchBarPointerUp}
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <label id="localsearch-label" title={TITLES.buttonText} htmlFor="localsearch-input">
+            <span aria-hidden="true" className="vpi-search search-icon local-search-icon" />
+          </label>
+          <div className="search-actions before">
+            <button
+              type="button"
+              className="back-button"
+              title={TITLES.backButtonTitle}
+              onClick={() => closeSearch()}
+            >
+              <span className="vpi-arrow-left local-search-icon" />
+            </button>
+          </div>
+          <input
+            id="localsearch-input"
+            ref={inputRef}
+            value={query}
+            aria-activedescendant={
+              selectedIndex > -1 ? `localsearch-item-${selectedIndex}` : undefined
+            }
+            aria-autocomplete="both"
+            aria-controls={listId}
+            aria-labelledby="localsearch-label"
+            autoCapitalize="off"
+            autoComplete="off"
+            autoCorrect="off"
+            className="search-input"
+            enterKeyHint="go"
+            maxLength={64}
+            placeholder={TITLES.buttonText}
+            spellCheck={false}
+            type="search"
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div className="search-actions">
+            {isSearching && (
+              <span
+                className="vp-search-spinner"
+                style={{ alignSelf: 'center', margin: '0 4px' }}
+                title={TITLES.searching}
+              />
+            )}
+
+            <button
+              className={`toggle-layout-button${detailedView ? ' detailed-list' : ''}`}
+              type="button"
+              aria-pressed={detailedView}
+              title={TITLES.displayDetails}
+              onClick={() => setDetailedView(!detailedView)}
+            >
+              <span className="vpi-layout-list local-search-icon" />
+            </button>
+
+            <button
+              className={`toggle-fuzzy-button${fuzzy ? ' fuzzy-active' : ''}`}
+              type="button"
+              aria-pressed={fuzzy}
+              title={fuzzy ? TITLES.fuzzyOn : TITLES.fuzzyOff}
+              onClick={() => setFuzzy(!fuzzy)}
+            >
+              {fuzzy ? (
+                <span className="fuzzy-icon">~</span>
+              ) : (
+                <span className="exact-icon">=</span>
+              )}
+              <span className="visually-hidden">
+                {fuzzy ? 'Fuzzy Search Active' : 'Exact Search Active'}
+              </span>
+            </button>
+
+            <button
+              className="clear-button"
+              type="reset"
+              disabled={!query}
+              title={TITLES.resetButtonTitle}
+              onClick={resetSearch}
+            >
+              <span className="vpi-delete local-search-icon" />
+            </button>
+          </div>
+        </form>
+
+        <ul
+          id={listId}
+          ref={resultsElRef}
+          role={hasResults ? 'listbox' : undefined}
+          aria-labelledby={hasResults ? 'localsearch-label' : undefined}
+          className="results"
+          tabIndex={-1}
+          onMouseMove={onMouseMove}
+        >
+          {!!query && hasResults && (
+            <li className="results-info">
+              Showing {results.length} of {totalResultsCount}
+              {mayHaveMore ? '+' : ''} matches
+            </li>
+          )}
+
+          {results.map((p, index) => (
+            <ResultItem
+              key={p.id}
+              result={p}
+              index={index}
+              selected={selectedIndex === index}
+              detailedView={detailedView}
+              markGroups={resultMarks.get(index)?.length ?? 0}
+              currentMark={currentMarkIndex.get(index) ?? 0}
+              disableMouseOver={disableMouseOver}
+              onSelect={setSelectedIndex}
+              onClickResult={handleResultClick}
+              onPrevMatch={() => cycleMatch(index, -1)}
+              onNextMatch={() => cycleMatch(index, 1)}
+            />
+          ))}
+
+          {showNoResults && (
+            <li className="no-results">
+              <div>
+                {TITLES.noResultsText} &quot;{query}&quot;
+              </div>
+              {!fuzzy && (
+                <div className="no-results-actions">
+                  <button type="button" className="try-fuzzy-btn" onClick={() => setFuzzy(true)}>
+                    Try fuzzy search?
+                  </button>
+                  {suggestions.length > 0 && (
+                    <>
+                      <span className="did-you-mean">Did you mean:</span>
+                      {suggestions.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          className="suggestion-btn"
+                          onClick={() => applySuggestion(s)}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </li>
+          )}
+
+          {!query && recent.length > 0 && (
+            <li className="recent-searches">
+              <div className="recent-header">
+                <span className="recent-label">Recent</span>
+                <button type="button" className="clear-all-btn" onClick={clearRecent}>
+                  Clear all
+                </button>
+              </div>
+              <div className="recent-items">
+                {recent.map((s) => (
+                  <div key={s} className="recent-item-wrapper">
+                    <button
+                      type="button"
+                      className="recent-item"
+                      onClick={() => applySuggestion(s)}
+                    >
+                      {s}
+                    </button>
+                    <button
+                      type="button"
+                      className="recent-delete-btn"
+                      title="Remove search"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        removeRecent(s)
+                        requestAnimationFrame(() => focusSearchInput(false))
+                      }}
+                    >
+                      <span className="vpi-delete delete-icon-mini" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </li>
+          )}
+
+          {showMoreVisible && (
+            <li className="show-more-item">
+              <button type="button" className="show-more-btn" onClick={showMore}>
+                Show more results
+                {!mayHaveMore && totalResultsCount > results.length && (
+                  <> ({totalResultsCount - results.length} remaining)</>
+                )}
+              </button>
+            </li>
+          )}
+        </ul>
+
+        <div className="search-keyboard-shortcuts">
+          <span>
+            <kbd aria-label="up arrow">
+              <span className="vpi-arrow-up navigate-icon" />
+            </kbd>
+            <kbd aria-label="down arrow">
+              <span className="vpi-arrow-down navigate-icon" />
+            </kbd>
+            {' to navigate'}
+          </span>
+          <span>
+            <kbd aria-label="enter">
+              <span className="vpi-corner-down-left navigate-icon" />
+            </kbd>
+            {' to select'}
+          </span>
+          {detailedView && (
+            <span>
+              <kbd>
+                <span className="vpi-arrow-left navigate-icon" />
+              </kbd>
+              <kbd>
+                <span className="vpi-arrow-right navigate-icon" />
+              </kbd>
+              {' '}
+              {TITLES.cycleMatches}
+            </span>
+          )}
+          <span>
+            <kbd aria-label="escape">esc</kbd>
+            {' to close'}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// The excerpt HTML is managed imperatively, outside React's reconciler: the
+// parent's marking effect wraps matches in <mark> elements after render, and
+// React 19 re-commits dangerouslySetInnerHTML whenever the row re-renders
+// (new {__html} object identity), silently erasing those marks — e.g. the
+// moment the match-count pill state lands. Owning innerHTML in a layout
+// effect keyed on the html string means React can never rewrite the content;
+// child layout effects also run before parent effects, so a fresh excerpt is
+// always populated before the parent marks it.
+function Excerpt({ html }: { html: string }) {
+  const ref = useRef<HTMLDivElement & { __excerptHtml?: string }>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // layout effects re-fire whenever React re-reveals a hidden subtree
+    // (reappearLayoutEffects) — skip when this html is already applied so a
+    // re-fire never erases the <mark> elements the marking effect added
+    if (el.__excerptHtml === html) return
+    el.innerHTML = html
+    el.__excerptHtml = html
+  }, [html])
+  return (
+    <div className="excerpt" inert>
+      <div className="vp-doc" ref={ref} />
+    </div>
+  )
+}
+
+function ResultItem({
+  result,
+  index,
+  selected,
+  detailedView,
+  markGroups,
+  currentMark,
+  disableMouseOver,
+  onSelect,
+  onClickResult,
+  onPrevMatch,
+  onNextMatch,
+}: {
+  result: WikiDisplayResult
+  index: number
+  selected: boolean
+  detailedView: boolean
+  markGroups: number
+  currentMark: number
+  disableMouseOver: React.RefObject<boolean>
+  onSelect: (index: number) => void
+  onClickResult: (e: React.MouseEvent, index: number) => void
+  onPrevMatch: () => void
+  onNextMatch: () => void
+}) {
+  return (
+    <li
+      id={`localsearch-item-${index}`}
+      data-id={result.id}
+      aria-selected={selected ? 'true' : 'false'}
+      role="option"
+      className="result-item"
+      data-index={index}
+    >
+      <div
+        className={`result${selected ? ' selected' : ''}`}
+        onMouseEnter={() => {
+          if (!disableMouseOver.current) onSelect(index)
+        }}
+        onFocus={() => onSelect(index)}
+        onClick={(e) => onClickResult(e, index)}
       >
-        <ModalInner onListVisibleChange={setListVisible} />
-      </YStack>
-    </YStack>
+        <div>
+          <div className="titles">
+            <span className="title-icon">#</span>
+            {result.titles.map((t, titleIndex) => (
+              <span key={titleIndex} className="title">
+                <span
+                  className="text"
+                  dangerouslySetInnerHTML={{ __html: escapeHtml(t) }}
+                />
+                <span className="vpi-chevron-right local-search-icon" />
+              </span>
+            ))}
+            <span className="title main">
+              <a
+                href={result.id}
+                className="result-link"
+                aria-label={[...result.titles, result.title].join(' > ')}
+              >
+                <span
+                  className="text"
+                  dangerouslySetInnerHTML={{ __html: escapeHtml(result.title) }}
+                />
+              </a>
+            </span>
+          </div>
+          {detailedView && (
+            <div className="excerpt-wrapper">
+              {result.text && <Excerpt html={result.text} />}
+              <div className="excerpt-gradient-bottom" />
+              <div className="excerpt-gradient-top" />
+              {markGroups > 1 && (
+                <div
+                  className="excerpt-actions"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="match-nav-button"
+                    title={TITLES.prevMatch}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      onPrevMatch()
+                    }}
+                  >
+                    <span className="vpi-chevron-left navigate-icon" />
+                  </button>
+                  <span className="match-count">
+                    {currentMark + 1}/{markGroups}
+                  </span>
+                  <button
+                    type="button"
+                    className="match-nav-button"
+                    title={TITLES.nextMatch}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      onNextMatch()
+                    }}
+                  >
+                    <span className="vpi-chevron-right navigate-icon" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </li>
   )
 }

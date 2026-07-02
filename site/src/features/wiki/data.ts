@@ -10,7 +10,7 @@
 // is faster than JS parse and the responses are HTTP-cacheable.
 
 import navJson from './generated/nav.json'
-import type { SearchDoc, WikiNav, WikiNote, WikiPage } from './types'
+import type { SearchCorpus, SearchExcerptMap, WikiNav, WikiNote, WikiPage } from './types'
 
 // a static json import is already the parsed value, a dynamic import() resolves
 // to a module namespace with the json under `default` — unwrap whichever we get
@@ -117,11 +117,35 @@ export async function loadWikiPage(slug: string): Promise<WikiPage> {
   return fetchData<WikiPage>(`/data/pages/${slug}.json`)
 }
 
-export async function loadSearchCorpus(): Promise<SearchDoc[]> {
+export async function loadSearchCorpus(): Promise<SearchCorpus> {
   if (import.meta.env.SSR) {
-    return fromJsonModule<SearchDoc[]>(await import('./generated/search-corpus.json'))
+    return fromJsonModule<SearchCorpus>(await import('./generated/search-corpus.json'))
   }
-  return fetchData<SearchDoc[]>('/data/search-corpus.json')
+  return fetchData<SearchCorpus>('/data/search-corpus.json')
+}
+
+// permanent per-page excerpt cache, the equivalent of fmhy.net's
+// globalExcerptCache (build output is stable for the life of the session).
+// missing pages (lead-only docs, heading-less bodies) cache an empty map so
+// repeated lookups don't refetch.
+const excerptCache = new Map<string, Map<string, string>>()
+
+export function peekExcerptMap(pageId: string): Map<string, string> | undefined {
+  return excerptCache.get(pageId)
+}
+
+export async function loadExcerpts(pageId: string): Promise<Map<string, string>> {
+  const cached = excerptCache.get(pageId)
+  if (cached) return cached
+  let map: Map<string, string>
+  try {
+    const raw = await fetchData<SearchExcerptMap>(`/data/excerpts/${pageId}.json`)
+    map = new Map(Object.entries(raw))
+  } catch {
+    map = new Map()
+  }
+  excerptCache.set(pageId, map)
+  return map
 }
 
 export async function loadNotes(): Promise<Record<string, WikiNote>> {

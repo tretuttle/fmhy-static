@@ -1,372 +1,640 @@
-import MiniSearch from 'minisearch'
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+// wiki search engine — a faithful React port of fmhy.net's customized local
+// search (docs/.vitepress/theme/components/VPLocalSearchBox.vue script block):
+// MiniSearch over the section-level corpus with the exact upstream tokenizer,
+// substring/suffix expansion in exact mode, fuzzy structured queries, the
+// 6-tier curated-link boost sort, detailed-mode contiguous phrase filtering
+// with a dynamic candidate pool, autosuggest, and recent searches.
 
-import { createEmitter } from '~/lib/emitter'
+import MiniSearch, { type Query, type SearchResult } from 'minisearch'
+import { useCallback, useEffect, useRef, useState } from 'react'
+
 import { createStorageValue } from '~/lib/storage'
 
-import { loadSearchCorpus, loadWikiPage } from './data'
-import { parseInlineMarkdown } from './InlineMarkdown'
-import {
-  buildHighlightSegments,
-  normalize,
-  tokenize,
-  windowExcerpt,
-  type HighlightSegment,
-} from './searchHighlight'
+import { loadExcerpts, loadSearchCorpus, peekExcerptMap } from './data'
 import { recentSearchesStorage } from './wikiSettingsStorage'
 
-import type { SearchDoc, WikiEntry, WikiPage, WikiSubsection } from './types'
+import type { SearchLinkMetadata } from './types'
 
-// re-export for callers that imported it from here previously
-export function normalizeSearchText(text: string): string {
-  return normalize(text)
-}
+export const RESULTS_PAGE_SIZE = 16
+export const SEARCH_DEBOUNCE_MS = 350
+const MAX_RESULTS_IN_MEMORY = 200
+const MAX_SUBSTRING_TERMS = 100
+const MAX_RECENT_SEARCHES = 20
+const MAX_SUGGESTIONS = 3
+const FUZZY_THRESHOLD = 0.2
+const MIN_CANDIDATE_POOL = 32
 
 const fuzzyStorage = createStorageValue<boolean>('wiki.searchFuzzy')
 const detailedViewStorage = createStorageValue<boolean>('wiki.searchDetailedView')
 
-// mirrors fmhy.net's own search config (docs/.vitepress/theme/components/
-// VPLocalSearchBox.vue, minisearch-backed): title > text (description) >
-// titles (breadcrumb), prefix search on, fuzzy off unless toggled
-const FIELD_BOOST = { title: 4, text: 2, titles: 1 }
-const FUZZINESS = 0.2
-export const MAX_RESULTS = 100
+// query persists for the session like vitepress:local-search-filter
+const QUERY_SESSION_KEY = 'fmhy.wiki.searchQuery'
 
-type IndexedDoc = {
-  id: string
-  title: string
-  text: string
-  titles: string
-}
-
-type SearchIndex = {
-  mini: MiniSearch<IndexedDoc>
-  byId: Map<string, SearchDoc>
-}
-
-let indexPromise: Promise<SearchIndex> | null = null
-
-async function getSearchIndex(): Promise<SearchIndex> {
-  indexPromise ??= loadSearchCorpus().then((docs) => {
-    const byId = new Map(docs.map((doc) => [doc.id, doc]))
-    const mini = new MiniSearch<IndexedDoc>({
-      idField: 'id',
-      fields: ['title', 'text', 'titles'],
-      storeFields: [],
-      tokenize,
-      searchOptions: {
-        prefix: true,
-        fuzzy: false,
-        boost: FIELD_BOOST,
-        combineWith: 'AND',
-        // fmhy.net upranks starred entries the same way
-        boostDocument: (id) => (byId.get(id)?.starred ? 1.5 : 1),
-      },
-    })
-    mini.addAll(
-      docs.map((doc) => ({
-        id: doc.id,
-        title: doc.title,
-        text: doc.description ?? '',
-        titles: [doc.pageTitle, doc.sectionPath, ...doc.altTitles].join(' '),
-      }))
-    )
-    return { mini, byId }
-  })
-  return indexPromise
-}
-
-export type WikiSearchResult = {
-  doc: SearchDoc
-  score: number
-  titleSegments: HighlightSegment[]
-  descriptionSegments: HighlightSegment[]
-  pageTitle: string
-  // normalized query terms that produced this hit — reused to highlight the
-  // detailed-view excerpt (see loadExcerptSource/getExcerptMatches below)
-  matchTerms: string[]
-}
-
-function buildResult(doc: SearchDoc, score: number, words: string[]): WikiSearchResult {
-  return {
-    doc,
-    score,
-    titleSegments: buildHighlightSegments(doc.title, words),
-    descriptionSegments: doc.description
-      ? buildHighlightSegments(doc.description, words)
-      : [],
-    pageTitle: doc.pageTitle,
-    matchTerms: words,
+const readSessionQuery = (): string => {
+  if (typeof sessionStorage === 'undefined') return ''
+  try {
+    return sessionStorage.getItem(QUERY_SESSION_KEY) ?? ''
+  } catch {
+    return ''
   }
 }
 
-function runSearch(
-  index: SearchIndex,
-  rawQuery: string,
-  fuzzy: boolean
-): WikiSearchResult[] {
-  const query = normalize(rawQuery)
-  if (!query) return []
-  const words = query.split(/\s+/).filter(Boolean)
-
-  const hits = index.mini.search(query, {
-    prefix: true,
-    fuzzy: fuzzy ? FUZZINESS : false,
-    boost: FIELD_BOOST,
-    combineWith: 'AND',
-  })
-
-  const results: WikiSearchResult[] = []
-  const seen = new Set<string>()
-  for (const hit of hits) {
-    const doc = index.byId.get(hit.id)
-    if (!doc) continue
-    seen.add(hit.id)
-    results.push(buildResult(doc, hit.score, words))
+const writeSessionQuery = (value: string) => {
+  if (typeof sessionStorage === 'undefined') return
+  try {
+    sessionStorage.setItem(QUERY_SESSION_KEY, value)
+  } catch {
+    // ignore disabled storage
   }
-
-  // minisearch's prefix mode only matches from the start of a token
-  // ("fire" -> "firefox"). fmhy.net's exact mode also catches mid-token
-  // substrings ("efox" -> "firefox") by scanning cached index terms; we
-  // approximate that with a direct haystack scan, capped like theirs.
-  if (!fuzzy) {
-    for (const doc of index.byId.values()) {
-      if (results.length >= MAX_RESULTS) break
-      if (seen.has(doc.id)) continue
-      const haystack = normalize(
-        `${doc.title} ${doc.pageTitle} ${doc.sectionPath} ${doc.description ?? ''} ${doc.altTitles.join(' ')}`
-      )
-      if (words.every((word) => haystack.includes(word))) {
-        results.push(buildResult(doc, 0, words))
-      }
-    }
-  }
-
-  return results.slice(0, MAX_RESULTS)
 }
 
 // ---------------------------------------------------------------------------
-// detailed-view excerpts
-//
-// fmhy.net's detailed view dynamically imports and mounts the live vue page
-// component around each match, then regex-highlights the mounted DOM with
-// mark.js (VPLocalSearchBox.vue fetchExcerpt/processExcerpts). that approach
-// is vue/DOM-mutation specific and doesn't translate to react. instead we
-// build a plain-text excerpt from the already-loaded structured page JSON
-// (loadWikiPage) and highlight it with the same buildHighlightSegments
-// infrastructure used for title/description today.
+// tokenizer — exact ports of docs/.vitepress/constants.ts (miniSearch.options)
+// and VPLocalSearchBox.vue's tokenizeIndexLike. if these drift from the build
+// tokenizer, ranking breaks silently.
 // ---------------------------------------------------------------------------
 
-// strips the entry description's markdown syntax down to plain readable text
-// (reuses the same tiny parser InlineMarkdown renders with, so "[text](url)"
-// becomes "text" instead of leaking markdown punctuation into the excerpt)
-function plainText(markdown: string): string {
-  return parseInlineMarkdown(markdown)
-    .map((span) => span.text)
-    .join('')
-}
+export const INVISIBLE_CHARS_RE = /\u2060|\u200B|\u200C|\u200D|\uFEFF/g
+const TOKEN_SPLIT_RE = /[\n\r #%*,=/:;?[\]{}()&]+/u
+const MIN_TERM_LENGTH = 2
+const TOKEN_STOP_WORDS = new Set([
+  'frontmatter',
+  '$frontmatter.synopsis',
+  'and',
+  'about',
+  'but',
+  'now',
+  'the',
+  'with',
+  'you',
+])
 
-function findEntryInContainer(container: WikiSubsection, id: string): WikiEntry | null {
-  return container.entries.find((entry) => entry.id === id) ?? null
-}
+const tokenize = (text: string): string[] =>
+  text.replace(INVISIBLE_CHARS_RE, '').split(TOKEN_SPLIT_RE)
 
-// doc.anchor is the (sub)section id an entry lives under (see generate.ts) —
-// check that container first, then fall back to a full scan in case anchor
-// slugging ever drifts from the entry id itself
-function findEntry(page: WikiPage, doc: SearchDoc): WikiEntry | null {
-  for (const section of page.sections) {
-    if (section.id === doc.anchor) {
-      const found = findEntryInContainer(section, doc.id)
-      if (found) return found
-    }
-    for (const sub of section.subsections) {
-      if (sub.id === doc.anchor) {
-        const found = findEntryInContainer(sub, doc.id)
-        if (found) return found
-      }
-    }
-  }
-  for (const section of page.sections) {
-    const found = findEntryInContainer(section, doc.id)
-    if (found) return found
-    for (const sub of section.subsections) {
-      const found2 = findEntryInContainer(sub, doc.id)
-      if (found2) return found2
+function processTerm(term: string, fieldName?: string): string | string[] | false {
+  term = term.trim().toLowerCase().replace(/^\.+/, '').replace(/\.+$/, '')
+  if (term.length < MIN_TERM_LENGTH || TOKEN_STOP_WORDS.has(term)) return false
+  if (fieldName === 'text') {
+    const parts = term.split('.')
+    if (parts.length > 1) {
+      return [term, ...parts]
+        .filter((t) => t.length >= MIN_TERM_LENGTH)
+        .filter((t) => !TOKEN_STOP_WORDS.has(t))
     }
   }
-  return null
+  return term
 }
 
-// an entry's own card is a one-liner, so the "excerpt" pulls together every
-// text field on the entry (description, alternatives, tags, platforms, sub-
-// link labels) into one blob — enough surrounding text for a query term to
-// plausibly appear more than once, which is what makes match-cycling useful
-function buildExcerptText(entry: WikiEntry | null): string | null {
-  if (!entry) return null
-  const parts: string[] = []
-  if (entry.description) parts.push(plainText(entry.description))
-  if (entry.alternatives.length) {
-    parts.push(entry.alternatives.map((a) => a.title).join(' · '))
-  }
-  if (entry.tags.length) parts.push(entry.tags.join(' · '))
-  if (entry.platforms.length) parts.push(entry.platforms.join(' · '))
-  if (entry.links.length) parts.push(entry.links.map((link) => link.label).join(' · '))
-  const text = parts.join('  —  ')
-  return text || null
-}
-
-// permanent cache keyed by doc id (entry text is stable for the life of the
-// generated build, like fmhy.net's own globalExcerptCache) plus an in-flight
-// promise map so concurrent rows requesting the same entry share one load.
-// exposed through the same useSyncExternalStore-backed emitter idiom the rest
-// of the app uses for shared reactive state (searchOpen, theme prefs) — a plain
-// useState+setTimeout tick was tried first but proved unreliable here: with
-// many rows resolving in the same batch (e.g. toggling detailed view after a
-// large result set is already mounted), some rows' re-renders were silently
-// dropped and stayed stuck on "loading" forever. useSyncExternalStore doesn't
-// have that failure mode since react itself owns re-subscribing correctly.
-const excerptCache = new Map<string, string | null>()
-const excerptPromises = new Map<string, Promise<string | null>>()
-const excerptGeneration = createEmitter<number>('wiki.searchExcerptGeneration', 0)
-
-function loadExcerptSource(doc: SearchDoc): Promise<string | null> {
-  const cached = excerptCache.get(doc.id)
-  if (cached !== undefined) return Promise.resolve(cached)
-
-  let promise = excerptPromises.get(doc.id)
-  if (!promise) {
-    promise = loadWikiPage(doc.pageId)
-      .then((page) => buildExcerptText(findEntry(page, doc)))
-      .catch(() => null)
-      .then((text) => {
-        excerptCache.set(doc.id, text)
-        excerptGeneration.emit(excerptGeneration.value + 1)
-        return text
-      })
-      .finally(() => excerptPromises.delete(doc.id))
-    excerptPromises.set(doc.id, promise)
-  }
-  return promise
-}
-
-// triggers (and caches) the excerpt load for a result row when detailed view
-// is enabled, re-rendering the row once it resolves; returns undefined while
-// loading/disabled so callers can distinguish "not ready" from "no excerpt"
-export function useExcerptSource(
-  doc: SearchDoc,
-  enabled: boolean
-): string | null | undefined {
-  useEffect(() => {
-    if (!enabled) return
-    if (excerptCache.has(doc.id)) return
-    // fire-and-forget: the module-level cache + generation emitter are what
-    // drive re-rendering, not this effect's own lifecycle, so there's
-    // nothing to cancel if the row unmounts before it resolves
-    loadExcerptSource(doc)
-  }, [doc.id, enabled])
-
-  return useSyncExternalStore(
-    excerptGeneration.subscribe,
-    () => (enabled ? excerptCache.get(doc.id) : undefined),
-    () => undefined
-  )
-}
-
-// synchronous read of whatever useExcerptSource has already loaded — used by
-// the modal's keyboard handler to cycle matches on the selected result
-// without mounting its own copy of the loading hook
-export function peekExcerptSource(doc: SearchDoc): string | null | undefined {
-  return excerptCache.get(doc.id)
-}
-
-export type ExcerptMatches = {
-  windowed: string
-  segments: HighlightSegment[]
-  matchCount: number
-}
-
-// windows the raw excerpt around the first match, then highlights every
-// occurrence of the query terms within that window — one highlighted segment
-// is treated as one "match" for the N/M counter and cycling controls
-export function getExcerptMatches(
-  source: string | null | undefined,
-  terms: string[]
-): ExcerptMatches | null {
-  if (!source) return null
-  const windowed = windowExcerpt(source, terms)
-  const segments = buildHighlightSegments(windowed, terms)
-  const matchCount = segments.filter((segment) => segment.match).length
-  return { windowed, segments, matchCount }
-}
-
-// up to ~5 autocomplete suggestions: titles whose tokens prefix-match the
-// last query word, used when a search returns nothing
-function buildSuggestions(index: SearchIndex, rawQuery: string) {
-  const words = normalize(rawQuery).split(/\s+/).filter(Boolean)
-  const last = words[words.length - 1]
-  if (!last || last.length < 2) return []
-
-  const seen = new Set<string>()
+export function tokenizeIndexLike(text: string, splitDottedParts = false): string[] {
   const out: string[] = []
-  for (const doc of index.byId.values()) {
-    if (!tokenize(doc.title).some((token) => token.startsWith(last))) continue
-    if (seen.has(doc.title)) continue
-    seen.add(doc.title)
-    out.push(doc.title)
-    if (out.length >= 5) break
+  const raw = text.replace(INVISIBLE_CHARS_RE, '').split(TOKEN_SPLIT_RE)
+  for (const piece of raw) {
+    if (!piece) continue
+    const t = piece.trim().toLowerCase().replace(/^\.+/, '').replace(/\.+$/, '')
+    if (t.length < MIN_TERM_LENGTH || TOKEN_STOP_WORDS.has(t)) continue
+    out.push(t)
+    if (splitDottedParts && t.includes('.')) {
+      for (const part of t.split('.')) {
+        if (part.length >= MIN_TERM_LENGTH && !TOKEN_STOP_WORDS.has(part)) out.push(part)
+      }
+    }
   }
   return out
 }
 
-const MAX_RECENT = 20
+// ---------------------------------------------------------------------------
+// engine (module-level singleton — corpus and index are permanent)
+// ---------------------------------------------------------------------------
+
+type IndexedDoc = {
+  id: string
+  title: string
+  titles: string[]
+  text: string
+}
+
+type SearchEngine = {
+  mini: MiniSearch<IndexedDoc>
+  customMetadata: SearchLinkMetadata
+  // cached index term keys for substring matching (upstream cachedTermKeys)
+  termKeys: string[]
+  globalStarredLinks: Set<string>
+  globalLinks: Set<string>
+}
+
+// upstream boostDocument (constants.ts searchOptions): uprate title matches
+// (higher levels win), downrank posts and other/* pages
+const boostDocument = (
+  documentId: string,
+  term: string,
+  storedFields?: Record<string, unknown>,
+): number => {
+  const titles = ((storedFields?.titles as string[]) || [])
+    .filter((t) => Boolean(t))
+    .map((t) => t.toLowerCase())
+
+  let boost = 1
+  const titleIndex =
+    titles.map((t, i) => (t?.includes(term) ? i : -1)).find((i) => i >= 0) ?? -1
+  if (titleIndex >= 0) {
+    boost = 10000 - titleIndex
+  }
+
+  if (documentId.match(/\/posts/)) {
+    boost *= 0.1
+  } else if (documentId.match(/\/other/)) {
+    boost *= 0.1
+  }
+  return boost
+}
+
+let enginePromise: Promise<SearchEngine> | null = null
+
+export function getSearchEngine(): Promise<SearchEngine> {
+  enginePromise ??= loadSearchCorpus().then((corpus) => {
+    const mini = new MiniSearch<IndexedDoc>({
+      idField: 'id',
+      fields: ['title', 'titles', 'text'],
+      storeFields: ['title', 'titles'],
+      tokenize,
+      processTerm,
+      searchOptions: {
+        combineWith: 'AND',
+        fuzzy: false,
+        prefix: true,
+        boost: { title: 4, text: 2, titles: 1 },
+        boostDocument,
+      },
+    })
+    mini.addAll(corpus.docs)
+
+    const customMetadata = corpus.customMetadata ?? {}
+    const internal = mini as unknown as { _index?: Map<string, unknown> }
+    const termKeys = internal._index ? [...internal._index.keys()] : []
+
+    const globalStarredLinks = new Set<string>()
+    const globalLinks = new Set<string>()
+    for (const key in customMetadata) {
+      const item = customMetadata[key]!
+      if (item.s) {
+        for (const phrase of item.s) {
+          for (const w of tokenizeIndexLike(phrase, true)) globalStarredLinks.add(w)
+        }
+      }
+      if (item.l) {
+        for (const phrase of item.l) {
+          for (const w of tokenizeIndexLike(phrase, true)) globalLinks.add(w)
+        }
+      }
+    }
+
+    return { mini, customMetadata, termKeys, globalStarredLinks, globalLinks }
+  })
+  return enginePromise
+}
+
+// ---------------------------------------------------------------------------
+// query execution — debounced watcher port (index query + 6-tier boost sort)
+// ---------------------------------------------------------------------------
+
+export type WikiSearchHit = SearchResult & {
+  title: string
+  titles: string[]
+}
+
+type RunOutcome = {
+  allResults: WikiSearchHit[]
+  usedSubstringExpansion: boolean
+}
+
+type BoostFlags = {
+  hasStarredExact: boolean
+  hasExact: boolean
+  hasStarredPrefix: boolean
+  hasPrefix: boolean
+  hasStarredWord: boolean
+  hasLinkWord: boolean
+}
+
+const TIER_KEYS: (keyof BoostFlags)[] = [
+  'hasStarredExact',
+  'hasExact',
+  'hasStarredPrefix',
+  'hasPrefix',
+  'hasStarredWord',
+  'hasLinkWord',
+]
+
+function runSearch(
+  engine: SearchEngine,
+  filterTextValue: string,
+  isFuzzySearch: boolean,
+): RunOutcome {
+  let query: Query = filterTextValue
+  let usedSubstringExpansion = false
+
+  if (isFuzzySearch) {
+    const parts = filterTextValue.split(/\s+/).filter((p) => p)
+    if (parts.length > 0) {
+      const dashed = parts.join('-')
+      query = {
+        combineWith: 'OR',
+        queries: [
+          { queries: parts, combineWith: 'AND', fuzzy: FUZZY_THRESHOLD },
+          { queries: [dashed], combineWith: 'AND', fuzzy: FUZZY_THRESHOLD },
+        ],
+      }
+    }
+  }
+
+  // suffix search / substring matching for exact mode ("abolic" → "parabolic")
+  if (!isFuzzySearch && filterTextValue.length > 2) {
+    const candidateTerms: string[] = []
+    const match = filterTextValue.toLowerCase()
+    for (const term of engine.termKeys) {
+      if (term.includes(match) && term !== match) {
+        candidateTerms.push(term)
+      }
+    }
+    if (candidateTerms.length > 0) {
+      candidateTerms.sort((a, b) => a.length - b.length)
+      const capped = candidateTerms.slice(0, MAX_SUBSTRING_TERMS)
+      usedSubstringExpansion = true
+      query = { combineWith: 'OR', queries: [filterTextValue, ...capped] }
+    }
+  }
+
+  const searchOptions = {
+    combineWith: 'AND' as const,
+    fuzzy: isFuzzySearch && typeof query === 'string' ? FUZZY_THRESHOLD : false,
+  }
+
+  const rawResults = engine.mini.search(query, searchOptions) as unknown as WikiSearchHit[]
+  const currentResults = rawResults.slice(0, MAX_RESULTS_IN_MEMORY)
+
+  // 6-tier ranking: starredExact > exact > starredPrefix > prefix >
+  // starredWord > linkWord > raw score. exact/prefix compare the full cleaned
+  // query against whole hyperlink phrases; word tiers compare matched terms
+  // against phrase tokens.
+  const q = filterTextValue.replace(INVISIBLE_CHARS_RE, '').trim().toLowerCase()
+
+  const boostedResults = currentResults.map((r) => {
+    const meta = engine.customMetadata[r.id]
+    const flags: BoostFlags = {
+      hasStarredExact: false,
+      hasExact: false,
+      hasStarredPrefix: false,
+      hasPrefix: false,
+      hasStarredWord: false,
+      hasLinkWord: false,
+    }
+
+    const lowerTerms = r.terms ? r.terms.map((t) => t.toLowerCase()) : []
+
+    const processPhrases = (phrases: string[] | undefined, isStarred: boolean) => {
+      if (!phrases) return
+      for (const phrase of phrases) {
+        if (q && phrase === q) {
+          flags.hasExact = true
+          if (isStarred) flags.hasStarredExact = true
+        } else if (q && phrase.startsWith(q)) {
+          flags.hasPrefix = true
+          if (isStarred) flags.hasStarredPrefix = true
+        }
+        if (lowerTerms.length > 0) {
+          const tokens = new Set(tokenizeIndexLike(phrase, true))
+          if (lowerTerms.some((t) => tokens.has(t))) {
+            if (isStarred) flags.hasStarredWord = true
+            else flags.hasLinkWord = true
+          }
+        }
+      }
+    }
+
+    processPhrases(meta?.s, true)
+    processPhrases(meta?.l, false)
+
+    return { ...r, ...flags }
+  })
+
+  boostedResults.sort((a, b) => {
+    for (const key of TIER_KEYS) {
+      const av = a[key] ? 1 : 0
+      const bv = b[key] ? 1 : 0
+      if (av !== bv) return bv - av
+    }
+    return b.score - a.score
+  })
+
+  return { allResults: boostedResults, usedSubstringExpansion }
+}
+
+// ---------------------------------------------------------------------------
+// stage 2 — slicing, excerpt fetching, contiguous phrase filtering
+// ---------------------------------------------------------------------------
+
+export type WikiDisplayResult = {
+  id: string
+  title: string
+  titles: string[]
+  // rendered excerpt html for detailed view ('' when unavailable / compact)
+  text: string
+  // matched index terms (fuzzy mode) — feeds the highlight regex
+  matchedTerms: string[]
+}
+
+// upstream lookupExcerptText: excerpts only exist for '#anchor' ids; recover
+// slug drift via unique-prefix matching, never returning an ambiguous sibling
+function lookupExcerptText(resultId: string): string {
+  const hashIndex = resultId.indexOf('#')
+  if (hashIndex === -1) return ''
+  const pageId = resultId.slice(1, hashIndex)
+  const map = peekExcerptMap(pageId)
+  if (!map) return ''
+  const anchor = resultId.slice(hashIndex + 1)
+  const direct = map.get(anchor)
+  if (direct) return direct
+  const prefix = anchor + '-'
+  let found: string | null = null
+  for (const [key, html] of map) {
+    if (!key.startsWith(prefix)) continue
+    if (found !== null) return ''
+    found = html
+  }
+  return found ?? ''
+}
+
+const excerptPageIdOf = (resultId: string): string | null => {
+  const hashIndex = resultId.indexOf('#')
+  if (hashIndex === -1) return null
+  return resultId.slice(1, hashIndex)
+}
+
+async function fetchExcerptsFor(hits: WikiSearchHit[]): Promise<void> {
+  const pageIds = new Set<string>()
+  for (const hit of hits) {
+    const pageId = excerptPageIdOf(hit.id)
+    if (pageId && !peekExcerptMap(pageId)) pageIds.add(pageId)
+  }
+  if (pageIds.size === 0) return
+  await Promise.all([...pageIds].map((pageId) => loadExcerpts(pageId)))
+}
+
+// upstream filterResults: detailed exact search keeps only true contiguous
+// phrase matches (title, breadcrumb, or excerpt text contains the query)
+function filterResults(results: WikiDisplayResult[], filterTextValue: string) {
+  const clean = (s: string) =>
+    s
+      .replace(INVISIBLE_CHARS_RE, '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase()
+
+  const phrase = clean(filterTextValue)
+  if (!phrase) return results
+
+  return results.filter((r) => {
+    if (clean(r.title).includes(phrase)) return true
+    if (r.titles.some((t) => clean(t).includes(phrase))) return true
+    if (!r.text) return true // keep optimistically if text is not fetched yet
+    return clean(r.text).includes(phrase)
+  })
+}
+
+type StageTwoOutcome = {
+  results: WikiDisplayResult[]
+  totalCount: number
+  mayHaveMore: boolean
+}
+
+async function buildDisplayResults(
+  allResults: WikiSearchHit[],
+  limit: number,
+  showDetailedList: boolean,
+  isFuzzySearch: boolean,
+  usedSubstringExpansion: boolean,
+  filterTextValue: string,
+  isCanceled: () => boolean,
+): Promise<StageTwoOutcome | null> {
+  const mapResult = (r: WikiSearchHit, text: string): WikiDisplayResult => ({
+    id: r.id,
+    title: r.title,
+    titles: r.titles ?? [],
+    text,
+    matchedTerms: isFuzzySearch ? Object.keys(r.match || {}) : [],
+  })
+
+  const isExactSearch = !isFuzzySearch && !usedSubstringExpansion
+
+  if (showDetailedList && isExactSearch) {
+    // dynamic candidate pool so contiguous matches aren't lost to ranking
+    const candidateLimit = Math.max(MIN_CANDIDATE_POOL, limit * 2)
+    const candidates = allResults.slice(0, candidateLimit)
+    await fetchExcerptsFor(candidates)
+    if (isCanceled()) return null
+
+    const mapped = candidates.map((r) => mapResult(r, lookupExcerptText(r.id)))
+    const filtered = filterResults(mapped, filterTextValue)
+    return {
+      results: filtered.slice(0, limit),
+      totalCount: filtered.length,
+      // untested remainder beyond the pool may contain more matches
+      mayHaveMore: allResults.length > candidateLimit,
+    }
+  }
+
+  const sliced = allResults.slice(0, limit)
+  if (showDetailedList) {
+    await fetchExcerptsFor(sliced)
+    if (isCanceled()) return null
+  }
+  const mapped = sliced.map((r) =>
+    mapResult(r, showDetailedList ? lookupExcerptText(r.id) : ''),
+  )
+  return {
+    results: mapped,
+    totalCount: mapped.length + Math.max(0, allResults.length - limit),
+    mayHaveMore: false,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// autosuggest — "Did you mean:" pills for the no-results state
+// ---------------------------------------------------------------------------
+
+function computeSuggestions(engine: SearchEngine, filterText: string): string[] {
+  if (!filterText) return []
+  const query = filterText.trim()
+  if (/\s/.test(query)) return []
+
+  try {
+    const rawSuggestions = engine.mini.autoSuggest(query, {
+      fuzzy: (term: string) => (term.length >= 5 ? 2 : 1),
+      prefix: true,
+    }) as { suggestion: string; terms: string[]; score: number }[]
+
+    const { globalStarredLinks, globalLinks } = engine
+
+    const cleanQuery = query.toLowerCase()
+    const sortedSuggestions = [...rawSuggestions].sort((a, b) => {
+      const aSug = a.suggestion.toLowerCase()
+      const bSug = b.suggestion.toLowerCase()
+
+      const aPrefix = aSug.startsWith(cleanQuery) ? 1 : 0
+      const bPrefix = bSug.startsWith(cleanQuery) ? 1 : 0
+      if (aPrefix !== bPrefix) return bPrefix - aPrefix
+
+      const aStarred = globalStarredLinks.has(aSug) ? 1 : 0
+      const bStarred = globalStarredLinks.has(bSug) ? 1 : 0
+      if (aStarred !== bStarred) return bStarred - aStarred
+
+      const aLink = globalLinks.has(aSug) ? 1 : 0
+      const bLink = globalLinks.has(bSug) ? 1 : 0
+      if (aLink !== bLink) return bLink - aLink
+
+      return (b.score || 0) - (a.score || 0)
+    })
+
+    return sortedSuggestions
+      .map((s) => s.suggestion)
+      .filter((s) => s && !/\s/.test(s) && s !== query.toLowerCase())
+      .slice(0, MAX_SUGGESTIONS)
+  } catch {
+    return []
+  }
+}
+
+// ---------------------------------------------------------------------------
+// hook
+// ---------------------------------------------------------------------------
 
 export function useWikiSearch() {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<WikiSearchResult[]>([])
+  const [query, setQueryState] = useState(() => readSessionQuery())
+  const [fuzzy, setFuzzyState] = useState(() => fuzzyStorage.get() ?? false)
+  // detailed view defaults ON, like fmhy.net (search.options.detailedView)
+  const [detailedView, setDetailedViewState] = useState(
+    () => detailedViewStorage.get() ?? true,
+  )
+  const [recent, setRecent] = useState<string[]>(() => recentSearchesStorage.get() ?? [])
+
+  const [allResults, setAllResults] = useState<WikiSearchHit[]>([])
+  const [usedSubstring, setUsedSubstring] = useState(false)
+  const [results, setResults] = useState<WikiDisplayResult[]>([])
+  const [totalResultsCount, setTotalResultsCount] = useState(0)
+  const [mayHaveMore, setMayHaveMore] = useState(false)
+  const [isSearching, setIsSearching] = useState(() => !!readSessionQuery().trim())
+  const [enableNoResults, setEnableNoResults] = useState(false)
+  const [resultLimit, setResultLimit] = useState(RESULTS_PAGE_SIZE)
   const [suggestions, setSuggestions] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  const [recent, setRecent] = useState<string[]>([])
-  const [fuzzy, setFuzzyState] = useState(false)
-  const [detailedView, setDetailedViewState] = useState(false)
-  const generation = useRef(0)
 
+  // consumed (and reset) by the modal after it applies the new result list
+  const shouldResetScrollRef = useRef(false)
+  const queryRef = useRef(query)
+  queryRef.current = query
+
+  // warm the index so building it overlaps with typing
   useEffect(() => {
-    setRecent(recentSearchesStorage.get() ?? [])
-    const storedFuzzy = fuzzyStorage.get()
-    if (storedFuzzy != null) setFuzzyState(storedFuzzy)
-    const storedDetailed = detailedViewStorage.get()
-    if (storedDetailed != null) setDetailedViewState(storedDetailed)
+    getSearchEngine().catch(() => {})
   }, [])
 
-  // warm the index on mount so building it overlaps with typing
+  // immediate watcher: reset paging + spinner on every query/mode change
+  const searchGen = useRef(0)
   useEffect(() => {
-    getSearchIndex().catch(() => {})
-  }, [])
+    setEnableNoResults(false)
+    setResultLimit(RESULTS_PAGE_SIZE)
+    shouldResetScrollRef.current = true
+  }, [query, fuzzy])
 
+  // debounced index query (SEARCH_DEBOUNCE_MS, like upstream debouncedWatch)
   useEffect(() => {
-    const id = ++generation.current
+    const gen = ++searchGen.current
 
     if (!query.trim()) {
-      setResults([])
+      setAllResults([])
+      setUsedSubstring(false)
+      setIsSearching(false)
       setSuggestions([])
-      setLoading(false)
       return
     }
 
-    setLoading(true)
+    setIsSearching(true)
     const timeout = setTimeout(async () => {
-      const index = await getSearchIndex()
-      if (generation.current !== id) return
-      const next = runSearch(index, query, fuzzy)
-      setResults(next)
-      setSuggestions(next.length === 0 ? buildSuggestions(index, query) : [])
-      setLoading(false)
-    }, 250)
+      const engine = await getSearchEngine().catch(() => null)
+      if (searchGen.current !== gen) return
+      if (!engine) {
+        setAllResults([])
+        setIsSearching(false)
+        setEnableNoResults(true)
+        return
+      }
+      const outcome = runSearch(engine, query, fuzzy)
+      if (searchGen.current !== gen) return
+      setEnableNoResults(true)
+      setUsedSubstring(outcome.usedSubstringExpansion)
+      setAllResults(outcome.allResults)
+    }, SEARCH_DEBOUNCE_MS)
 
-    return () => {
-      clearTimeout(timeout)
-    }
+    return () => clearTimeout(timeout)
   }, [query, fuzzy])
+
+  // stage 2: slicing + excerpt fetching + contiguous filtering
+  const stageGen = useRef(0)
+  useEffect(() => {
+    const gen = ++stageGen.current
+    const canceled = () => stageGen.current !== gen
+
+    if (allResults.length === 0) {
+      setResults([])
+      setTotalResultsCount(0)
+      setMayHaveMore(false)
+      if (queryRef.current.trim()) {
+        // only stop the spinner once a completed (empty) search landed
+        setIsSearching((prev) => (enableNoResults ? false : prev))
+      } else {
+        setIsSearching(false)
+      }
+      if (enableNoResults && queryRef.current.trim()) {
+        getSearchEngine()
+          .then((engine) => {
+            if (canceled()) return
+            setSuggestions(fuzzy ? [] : computeSuggestions(engine, queryRef.current))
+          })
+          .catch(() => {})
+      }
+      return
+    }
+
+    ;(async () => {
+      const outcome = await buildDisplayResults(
+        allResults,
+        resultLimit,
+        detailedView,
+        fuzzy,
+        usedSubstring,
+        queryRef.current,
+        canceled,
+      )
+      if (!outcome || canceled()) return
+      setResults(outcome.results)
+      setTotalResultsCount(outcome.totalCount)
+      setMayHaveMore(outcome.mayHaveMore)
+      setSuggestions(
+        outcome.results.length === 0 && !fuzzy
+          ? computeSuggestions(await getSearchEngine(), queryRef.current)
+          : [],
+      )
+      setIsSearching(false)
+    })().catch(() => {
+      if (!canceled()) setIsSearching(false)
+    })
+  }, [allResults, resultLimit, detailedView, enableNoResults, fuzzy, usedSubstring])
+
+  const setQuery = useCallback((value: string) => {
+    setQueryState(value)
+    writeSessionQuery(value)
+  }, [])
 
   const setFuzzy = useCallback((value: boolean) => {
     setFuzzyState(value)
@@ -378,13 +646,17 @@ export function useWikiSearch() {
     detailedViewStorage.set(value)
   }, [])
 
+  const showMore = useCallback(() => {
+    setResultLimit((limit) => limit + RESULTS_PAGE_SIZE)
+  }, [])
+
   const commitRecent = useCallback((value: string) => {
-    const trimmed = value.trim()
-    if (trimmed.length < 2) return
+    const q = value.trim()
+    if (!q) return
     const existing = recentSearchesStorage.get() ?? []
-    const next = [trimmed, ...existing.filter((item) => item !== trimmed)].slice(
+    const next = [q, ...existing.filter((item) => item !== q)].slice(
       0,
-      MAX_RECENT
+      MAX_RECENT_SEARCHES,
     )
     recentSearchesStorage.set(next)
     setRecent(next)
@@ -405,15 +677,20 @@ export function useWikiSearch() {
     query,
     setQuery,
     results,
-    loading,
+    totalResultsCount,
+    mayHaveMore,
+    isSearching,
+    enableNoResults,
     fuzzy,
     setFuzzy,
     detailedView,
     setDetailedView,
+    showMore,
     recent,
     commitRecent,
     removeRecent,
     clearRecent,
     suggestions,
+    shouldResetScrollRef,
   }
 }

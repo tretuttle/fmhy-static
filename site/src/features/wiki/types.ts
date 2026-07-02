@@ -1,6 +1,7 @@
 // data contract for the generated FMHY wiki content — see DESIGN-WIKI.md
 
-export type WikiNoticeKind = 'tip' | 'warning'
+// 'info' = fmhy.net's blue :::info block (!!!note/!!!info in guide markdown)
+export type WikiNoticeKind = 'tip' | 'warning' | 'info'
 
 export type WikiNotice = {
   kind: WikiNoticeKind
@@ -48,12 +49,23 @@ export type WikiEntry = {
   crossrefRoute: string | null
 }
 
+// ordered guide-profile prose (beginners-guide): '> ' questions stay real
+// blockquotes, !!!note/!!!info become 'info' notices, plain lines are prose.
+// when `blocks` is non-empty it is the full-fidelity representation of the
+// container's prose IN DOCUMENT ORDER and should be rendered INSTEAD of the
+// legacy merged `notice` (which is kept as a fallback for older renderers).
+export type WikiGuideBlock =
+  | { kind: 'prose'; markdown: string }
+  | { kind: 'blockquote'; markdown: string }
+  | { kind: 'notice'; notice: WikiNotice }
+
 export type WikiSubsection = {
   id: string
   title: string
   refUrl: string | null
   crossrefRoute: string | null
   notice: WikiNotice | null
+  blocks: WikiGuideBlock[]
   entries: WikiEntry[]
 }
 
@@ -99,6 +111,77 @@ export type WikiNav = {
 export type WikiNote = {
   title: string
   markdown: string
+}
+
+// ---------------------------------------------------------------------------
+// prose pages (docs/other/*, docs/posts/*, sandbox, recently-removed) —
+// regular markdown parsed into an ordered block model, rendered by
+// WikiProseContent (no MDX runtime). generated as generated/prose/<id>.json
+// ---------------------------------------------------------------------------
+
+export type WikiProseListItem = {
+  // inline markdown for the item's own line
+  markdown: string
+  // indented continuation content (nested lists, images, paragraphs)
+  children: WikiProseBlock[]
+}
+
+export type WikiProseContainerVariant = 'info' | 'tip' | 'warning' | 'danger' | 'details'
+
+export type WikiProseBlock =
+  | { kind: 'heading'; level: 1 | 2 | 3 | 4 | 5 | 6; id: string; markdown: string }
+  | { kind: 'paragraph'; markdown: string }
+  | { kind: 'list'; ordered: boolean; items: WikiProseListItem[] }
+  | { kind: 'blockquote'; markdown: string }
+  | {
+      kind: 'container'
+      variant: WikiProseContainerVariant
+      title: string | null
+      blocks: WikiProseBlock[]
+    }
+  | { kind: 'code'; language: string | null; code: string }
+  | { kind: 'hr' }
+  | { kind: 'image'; src: string; alt: string }
+  | {
+      kind: 'wallpaper'
+      title: string
+      description: string
+      mobile: string
+      desktop: string
+    }
+
+export type WikiProseAuthor = {
+  name: string
+  github: string
+}
+
+// 'none'  = body provides its own headings (other/*, sandbox)
+// 'page'  = wiki-style H1 + description + feedback card (recently-removed)
+// 'post'  = post layout: H1 + "description • date" + authors row
+export type WikiProseHeader = 'none' | 'page' | 'post'
+
+export type WikiProsePage = {
+  // repo-relative page id, e.g. 'posts/june-2026', 'other/FAQ', 'sandbox'
+  id: string
+  // absolute in-app route, e.g. '/posts/june-2026' — matches fmhy.net URLs
+  route: string
+  kind: 'prose'
+  header: WikiProseHeader
+  title: string
+  description: string | null
+  // 'YYYY-MM-DD' frontmatter date (posts), else null
+  date: string | null
+  authors: WikiProseAuthor[]
+  blocks: WikiProseBlock[]
+}
+
+// generated/posts.json manifest — shape is a cross-agent contract (RSS feed
+// generation reads it): [{ slug, title, date, description }]
+export type WikiPostMeta = {
+  slug: string
+  title: string
+  date: string
+  description: string
 }
 
 export type SearchDoc = {

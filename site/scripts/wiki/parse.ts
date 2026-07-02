@@ -3,6 +3,7 @@
 import type {
   WikiAlternative,
   WikiEntry,
+  WikiGuideBlock,
   WikiNotice,
   WikiPage,
   WikiSection,
@@ -20,6 +21,7 @@ export const stripInvisible = (s: string) => s.replace(INVISIBLE_RE, '')
 // fmhy.net 1:1 so real-site deep links (#_3d-tools, #czech-cestina, …) resolve
 // on the mirror. NFKD+strip accents, specials→'-', collapse runs, trim ends,
 // '_' before a leading digit. Dedupe with -1/-2 suffixes (markdown-it-anchor).
+// oxlint-disable-next-line no-control-regex -- verbatim VitePress slugify port
 const rControl = /[\u0000-\u001f]/g
 const rSpecial = /[\s~`!@#$%^&*()\-_+=[\]{}|\\;:"'“”‘’<>,.?/]+/g
 const rCombining = /[\u0300-\u036F]/g
@@ -421,6 +423,9 @@ type Container = {
   notice: WikiNotice | null
   rawEntries: RawEntry[]
   noticeParts: string[]
+  // guide-profile prose in document order (see WikiGuideBlock in types.ts) —
+  // full-fidelity duplicate of noticeParts/notice content for guide pages
+  blocks: WikiGuideBlock[]
   subsections: SubContainer[]
 }
 
@@ -443,7 +448,7 @@ export type PageStats = {
 const headingLink = (title: string): { title: string; refUrl: string | null } => {
   const segs = scanSegments(title.trim())
   if (segs.length === 1 && segs[0]!.kind === 'link') {
-    return { title: segs[0].name.trim(), refUrl: segs[0].url }
+    return { title: segs[0]!.name.trim(), refUrl: segs[0]!.url }
   }
   return { title: title.trim(), refUrl: null }
 }
@@ -492,6 +497,14 @@ export function parsePage(
       : { kind: noticeKind, markdown: markdown.trim() }
     if (target) target.notice = merged
     else pageNotice = merged
+    // guide pages also record the notice as an ordered block so the renderer
+    // can reproduce the real document order (blocks supersede `notice`)
+    if (kind === 'guide' && target) {
+      target.blocks.push({
+        kind: 'notice',
+        notice: { kind: noticeKind, markdown: markdown.trim() },
+      })
+    }
   }
 
   const openSection = (rawTitle: string) => {
@@ -502,6 +515,7 @@ export function parsePage(
       notice: null,
       rawEntries: [],
       noticeParts: [],
+      blocks: [],
       subsections: [],
     }
     sub = null
@@ -511,7 +525,7 @@ export function parsePage(
   const openSubsection = (rawTitle: string) => {
     if (!section) openSection('')
     const { title: t, refUrl } = headingLink(rawTitle)
-    sub = { title: t, refUrl, notice: null, rawEntries: [], noticeParts: [] }
+    sub = { title: t, refUrl, notice: null, rawEntries: [], noticeParts: [], blocks: [] }
     section!.subsections.push(sub)
   }
 
@@ -596,14 +610,25 @@ export function parsePage(
       })()
       const bang = /^!!!(note|info|warning)\s+(.+)$/.exec(line)
       if (bang) {
+        // legacy fallback (renderers without WikiGuideBlock support)
         target.noticeParts.push(
           `**${bang[1] === 'warning' ? 'Warning' : 'Note'}:** ${bang[2]}`,
         )
+        // full fidelity: fmhy.net maps !!!note/!!!info → :::info (blue) and
+        // !!!warning → :::warning (docs/.vitepress/transformer.ts)
+        target.blocks.push({
+          kind: 'notice',
+          notice: {
+            kind: bang[1] === 'warning' ? 'warning' : 'info',
+            markdown: bang[2]!.trim(),
+          },
+        })
         continue
       }
       if (line.startsWith('> ')) {
-        // blockquote questions: the inline renderer has no '>' support — bold them
-        target.noticeParts.push(`**${line.slice(2).trim()}**`)
+        // real blockquote block — WikiSectionList renders subsection.blocks
+        // blockquotes natively, so it must NOT also live in the merged notice
+        target.blocks.push({ kind: 'blockquote', markdown: line.slice(2).trim() })
         continue
       }
       const bq = BULLET_RE.exec(line)
@@ -612,6 +637,7 @@ export function parsePage(
         continue
       }
       target.noticeParts.push(line.trim())
+      target.blocks.push({ kind: 'prose', markdown: line.trim() })
       continue
     }
 
@@ -690,7 +716,15 @@ export function parsePage(
       if (raw.paragraph) stats.paragraphEntries++
     }
     entryCount += entries.length
-    return { id, title: c.title, refUrl: c.refUrl, crossrefRoute: null, notice, entries }
+    return {
+      id,
+      title: c.title,
+      refUrl: c.refUrl,
+      crossrefRoute: null,
+      notice,
+      blocks: c.blocks,
+      entries,
+    }
   }
 
   for (const c of containers) {

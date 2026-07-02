@@ -6,16 +6,37 @@ import { OptionsCard } from '~/features/wiki/OptionsCard'
 
 import type { WikiNavItem } from '~/features/wiki/types'
 
-// beginners-guide is a standalone top row in fmhy-app's sidebar (not in a nav group)
-const TOP_ITEM: WikiNavItem = {
-  slug: 'beginners-guide',
-  title: 'Beginners Guide',
-  emoji: '📚',
-  description: '',
-  route: '/beginners-guide',
-  externalUrl: null,
-  entryCount: 0,
-}
+// standalone top rows (not in a nav group) — mirrors fmhy.net's sidebar
+// (fmhy/edit docs/.vitepress/shared.ts): Beginners Guide, Posts, Contribute
+const TOP_ITEMS: WikiNavItem[] = [
+  {
+    slug: 'beginners-guide',
+    title: 'Beginners Guide',
+    emoji: '📚',
+    description: '',
+    route: '/beginners-guide',
+    externalUrl: null,
+    entryCount: 0,
+  },
+  {
+    slug: 'posts',
+    title: 'Posts',
+    emoji: '📰',
+    description: '',
+    route: '/posts',
+    externalUrl: null,
+    entryCount: 0,
+  },
+  {
+    slug: 'contribute',
+    title: 'Contribute',
+    emoji: '💡',
+    description: '',
+    route: '/other/contributing',
+    externalUrl: null,
+    entryCount: 0,
+  },
+]
 
 // row frame mirrors fmhy-app SidebarRowFrame (height 36, rounded, hover/press, active bg)
 const SidebarRowFrame = styled(XStack, {
@@ -87,9 +108,18 @@ function GroupLabel({ label }: { label: string }) {
 
 export function WikiSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   return (
-    <YStack p="$2" pb="$8" gap="$4" select="none">
+    <YStack
+      render="nav"
+      aria-label="Sidebar Navigation"
+      p="$2"
+      pb="$8"
+      gap="$4"
+      select="none"
+    >
       <YStack gap="$0.5" pt="$2">
-        <SidebarRow item={TOP_ITEM} onNavigate={onNavigate} />
+        {TOP_ITEMS.map((item) => (
+          <SidebarRow key={item.slug} item={item} onNavigate={onNavigate} />
+        ))}
       </YStack>
 
       {wikiNav.groups.map((group) => (

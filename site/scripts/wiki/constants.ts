@@ -164,6 +164,26 @@ export const EXPECTED_BULLETS: Record<string, number> = {
   'beginners-guide': 41,
 }
 
+// prose pages (docs/other/* + sandbox) rendered through the prose pipeline.
+// other/backups.md is intentionally absent — it's wiki-bullet content and
+// keeps its structured WikiCategoryContent treatment (see convert-fmhy.ts).
+export const PROSE_OTHER_PAGES = ['FAQ', 'contributing', 'selfhosting', 'wallpapers']
+
+// post author roster (fmhy/edit docs/.vitepress/theme/components/Authors.vue)
+export const POST_AUTHORS: Record<string, string> = {
+  nbats: 'https://github.com/nbats',
+  Kai: 'https://github.com/Kai-FMHY',
+  taskylizard: 'https://github.com/taskylizard',
+  zinklog: 'https://github.com/zinklog2',
+  Q: 'https://github.com/qiracy',
+}
+
+// recently-removed page header (fmhy/edit transformer/constants.ts headers map)
+export const RECENTLY_REMOVED_HEADER = {
+  title: 'Recently Removed Sites',
+  description: 'List of sites recently removed from the wiki',
+}
+
 export function profileFor(pageId: string): PageProfile {
   if (pageId === 'storage') return 'storage'
   if (pageId === 'unsafe') return 'unsafe'
@@ -433,7 +453,14 @@ export const NAV_GROUPS: NavGroupSpec[] = [
         route: '/unsafe',
         externalUrl: null,
       },
-      // 'Recently Removed' intentionally omitted (generated server-side, not in this app)
+      {
+        slug: 'recently-removed',
+        title: 'Recently Removed',
+        emoji: '🗑️',
+        route: '/recently-removed',
+        externalUrl: null,
+        description: 'List of sites recently removed from the wiki',
+      },
       {
         slug: 'storage',
         title: 'Storage',

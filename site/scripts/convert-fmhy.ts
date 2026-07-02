@@ -32,9 +32,11 @@ if (!existsSync(PAGES)) {
   process.exit(1)
 }
 
-// extra header-linked pages (backups + changelog) that live outside PAGE_ORDER:
-// parse their markdown into the same generated-pages JSON so the route loop below
-// emits app/<id>+ssg.tsx for each. not in nav.json, so they stay out of the sidebar.
+// extra header-linked pages that live outside PAGE_ORDER: parse their markdown
+// into the same generated-pages JSON so the route loop below emits
+// app/<id>+ssg.tsx for each. not in nav.json, so they stay out of the sidebar.
+// (posts/changelog-sites is no longer special-cased — it renders as a real
+// prose post through generated/prose, like the rest of docs/posts/*.)
 type ExtraPage = {
   id: string
   title: string
@@ -52,19 +54,6 @@ const EXTRA: ExtraPage[] = [
     description: 'FMHY mirrors & backups',
     route: 'other/backups',
     file: join(ROOT, 'docs', 'other', 'backups.md'),
-  },
-  {
-    // changelog-sites.md is a prose post (no wiki bullets), so render its key
-    // links as entries instead — keeps the page useful without the MDX runtime.
-    id: 'changelog',
-    title: 'Changelog',
-    description: 'Links added, updated, or removed — tracked from GitHub.',
-    route: 'posts/changelog-sites',
-    content: [
-      '* ⭐ **[FMHY Tracker](https://fmhy-tracker.pages.dev/)** - Links added, updated, or removed, tracked by watching GitHub for changes',
-      '* **[Discord](https://redd.it/17f8msf)** - We post the bigger monthly changes here — follow along',
-      '* **[Commits Page](https://github.com/fmhy/edit/commits/main/)** - Watch every change on GitHub',
-    ].join('\n'),
   },
 ]
 
@@ -176,3 +165,59 @@ export default function Page() {
 }
 
 console.info(`✓ generated ${slugs.length} wiki routes → app/*+ssg.tsx`)
+
+// ---------------------------------------------------------------------------
+// prose routes: docs/other/*, docs/posts/*, sandbox, recently-removed —
+// generated/prose/**.json → app/<id>+ssg.tsx rendering WikiProseContent.
+// /posts (index) and /startpage are hand-authored routes, not emitted here.
+// ---------------------------------------------------------------------------
+
+const PROSE = join(SITE, 'src', 'features', 'wiki', 'generated', 'prose')
+
+const proseIds: string[] = []
+if (existsSync(PROSE)) {
+  for (const f of readdirSync(PROSE, { recursive: true }) as string[]) {
+    const rel = f.replace(/\\/g, '/')
+    if (rel.endsWith('.json') && statSync(join(PROSE, f)).isFile()) {
+      proseIds.push(rel.replace(/\.json$/, ''))
+    }
+  }
+}
+proseIds.sort()
+
+for (const id of proseIds) {
+  const routeFile = join(APP, `${id}+ssg.tsx`)
+  mkdirSync(dirname(routeFile), { recursive: true })
+  writeFileSync(
+    routeFile,
+    `${MARKER}
+import { createRoute, Head, useLoader } from 'one'
+
+import { HeadInfo } from '~/components/HeadInfo'
+import { WikiProseContent } from '~/features/wiki/WikiProseContent'
+
+import type { WikiProsePage } from '~/features/wiki/types'
+
+const route = createRoute<'/${id}'>()
+
+export const loader = route.createLoader(async () => {
+  const mod = await import('~/features/wiki/generated/prose/${id}.json')
+  return { page: mod.default as unknown as WikiProsePage }
+})
+
+export default function Page() {
+  const { page } = useLoader(loader)
+  return (
+    <>
+      <Head>
+        <HeadInfo title={page.title} description={page.description ?? undefined} />
+      </Head>
+      <WikiProseContent page={page} />
+    </>
+  )
+}
+`,
+  )
+}
+
+console.info(`✓ generated ${proseIds.length} prose routes → app/**+ssg.tsx`)

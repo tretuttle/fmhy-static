@@ -11,8 +11,16 @@
  * standalone bun generator emitting structured JSON.
  */
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { dirname, join } from 'node:path'
 import type {
   SearchDoc,
   WikiNav,
@@ -20,6 +28,8 @@ import type {
   WikiNote,
   WikiNotice,
   WikiPage,
+  WikiPostMeta,
+  WikiProsePage,
   WikiSection,
   WikiSubsection,
 } from '../../src/features/wiki/types'
@@ -28,10 +38,15 @@ import {
   NAV_GROUPS,
   PAGE_HEADERS,
   PAGE_ORDER,
+  POST_AUTHORS,
   profileFor,
+  PROSE_OTHER_PAGES,
+  RECENTLY_REMOVED_HEADER,
   REDDIT_WIKI_PAGES,
 } from './constants'
 import { noteIdFromUrl, parsePage, stripInvisible, type PageStats } from './parse'
+import { parseProse, splitForSearch, type ParsedProse } from './prose'
+import { generateRemovedMarkdown } from './removed'
 
 const SITE = join(import.meta.dirname, '..', '..')
 const ROOT = join(import.meta.dirname, '..', '..', '..')
@@ -344,6 +359,161 @@ for (const page of pages.values()) {
 }
 
 // ---------------------------------------------------------------------------
+// prose pages (docs/other/*, docs/posts/*, sandbox, recently-removed)
+// ---------------------------------------------------------------------------
+
+// `<!-- @include: path -->` (vitepress) — other/contributing.md pulls in
+// .github/CONTRIBUTING.md, which our docs-only sync doesn't check out; fall
+// back to reading it from the upstream ref.
+function resolveIncludes(source: string, baseDir: string): string {
+  return source.replace(/<!--\s*@include:\s*(\S+)\s*-->/g, (full, relPath: string) => {
+    const local = join(baseDir, relPath)
+    if (existsSync(local)) return readFileSync(local, 'utf8')
+    // normalize '../../.github/CONTRIBUTING.md' → repo-relative
+    const parts: string[] = []
+    for (const seg of join(baseDir, relPath).slice(ROOT.length + 1).split('/')) {
+      if (seg === '..') parts.pop()
+      else if (seg !== '.') parts.push(seg)
+    }
+    try {
+      return execFileSync(
+        'git',
+        ['-C', ROOT, 'show', `upstream/main:${parts.join('/')}`],
+        { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+      )
+    } catch {
+      console.warn(`could not resolve include ${relPath} (${full})`)
+      return ''
+    }
+  })
+}
+
+const prosePages: WikiProsePage[] = []
+const postsManifest: WikiPostMeta[] = []
+let proseMissing = 0
+
+function buildProsePage(
+  id: string,
+  header: WikiProsePage['header'],
+  parsed: ParsedProse,
+): WikiProsePage {
+  const authors = parsed.authorNames
+    .filter((name) => POST_AUTHORS[name])
+    .map((name) => ({ name, github: POST_AUTHORS[name]! }))
+  return {
+    id,
+    route: `/${id}`,
+    kind: 'prose',
+    header,
+    title: parsed.frontmatter.title ?? id,
+    description: parsed.frontmatter.description ?? null,
+    date: parsed.frontmatter.date ?? null,
+    authors,
+    blocks: parsed.blocks,
+  }
+}
+
+// other/* pages (body carries its own h1 — header 'none')
+for (const name of PROSE_OTHER_PAGES) {
+  const file = join(DOCS_DIR, 'other', `${name}.md`)
+  if (!existsSync(file)) {
+    console.warn(`missing prose page docs/other/${name}.md`)
+    proseMissing++
+    continue
+  }
+  const source = resolveIncludes(readFileSync(file, 'utf8'), join(DOCS_DIR, 'other'))
+  prosePages.push(buildProsePage(`other/${name}`, 'none', parseProse(source)))
+}
+
+// posts (post layout header) + posts.json manifest for the RSS feed
+const postFiles = readdirSync(join(DOCS_DIR, 'posts'))
+  .filter((f) => f.endsWith('.md'))
+  .sort()
+for (const file of postFiles) {
+  const slug = file.replace(/\.md$/, '')
+  const source = readFileSync(join(DOCS_DIR, 'posts', file), 'utf8')
+  const page = buildProsePage(`posts/${slug}`, 'post', parseProse(source))
+  prosePages.push(page)
+  postsManifest.push({
+    slug,
+    title: page.title,
+    date: page.date ?? '',
+    description: page.description ?? '',
+  })
+}
+postsManifest.sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug))
+
+// sandbox (admonition showcase — body h3 carries the heading)
+{
+  const file = join(DOCS_DIR, 'sandbox.md')
+  if (existsSync(file)) {
+    prosePages.push(
+      buildProsePage('sandbox', 'none', parseProse(readFileSync(file, 'utf8'))),
+    )
+  } else {
+    console.warn('missing docs/sandbox.md')
+    proseMissing++
+  }
+}
+
+// recently-removed — regenerated from upstream docs/ git history like the
+// real site does at deploy (scripts/generate-removed.js)
+const removed = generateRemovedMarkdown(ROOT)
+{
+  const parsed = parseProse(removed.markdown)
+  const page = buildProsePage('recently-removed', 'page', parsed)
+  page.title = RECENTLY_REMOVED_HEADER.title
+  page.description = RECENTLY_REMOVED_HEADER.description
+  prosePages.push(page)
+}
+
+// ---------------------------------------------------------------------------
+// prose search docs — mirrors the real site's indexing rules
+// (docs/.vitepress/constants.ts): other/* always, posts younger than 60 days,
+// sandbox/startpage/feedback excluded, <!-- search-exclude --> spans dropped,
+// admonition-container prose dropped (stripNoteBlocks), :::details kept
+// ---------------------------------------------------------------------------
+
+const SEARCH_EXCLUDE_SPAN_RE =
+  /<!--\s*search-exclude\s*-->[\s\S]*?<!--\s*\/search-exclude\s*-->/gi
+
+const postCutoff = new Date()
+postCutoff.setMonth(postCutoff.getMonth() - 2)
+
+let proseSearchDocs = 0
+
+for (const page of prosePages) {
+  if (page.id === 'sandbox') continue
+  if (page.id.startsWith('posts/')) {
+    if (!page.date || new Date(page.date) < postCutoff) continue
+  }
+  // recently-removed hides its removal metadata from search via
+  // search-exclude comments — re-parse with those spans dropped
+  const blocks =
+    page.id === 'recently-removed'
+      ? parseProse(removed.markdown.replace(SEARCH_EXCLUDE_SPAN_RE, '')).blocks
+      : page.blocks
+  for (const section of splitForSearch(blocks)) {
+    searchDocs.push({
+      id: `${page.id}#${section.anchor || 'intro'}`,
+      pageId: page.id,
+      pageTitle: page.title,
+      sectionPath: section.path.join(' › '),
+      anchor: section.anchor,
+      title: section.title || page.title,
+      altTitles: [],
+      url: null,
+      description: section.text || null,
+      tags: [],
+      starred: false,
+      isIndex: false,
+      nsfw: false,
+    })
+    proseSearchDocs++
+  }
+}
+
+// ---------------------------------------------------------------------------
 // emit
 // ---------------------------------------------------------------------------
 
@@ -354,6 +524,12 @@ writeFileSync(join(OUT_DIR, 'nav.json'), JSON.stringify(nav))
 for (const page of pages.values()) {
   writeFileSync(join(OUT_DIR, 'pages', `${page.id}.json`), JSON.stringify(page))
 }
+for (const page of prosePages) {
+  const file = join(OUT_DIR, 'prose', `${page.id}.json`)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, JSON.stringify(page))
+}
+writeFileSync(join(OUT_DIR, 'posts.json'), JSON.stringify(postsManifest))
 writeFileSync(join(OUT_DIR, 'search-corpus.json'), JSON.stringify(searchDocs))
 writeFileSync(join(OUT_DIR, 'notes.json'), JSON.stringify(notes))
 writeFileSync(
@@ -430,9 +606,21 @@ console.info(
   `notes: ${Object.keys(notes).length} resolved${missingNotes.size ? `, MISSING: ${[...missingNotes].join(', ')}` : ''}`,
 )
 console.info(
-  `search corpus: ${searchDocs.length} docs (${skippedUntitled} untitled entries skipped)`,
+  `search corpus: ${searchDocs.length} docs (${skippedUntitled} untitled entries skipped, ${proseSearchDocs} prose docs)`,
 )
 console.info(`pages written: ${pages.size} → src/features/wiki/generated/`)
+{
+  // prose pipeline gate: all nav-linked pages must exist, and the posts
+  // manifest is a cross-agent contract (RSS) — an empty one is a build bug
+  const ok = proseMissing === 0 && postsManifest.length >= 40
+  if (!ok) failed = true
+  console.info(
+    `prose pages: ${prosePages.length} (posts manifest: ${postsManifest.length}, missing: ${proseMissing}) ${ok ? 'OK' : 'FAIL'}`,
+  )
+  console.info(
+    `recently-removed: ${removed.entryCount} entries${removed.fromHistory ? '' : ' (git history unavailable — emitted fallback body)'}`,
+  )
+}
 
 if (failed) {
   console.error('\nVALIDATION FAILED — counts drifted beyond tolerance, see above')

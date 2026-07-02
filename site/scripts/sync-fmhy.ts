@@ -16,7 +16,14 @@ const git = (...args: string[]) =>
 // fetch fmhy/edit (the `upstream` remote) and take only the docs subtree —
 // never touches our app files, so it can't conflict with the takeout-static
 // code we layered on top. `origin` is our own repo; `upstream` is fmhy/edit.
-git('fetch', '--depth', '1', 'upstream', 'main')
+// --shallow-since keeps ~31 days of docs history around: generate.ts ports
+// upstream's scripts/generate-removed.js and walks it to build the
+// /recently-removed page (falls back to --depth 1 for odd remote states).
+try {
+  git('fetch', '--shallow-since=31 days ago', 'upstream', 'main')
+} catch {
+  git('fetch', '--depth', '1', 'upstream', 'main')
+}
 git('checkout', 'upstream/main', '--', 'docs/')
 
 // regenerate the wiki dataset (pages/nav/search-corpus/notes JSON) from the

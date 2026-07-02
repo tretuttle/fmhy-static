@@ -9,14 +9,65 @@ import {
   filterEntries,
   type EntryVisibilityFilters,
 } from './entryVisibility'
+import { InlineMarkdown } from './InlineMarkdown'
 import { LinkEntryRow } from './LinkEntryRow'
 import { openExternal } from './openExternal'
 import { useWikiFilters } from './useWikiFilters'
 import { WikiNotice } from './WikiNotice'
 
+import type {
+  WikiGuideBlock,
+  WikiNotice as WikiNoticeType,
+  WikiPage,
+  WikiSection,
+  WikiSubsection,
+} from './types'
 import type { Href } from 'one'
 import type { ReactNode } from 'react'
-import type { WikiPage, WikiSection, WikiSubsection } from './types'
+
+// VitePress .vp-doc blockquote: left divider border, muted 16px text
+const Blockquote = ({ markdown }: { markdown: string }) => (
+  <YStack my={16} pl={16} borderLeftWidth={2} borderColor="$color4">
+    <SizableText fontSize={16} lineHeight={24} color="$color10">
+      <InlineMarkdown markdown={markdown} />
+    </SizableText>
+  </YStack>
+)
+
+// a notice whose kind is 'blockquote' is legacy data — render as a blockquote
+const NoticeOrBlockquote = ({ notice }: { notice: WikiNoticeType }) => {
+  if ((notice.kind as string) === 'blockquote') {
+    return <Blockquote markdown={notice.markdown} />
+  }
+  return <WikiNotice notice={notice} />
+}
+
+// guide pages carry a full-fidelity ordered block stream (types.ts: render it
+// INSTEAD of the legacy merged notice): prose stays a plain paragraph like the
+// real .vp-doc, quotes get blockquote styling, !!!note/!!!info get info boxes
+const GuideBlocks = ({ blocks }: { blocks: WikiGuideBlock[] }) => (
+  <YStack>
+    {blocks.map((block, i) => {
+      if (block.kind === 'blockquote') return <Blockquote key={i} markdown={block.markdown} />
+      if (block.kind === 'notice') return <WikiNotice key={i} notice={block.notice} />
+      return (
+        <SizableText key={i} my={8} fontSize={16} lineHeight={26} color="$color11">
+          <InlineMarkdown markdown={block.markdown} />
+        </SizableText>
+      )
+    })}
+  </YStack>
+)
+
+const ContainerProse = ({
+  node,
+}: {
+  node: { blocks?: WikiGuideBlock[]; notice: WikiNoticeType | null }
+}) => {
+  if (node.blocks && node.blocks.length > 0) return <GuideBlocks blocks={node.blocks} />
+  if (node.notice) return <NoticeOrBlockquote notice={node.notice} />
+  return null
+}
 
 // real ids let /#anchor hash-navigation work, and data-toc-* feeds the Phase-3
 // ToC. raw div keeps content-visibility untouched by tamagui's style system so
@@ -107,8 +158,10 @@ const SubsectionBlock = ({
   return (
     <Anchor id={subsection.id} tocLevel={1} tocTitle={subsection.title}>
       <YStack>
-        <SepHeading size="$5">{subsection.title}</SepHeading>
-        {subsection.notice && <WikiNotice notice={subsection.notice} />}
+        <SepHeading size="$5" anchorId={subsection.id}>
+          {subsection.title}
+        </SepHeading>
+        <ContainerProse node={subsection} />
         {subsection.refUrl ? (
           <CrossrefRow
             title={subsection.title}
@@ -150,8 +203,10 @@ const SectionBlock = ({
   return (
     <Anchor id={section.id} tocLevel={0} tocTitle={section.title}>
       <YStack>
-        <SepHeading size="$6">{section.title}</SepHeading>
-        {section.notice && <WikiNotice notice={section.notice} />}
+        <SepHeading size="$6" anchorId={section.id}>
+          {section.title}
+        </SepHeading>
+        <ContainerProse node={section} />
         {section.refUrl ? (
           <CrossrefRow
             title={section.title}

@@ -2,15 +2,15 @@
 import { createRoute, Head, useLoader } from 'one'
 
 import { HeadInfo } from '~/components/HeadInfo'
-import { WikiCategoryContent } from '~/features/wiki/WikiCategoryContent'
+import { WikiProseContent } from '~/features/wiki/WikiProseContent'
 
-import type { WikiPage } from '~/features/wiki/types'
+import type { WikiProsePage } from '~/features/wiki/types'
 
 const route = createRoute<'/posts/changelog-sites'>()
 
 export const loader = route.createLoader(async () => {
-  const mod = await import('~/features/wiki/generated/pages/changelog.json')
-  return { page: mod.default as unknown as WikiPage }
+  const mod = await import('~/features/wiki/generated/prose/posts/changelog-sites.json')
+  return { page: mod.default as unknown as WikiProsePage }
 })
 
 export default function Page() {
@@ -18,9 +18,9 @@ export default function Page() {
   return (
     <>
       <Head>
-        <HeadInfo title={page.title} description={page.description} />
+        <HeadInfo title={page.title} description={page.description ?? undefined} />
       </Head>
-      <WikiCategoryContent page={page} />
+      <WikiProseContent page={page} />
     </>
   )
 }

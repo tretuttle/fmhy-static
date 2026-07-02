@@ -1,6 +1,13 @@
 import { useEffect } from 'react'
 
 import {
+  ACCENT_BASELINE,
+  AMOLED_CLASS,
+  THEME_BASELINE,
+  accentClassName,
+  themeClassName,
+} from './themePrePaint'
+import {
   ACCENT_NAMES,
   THEME_NAMES,
   accentStorage,
@@ -13,6 +20,7 @@ import {
 
 import type { AccentName, ThemeName } from './themeSettings'
 
+// class names are shared with the inline SSG pre-paint script — see themePrePaint.ts
 function applyClasses(amoled: boolean, accent: AccentName, themeName: ThemeName) {
   if (typeof document === 'undefined') {
     return
@@ -20,17 +28,17 @@ function applyClasses(amoled: boolean, accent: AccentName, themeName: ThemeName)
 
   const list = document.documentElement.classList
 
-  list.toggle('amoled', amoled)
+  list.toggle(AMOLED_CLASS, amoled)
 
   for (const name of ACCENT_NAMES) {
     // swarm is the shipped baseline, no class
-    list.toggle(`accent-${name}`, name !== 'swarm' && accent === name)
+    list.toggle(accentClassName(name), name !== ACCENT_BASELINE && accent === name)
   }
 
   for (const name of THEME_NAMES) {
     // default is the shipped baseline, no class. a theme's own palette
     // overrides the accent classes above via CSS cascade order (root.css).
-    list.toggle(`theme-${name}`, name !== 'default' && themeName === name)
+    list.toggle(themeClassName(name), name !== THEME_BASELINE && themeName === name)
   }
 }
 

@@ -1,4 +1,5 @@
 import { useUserScheme } from '@vxrn/color-scheme'
+import { flushSync } from 'react-dom'
 import { Popover, Switch, XStack, YStack } from 'tamagui'
 
 import { CircleHalfIcon } from '~/icons/phosphor/CircleHalfIcon'
@@ -6,7 +7,9 @@ import { MoonStarsIcon } from '~/icons/phosphor/MoonStarsIcon'
 import { SunIcon } from '~/icons/phosphor/SunIcon'
 import { Text } from '~/interface/text/Text'
 
+import { AMOLED_CLASS } from './themePrePaint'
 import { THEME_NAMES, useAmoled, useThemeName } from './themeSettings'
+import { pointFromPressEvent, revealThemeChange } from './themeTransition'
 
 import type { IconComponent } from '~/icons/types'
 import type { ThemeName } from './themeSettings'
@@ -40,7 +43,7 @@ function ModeSegment({
   onSelect,
 }: {
   active: ModeId
-  onSelect: (mode: ModeId) => void
+  onSelect: (mode: ModeId, event?: unknown) => void
 }) {
   return (
     <XStack gap="$1" bg="$color3" rounded="$4" p="$1">
@@ -50,7 +53,7 @@ function ModeSegment({
           <XStack
             key={id}
             render="button"
-            onPress={() => onSelect(id)}
+            onPress={(event) => onSelect(id, event)}
             aria-label={`${label} mode`}
             flex={1}
             items="center"
@@ -160,16 +163,55 @@ export function ThemeMenuContents() {
   const [amoled, setAmoled] = useAmoled()
   const [themeName, setThemeName] = useThemeName()
 
-  const onSelectMode = (mode: ModeId) => {
-    userScheme.set(mode)
+  // light/dark flips run inside a radial view-transition reveal from the click
+  // point (fmhy.net's themeTransition.ts). flushSync forces the scheme
+  // provider's class flip to commit inside the transition callback so both
+  // snapshots capture around it.
+  const onSelectMode = (mode: ModeId, event?: unknown) => {
+    if (mode === userScheme.setting) {
+      return
+    }
+
+    const isDarkAfter =
+      mode === 'dark' ||
+      (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+    // e.g. light -> system while the system is light: nothing visual changes,
+    // so skip the reveal and just persist the setting
+    if (isDarkAfter === (userScheme.value === 'dark')) {
+      userScheme.set(mode)
+      return
+    }
+
+    void revealThemeChange(pointFromPressEvent(event), isDarkAfter, () => {
+      flushSync(() => {
+        userScheme.set(mode)
+      })
+    })
   }
 
-  // amoled is a dark-mode variant, so enabling it forces the dark scheme to take effect
+  // amoled is a dark-mode variant, so enabling it forces the dark scheme to take
+  // effect. the switch's onCheckedChange has no event — revealThemeChange falls
+  // back to the last pointer press for the reveal origin.
   const onAmoledChange = (next: boolean) => {
-    setAmoled(next)
-    if (next && userScheme.value !== 'dark') {
-      userScheme.set('dark')
+    // amoled only shows in dark mode — turning it off while light changes nothing
+    if (!next && userScheme.value !== 'dark') {
+      setAmoled(next)
+      return
     }
+
+    void revealThemeChange(undefined, true, () => {
+      flushSync(() => {
+        setAmoled(next)
+        if (next && userScheme.value !== 'dark') {
+          userScheme.set('dark')
+        }
+      })
+      // ThemeController toggles this from a passive effect that may land after
+      // the new snapshot is captured — set it directly so the reveal shows it
+      // (the later effect re-applies the same class, a no-op).
+      document.documentElement.classList.toggle(AMOLED_CLASS, next)
+    })
   }
 
   return (

@@ -73,26 +73,48 @@ body > div > span > div {
   }
 }
 
-/* css reset this because we always want to set our own focus styles */
-*:focus,
-*:focus-within,
-*:focus-visible {
+/*
+  quiet mouse/touch focus only — keyboard focus (:focus-visible) keeps the
+  native UA ring (WCAG 2.4.7), matching fmhy.net. components may layer their
+  own :focus-visible styling on top (e.g. Link.tsx's focusVisibleStyle).
+*/
+:focus:not(:focus-visible) {
   outline: none;
-  outline-width: 0px;
-  outline-color: transparent;
-  outline-style: none;
 }
 
-/* specifically target form elements that often have browser defaults */
-input:focus,
-textarea:focus,
-select:focus,
-button:focus,
-a:focus,
-[tabindex]:focus,
-[contenteditable]:focus {
+/* programmatic focus target for the skip link / route-change focus — not an
+   interactive control, so never draw a ring around the whole content column */
+#main-content:focus,
+#main-content:focus-visible {
   outline: none;
-  box-shadow: none;
+}
+
+/* skip-to-content link: first element in <body>, visually hidden until focused
+   (mirrors VitePress's VPSkipLink) */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 999;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip-link:focus {
+  width: auto;
+  height: auto;
+  clip-path: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--accent11);
+  background-color: var(--color2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.33);
 }
 
 /* default links to not underline */
@@ -524,4 +546,44 @@ html.theme-monochrome.t_light {
 }
 html.theme-monochrome.t_light ::selection {
   background: #cccccc;
+}
+
+/*
+  theme-switch radial reveal (fmhy.net themeTransition.ts + Layout.vue rules).
+  the JS in src/features/theme/themeTransition.ts animates a circle() clip-path
+  on the view-transition snapshots; these rules disable the default cross-fade
+  and layer the clipped snapshot on top. upstream keys on `.dark`; our dark
+  class is `.t_dark`.
+*/
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Layer the snapshots so the one being clipped sits on top:
+   - switching to light, the new (light) layer grows on top;
+   - switching to dark (.t_dark), the old (light) layer shrinks on top. */
+::view-transition-old(root),
+.t_dark::view-transition-new(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root),
+.t_dark::view-transition-old(root) {
+  z-index: 9999;
+}
+
+/* When transitioning to light mode (not .t_dark), initialize the new snapshot
+   as fully clipped (circle(0px)) to prevent it flashing fully visible before
+   the JS animation runs. */
+html:not(.t_dark)::view-transition-new(root) {
+  clip-path: circle(0px);
+}
+
+/* freeze the page's own CSS transitions while the reveal runs so the clip is
+   the only animation (the clip is a WAAPI animation, untouched by this) */
+html.theme-view-transition,
+html.theme-view-transition * {
+  transition: none !important;
 }

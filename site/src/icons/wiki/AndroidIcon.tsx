@@ -1,0 +1,20 @@
+import Svg, { Path } from 'react-native-svg'
+
+import { useIconProps } from '~/icons/useIconProps'
+
+import type { IconProps } from '~/icons/types'
+
+// iconify material-symbols:android — fmhy.net's Android platform indicator
+// (upstream transformer.ts "i-material-symbols:android")
+export const AndroidIcon = (props: IconProps) => {
+  const { width, height, fill, ...svgProps } = useIconProps(props)
+
+  return (
+    <Svg width={width} height={height} viewBox="0 0 24 24" fill="none" {...svgProps}>
+      <Path
+        d="M1 18q.225-2.675 1.638-4.925T6.4 9.5L4.55 6.3q-.15-.225-.075-.475T4.8 5.45q.2-.125.45-.05t.4.3L7.5 8.9Q9.65 8 12 8t4.5.9l1.85-3.2q.15-.225.4-.3t.45.05q.25.125.325.375t-.075.475L17.6 9.5q2.35 1.325 3.762 3.575T23 18zm6.888-3.113q.362-.362.362-.887t-.363-.888T7 12.75t-.888.363T5.75 14t.363.888t.887.362t.888-.363m10 0q.362-.362.362-.887t-.363-.888T17 12.75t-.888.363t-.362.887t.363.888t.887.362t.888-.363"
+        fill={fill}
+      />
+    </Svg>
+  )
+}

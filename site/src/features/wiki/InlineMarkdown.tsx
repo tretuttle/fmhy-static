@@ -9,16 +9,55 @@ import { openExternal } from './openExternal'
 import { toPlatformWikiRoute } from './routes'
 
 import type { Href } from 'one'
+import type { ColorTokens } from 'tamagui'
 
 export type InlineSpan =
   | { kind: 'text'; text: string; bold?: boolean }
   | { kind: 'code'; text: string }
   | { kind: 'link'; text: string; url: string; bold?: boolean }
+  // raw html <img> (only http(s) srcs survive parsing); text stays '' so
+  // consumers that flatten spans to plain text (useWikiSearch) are unaffected
+  | {
+      kind: 'image'
+      text: string
+      src: string
+      alt: string
+      width?: number
+      height?: number
+    }
 
-const TOKEN_RE = /(`[^`]+`)|(\*\*(?:[^*]|\*(?!\*))+\*\*)|(\[[^\]]+\]\([^()\s]+\))/g
+const TOKEN_RE =
+  /(`[^`]+`)|(\*\*(?:[^*]|\*(?!\*))+\*\*)|(\[[^\]]+\]\([^()\s]+\))|(<img\b[^>]*?\/?>)/g
 const LINK_RE = /^\[([^\]]+)\]\(([^()\s]+)\)$/
+const ATTR_RE = /([a-zA-Z-]+)\s*=\s*"([^"]*)"/g
 
-// tiny renderer for the markdown subset in wiki content: links, **bold**, `code`
+function parseImgTag(token: string): InlineSpan | null {
+  const attrs: Record<string, string> = {}
+  for (const match of token.matchAll(ATTR_RE)) {
+    const [, key, value] = match
+    if (key && value !== undefined) {
+      attrs[key.toLowerCase()] = value
+    }
+  }
+  const src = attrs.src ?? ''
+  // sanitize: only render http(s) images, drop anything else silently
+  if (!/^https?:\/\//i.test(src)) {
+    return null
+  }
+  const width = Number.parseInt(attrs.width ?? '', 10)
+  const height = Number.parseInt(attrs.height ?? '', 10)
+  return {
+    kind: 'image',
+    text: '',
+    src,
+    alt: attrs.alt ?? '',
+    width: Number.isFinite(width) ? width : undefined,
+    height: Number.isFinite(height) ? height : undefined,
+  }
+}
+
+// tiny renderer for the markdown subset in wiki content: links, **bold**,
+// `code`, and the occasional raw <img> (csrin-search note)
 export function parseInlineMarkdown(markdown: string, bold = false): InlineSpan[] {
   const spans: InlineSpan[] = []
   let lastIndex = 0
@@ -33,6 +72,11 @@ export function parseInlineMarkdown(markdown: string, bold = false): InlineSpan[
       spans.push({ kind: 'code', text: token.slice(1, -1) })
     } else if (token.startsWith('**')) {
       spans.push(...parseInlineMarkdown(token.slice(2, -2), true))
+    } else if (token.startsWith('<img')) {
+      const image = parseImgTag(token)
+      if (image) {
+        spans.push(image)
+      }
     } else {
       const link = token.match(LINK_RE)
       if (link) {
@@ -56,8 +100,37 @@ export function parseInlineMarkdown(markdown: string, bold = false): InlineSpan[
 // MDXComponents) while size/line-height still inherit from the surrounding text
 const inlineLinkPlatformWeb = { fontSize: 'inherit', lineHeight: 'inherit' } as const
 
-const MarkdownLink = ({ span }: { span: Extract<InlineSpan, { kind: 'link' }> }) => {
-  const weight = span.bold ? '700' : undefined
+// fmhy.net's `.vp-doc a` mechanic: constant brand color with an always-present
+// transparent underline that fades in on hover (4px offset)
+const underlineRevealProps = {
+  color: '$accent11' as ColorTokens,
+  textDecorationLine: 'underline',
+  textDecorationColor: 'transparent',
+  hoverStyle: { textDecorationColor: '$accent11' },
+  style: { textUnderlineOffset: 4, transition: 'text-decoration-color 0.25s' },
+} as const
+
+// inside notices, fmhy.net's `.custom-block a` keeps the block's text color
+// with a solid visible underline (2px offset) and dims to 0.7 on hover
+const noticeLinkProps = (linkColor: ColorTokens) =>
+  ({
+    color: linkColor,
+    textDecorationLine: 'underline',
+    hoverStyle: { opacity: 0.7 },
+    style: { textUnderlineOffset: 2, transition: 'opacity 0.25s' },
+  }) as const
+
+const MarkdownLink = ({
+  span,
+  linkColor,
+}: {
+  span: Extract<InlineSpan, { kind: 'link' }>
+  linkColor?: ColorTokens
+}) => {
+  // notice links render at 500 like `.custom-block a`; elsewhere weight flows
+  // from the surrounding text unless the source bolded the link
+  const weight = span.bold ? '700' : linkColor ? '500' : undefined
+  const linkProps = linkColor ? noticeLinkProps(linkColor) : underlineRevealProps
 
   // vitepress note links render an inline tooltip instead of navigating
   if (parseNoteLink(span.url)) {
@@ -71,9 +144,8 @@ const MarkdownLink = ({ span }: { span: Extract<InlineSpan, { kind: 'link' }> })
       return (
         <Link
           href={route as Href}
-          color="$accent11"
           fontWeight={weight}
-          hoverStyle={{ color: '$accent12' }}
+          {...linkProps}
           $platform-web={inlineLinkPlatformWeb}
         >
           {span.text}
@@ -82,7 +154,7 @@ const MarkdownLink = ({ span }: { span: Extract<InlineSpan, { kind: 'link' }> })
     }
     // no route target — keep the text, drop the dead link
     return (
-      <Text color="$accent11" fontWeight={weight}>
+      <Text color={linkColor ?? '$accent11'} fontWeight={weight}>
         {span.text}
       </Text>
     )
@@ -93,9 +165,8 @@ const MarkdownLink = ({ span }: { span: Extract<InlineSpan, { kind: 'link' }> })
     <Link
       href={span.url as Href}
       target="_blank"
-      color="$accent11"
       fontWeight={weight}
-      hoverStyle={{ color: '$accent12' }}
+      {...linkProps}
       $platform-web={inlineLinkPlatformWeb}
       onPress={(e) => {
         e.preventDefault()
@@ -107,7 +178,15 @@ const MarkdownLink = ({ span }: { span: Extract<InlineSpan, { kind: 'link' }> })
   )
 }
 
-export function InlineMarkdown({ markdown }: { markdown: string }) {
+export function InlineMarkdown({
+  markdown,
+  linkColor,
+}: {
+  markdown: string
+  // when set (wiki notices), links keep the notice's text color instead of
+  // the accent blue — mirrors upstream `.custom-block a`
+  linkColor?: ColorTokens
+}) {
   const spans = parseInlineMarkdown(markdown)
 
   return (
@@ -129,7 +208,24 @@ export function InlineMarkdown({ markdown }: { markdown: string }) {
               </Text>
             )
           case 'link':
-            return <MarkdownLink key={index} span={span} />
+            return <MarkdownLink key={index} span={span} linkColor={linkColor} />
+          case 'image':
+            return (
+              <img
+                key={index}
+                src={span.src}
+                alt={span.alt}
+                loading="lazy"
+                style={{
+                  display: 'block',
+                  width: span.width ? Math.min(span.width, 320) : undefined,
+                  maxWidth: '100%',
+                  height: 'auto',
+                  borderRadius: 4,
+                  marginTop: 6,
+                }}
+              />
+            )
           case 'text':
             return (
               <Fragment key={index}>

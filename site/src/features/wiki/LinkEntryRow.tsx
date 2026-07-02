@@ -1,17 +1,24 @@
-import { Fragment, memo, useState, type ReactNode } from 'react'
+import { Fragment, memo, useState, type ComponentProps, type ReactNode } from 'react'
 import { Paragraph, Tooltip, YStack } from 'tamagui'
 
 import { Link } from '~/components/Link'
-import { ArrowBendUpRightIcon } from '~/icons/phosphor/ArrowBendUpRightIcon'
+import { TooltipSimple } from '~/components/TooltipSimple'
 import { DiscordLogoIcon } from '~/icons/phosphor/DiscordLogoIcon'
 import { GithubLogoIcon } from '~/icons/phosphor/GithubLogoIcon'
 import { GitlabLogoIcon } from '~/icons/phosphor/GitlabLogoIcon'
-import { GlobeIcon } from '~/icons/phosphor/GlobeIcon'
 import { RedditLogoIcon } from '~/icons/phosphor/RedditLogoIcon'
-import { StarIcon } from '~/icons/phosphor/StarIcon'
 import { TelegramLogoIcon } from '~/icons/phosphor/TelegramLogoIcon'
 import { WarningCircleIcon } from '~/icons/phosphor/WarningCircleIcon'
 import { XLogoIcon } from '~/icons/phosphor/XLogoIcon'
+import { TwemojiIcon, TWEMOJI_CODES } from '~/icons/TwemojiIcon'
+import { AndroidIcon } from '~/icons/wiki/AndroidIcon'
+import { IosIcon } from '~/icons/wiki/IosIcon'
+import { LinuxIcon } from '~/icons/wiki/LinuxIcon'
+import { MacIcon } from '~/icons/wiki/MacIcon'
+import { SourceCodeIcon } from '~/icons/wiki/SourceCodeIcon'
+import { TorBrowserIcon } from '~/icons/wiki/TorBrowserIcon'
+import { WebIcon } from '~/icons/wiki/WebIcon'
+import { WindowsIcon } from '~/icons/wiki/WindowsIcon'
 import { Text } from '~/interface/text/Text'
 
 import { InlineMarkdown } from './InlineMarkdown'
@@ -30,6 +37,23 @@ const SUB_LINK_ICONS: Record<string, IconComponent> = {
   telegram: TelegramLogoIcon,
   reddit: RedditLogoIcon,
   x: XLogoIcon,
+  onion: TorBrowserIcon,
+  source: SourceCodeIcon,
+}
+
+// fmhy.net tooltip text per icon sub-link (transformer.ts v-tooltip values) —
+// every label maps to itself except [Subreddit], whose tooltip reads 'Reddit'
+const iconTooltipLabel = (label: string) => (label === 'Subreddit' ? 'Reddit' : label)
+
+// platform indicator icons trailing an entry (upstream transformer.ts
+// "Platform indicators" rules — same iconify glyphs, same tooltip labels)
+const PLATFORM_ICONS: Record<string, { label: string; Icon: IconComponent }> = {
+  windows: { label: 'Windows', Icon: WindowsIcon },
+  mac: { label: 'Mac', Icon: MacIcon },
+  linux: { label: 'Linux', Icon: LinuxIcon },
+  android: { label: 'Android', Icon: AndroidIcon },
+  ios: { label: 'iOS', Icon: IosIcon },
+  web: { label: 'Web', Icon: WebIcon },
 }
 
 // $platform-web overrides that drop Link.tsx's inherit pins so the chosen
@@ -50,37 +74,59 @@ function hostnameOf(url: string) {
   }
 }
 
-// wraps an svg so it rides the text baseline within the flowing line (NoteLink trick)
-const InlineIcon = ({ children }: { children: ReactNode }) => (
+// wraps an svg so it rides the text baseline within the flowing line (NoteLink
+// trick). rest props are forwarded so tooltip triggers can attach handlers.
+const InlineIcon = ({
+  children,
+  ...rest
+}: { children: ReactNode } & ComponentProps<typeof Text>) => (
   <Text
     render="span"
     tag="span"
     display="inline-flex"
     style={{ verticalAlign: '-0.15em' }}
+    {...rest}
   >
     {children}
   </Text>
 )
 
-const MarkerIcon = ({ marker }: { marker: WikiEntry['marker'] }) => {
-  switch (marker) {
-    case 'starred':
-      return <StarIcon size={14} color="$gold" />
-    case 'index':
-      return <GlobeIcon size={14} color="$color10" />
-    case 'crossref':
-      return <ArrowBendUpRightIcon size={14} color="$color10" />
-    case null:
-      return null
-  }
+// colorful twemoji markers, exactly like fmhy.net (transformer.ts rewrites
+// ⭐→:star:, 🌐→:globe-with-meridians:, ↪→:repeat-button: and emoji.ts
+// renders them as i-twemoji-* spans)
+const MARKER_TWEMOJI: Record<string, string> = {
+  starred: TWEMOJI_CODES.star,
+  index: TWEMOJI_CODES.globeWithMeridians,
+  crossref: TWEMOJI_CODES.repeatButton,
 }
 
-// fmhy.net's primary name: blue rgb(120,179,226), bold, underlined
+const MarkerIcon = ({ marker }: { marker: WikiEntry['marker'] }) => {
+  const code = marker ? MARKER_TWEMOJI[marker] : undefined
+  return code ? <TwemojiIcon code={code} size={14} /> : null
+}
+
+// fmhy.net's link mechanic (upstream style.scss .vp-doc a): constant brand
+// color; the underline is always present but transparent and fades in on
+// hover via text-decoration-color, offset 4px below the baseline
+const UNDERLINE_REVEAL_STYLE = {
+  textUnderlineOffset: 4,
+  transition: 'text-decoration-color 0.25s',
+} as const
+
+const underlineRevealProps = {
+  textDecorationLine: 'underline',
+  textDecorationColor: 'transparent',
+  hoverStyle: { textDecorationColor: '$accent11' },
+} as const
+
+// fmhy.net's primary name: constant blue rgb(120,179,226); bold only when the
+// source wraps it in ** (entry.bold — most entries are 500-weight like
+// vitepress's `.vp-doc a`, bolded via `#VPContent strong > a`)
 const NameLink = ({
   title,
   url,
   crossrefRoute,
-  bold = true,
+  bold = false,
 }: {
   title: string
   url: string | null
@@ -95,8 +141,8 @@ const NameLink = ({
         href={crossrefRoute as Href}
         color="$accent11"
         fontWeight={weight}
-        textDecorationLine="underline"
-        hoverStyle={{ color: '$accent12' }}
+        {...underlineRevealProps}
+        style={UNDERLINE_REVEAL_STYLE}
         $platform-web={INHERIT_SIZE}
         aria-label={title}
       >
@@ -121,8 +167,8 @@ const NameLink = ({
       rel="noopener noreferrer"
       color="$accent11"
       fontWeight={weight}
-      textDecorationLine="underline"
-      hoverStyle={{ color: '$accent12' }}
+      {...underlineRevealProps}
+      style={UNDERLINE_REVEAL_STYLE}
       $platform-web={INHERIT_SIZE}
       aria-label={title}
       onPress={(e) => {
@@ -141,10 +187,9 @@ const MirrorLink = ({ url, index }: { url: string; index: number }) => (
     href={url as Href}
     fontSize={12}
     color="$accent11"
-    textDecorationLine="none"
-    hoverStyle={{ color: '$accent12', textDecorationLine: 'underline' }}
+    {...underlineRevealProps}
     $platform-web={INHERIT_WEIGHT}
-    style={{ verticalAlign: 'super' }}
+    style={{ verticalAlign: 'super', ...UNDERLINE_REVEAL_STYLE }}
     aria-label={`Mirror ${index}`}
     onPress={(e) => {
       e.preventDefault()
@@ -155,48 +200,76 @@ const MirrorLink = ({ url, index }: { url: string; index: number }) => (
   </Link>
 )
 
-// shared blue text-link style for sub-links (regular weight, underline on hover)
+// shared blue text-link style for sub-links (regular weight, same constant
+// color + underline-reveal hover as every other wiki link)
 const subLinkProps = {
   color: '$accent11',
-  textDecorationLine: 'none',
-  hoverStyle: { color: '$accent12', textDecorationLine: 'underline' },
+  ...underlineRevealProps,
+  style: UNDERLINE_REVEAL_STYLE,
   '$platform-web': INHERIT_SIZE_WEIGHT,
 } as const
 
 const IconSubLink = ({ link, Icon }: { link: WikiSubLink; Icon: IconComponent }) => {
   const route = toPlatformWikiRoute(link.route)
   const icon = <Icon size={14} color="$accent11" />
+  const tooltip = iconTooltipLabel(link.label)
 
   if (route) {
     return (
-      <Link
-        href={route as Href}
-        display="inline-flex"
-        style={{ verticalAlign: '-0.15em' }}
-        hoverStyle={{ opacity: 0.7 }}
-        aria-label={link.label}
-      >
-        {icon}
-      </Link>
+      <TooltipSimple label={tooltip}>
+        <Link
+          href={route as Href}
+          display="inline-flex"
+          style={{ verticalAlign: '-0.15em' }}
+          aria-label={tooltip}
+        >
+          {icon}
+        </Link>
+      </TooltipSimple>
     )
   }
 
   return (
-    <Link
-      href={link.url as Href}
-      display="inline-flex"
-      style={{ verticalAlign: '-0.15em' }}
-      hoverStyle={{ opacity: 0.7 }}
-      aria-label={link.label}
-      onPress={(e) => {
-        e.preventDefault()
-        openExternal(link.url)
-      }}
-    >
-      {icon}
-    </Link>
+    <TooltipSimple label={tooltip}>
+      <Link
+        href={link.url as Href}
+        display="inline-flex"
+        style={{ verticalAlign: '-0.15em' }}
+        aria-label={tooltip}
+        onPress={(e) => {
+          e.preventDefault()
+          openExternal(link.url)
+        }}
+      >
+        {icon}
+      </Link>
+    </TooltipSimple>
   )
 }
+
+// plain (non-link) platform indicators at the entry tail with tooltips, like
+// fmhy.net's v-tooltip divs — several platforms sit space-separated after one
+// " / " separator, mirroring upstream's transformed markup
+const PlatformIndicators = ({ platforms }: { platforms: string[] }) => (
+  <>
+    {platforms.map((token, index) => {
+      const platform = PLATFORM_ICONS[token]
+      if (!platform) {
+        return null
+      }
+      return (
+        <Fragment key={token}>
+          {index > 0 && ' '}
+          <TooltipSimple label={platform.label}>
+            <InlineIcon aria-label={platform.label}>
+              <platform.Icon size={14} />
+            </InlineIcon>
+          </TooltipSimple>
+        </Fragment>
+      )
+    })}
+  </>
+)
 
 // vitepress note sub-links have no toast on web, so reveal the note in a lazy tooltip
 const NoteSubLink = ({
@@ -379,6 +452,9 @@ export const LinkEntryRow = memo(
       for (const link of entry.links) {
         tail.push(<SubLink link={link} />)
       }
+      if (entry.platforms.length > 0) {
+        tail.push(<PlatformIndicators platforms={entry.platforms} />)
+      }
     }
 
     return (
@@ -404,7 +480,12 @@ export const LinkEntryRow = memo(
             {title}
           </Text>
         ) : (
-          <NameLink title={title} url={entry.url} crossrefRoute={crossrefRoute} />
+          <NameLink
+            title={title}
+            url={entry.url}
+            crossrefRoute={crossrefRoute}
+            bold={entry.bold}
+          />
         )}
 
         {entry.mirrors.map((mirror, index) => (

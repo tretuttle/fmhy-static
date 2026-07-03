@@ -32,6 +32,12 @@ const MAIN_CONTENT_ID = 'main-content'
 // bounce out of iframes to the real site (upstream config.mts head script)
 const IFRAME_BUSTER_SCRIPT = `(function(){if(window.self!==window.top){window.top.location=window.location.href}})();`
 
+// Microsoft Clarity — DEV ONLY (gated below on import.meta.env.DEV, so it is
+// compiled out of production builds). the queue stub installs immediately so
+// early clarity() calls buffer, but the tag itself loads after `load` + idle
+// so analytics never competes with LCP even in dev
+const CLARITY_SCRIPT = `(function(c,l,a,r,i){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};var s=function(){var t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;var y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y)};if(l.readyState==="complete"){s()}else{c.addEventListener("load",function(){"requestIdleCallback"in c?c.requestIdleCallback(s):setTimeout(s,1)})}})(window,document,"clarity","script","xgj8fxpg16");`
+
 // June seasonal icon swap (upstream config.mts applyJuneTheme, month-gated so
 // it is dormant outside June). simplified from upstream: the swap only runs
 // once the asset actually loads (no broken-icon fallback if /june_icon.webp is
@@ -135,6 +141,9 @@ export function Layout() {
         {/* run before paint: iframe buster + saved theme classes (see themePrePaint.ts) */}
         <script dangerouslySetInnerHTML={{ __html: IFRAME_BUSTER_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: THEME_PRE_PAINT_SCRIPT }} />
+        {import.meta.env.DEV && (
+          <script dangerouslySetInnerHTML={{ __html: CLARITY_SCRIPT }} />
+        )}
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta property="og:site_name" content="FMHY" />
         <meta property="og:locale" content="en_US" />

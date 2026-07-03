@@ -119,7 +119,8 @@ const PagerCard = ({ entry, kind }: { entry: PagerEntry; kind: 'prev' | 'next' }
 
   return (
     <Link asChild href={entry.link as Href}>
-      <PagerLinkFrame items={kind === 'next' ? 'flex-end' : 'flex-start'}>
+      {/* render="a": asChild link target must be a real anchor — see CircleLink */}
+      <PagerLinkFrame render="a" items={kind === 'next' ? 'flex-end' : 'flex-start'}>
         {content}
       </PagerLinkFrame>
     </Link>

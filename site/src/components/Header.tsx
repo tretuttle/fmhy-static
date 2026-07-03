@@ -156,8 +156,10 @@ const NavTextLink = ({ emoji, label, href, arrow }: NavLink) => {
   )
 }
 
-const EcosystemRowInner = ({ item }: { item: EcosystemItem }) => (
+// render="a" when this row is the Link asChild target — see CircleLink
+const EcosystemRowInner = ({ item, render }: { item: EcosystemItem; render?: 'a' }) => (
   <XStack
+    render={render}
     items="center"
     gap="$2.5"
     px="$2.5"
@@ -192,7 +194,7 @@ const EcosystemRow = ({ item }: { item: EcosystemItem }) => {
       {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       asChild
     >
-      <EcosystemRowInner item={item} />
+      <EcosystemRowInner item={item} render="a" />
     </Link>
   )
 }
@@ -424,8 +426,10 @@ type SheetRowProps = {
 }
 
 const SheetRow = ({ label, emoji, icon, href, external, onPress }: SheetRowProps) => {
+  // render="a" when this row is the Link asChild target — see CircleLink
   const inner = (
     <XStack
+      render={href ? 'a' : undefined}
       items="center"
       gap="$3"
       px="$2"

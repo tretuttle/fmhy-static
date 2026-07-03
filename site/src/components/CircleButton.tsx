@@ -20,6 +20,12 @@ const Circle = styled(View, {
   cursor: 'pointer',
   hoverStyle: { bg: '$color3' },
   pressStyle: { bg: '$color2' },
+  focusVisibleStyle: {
+    outlineWidth: 2,
+    outlineColor: '$color02',
+    outlineOffset: 1,
+    outlineStyle: 'solid',
+  },
 })
 
 type CircleButtonProps = ViewProps & {
@@ -42,8 +48,11 @@ export function CircleButton({ tooltip, children, ...props }: CircleButtonProps)
 export function CircleLink({ href, tooltip, children }: CircleLinkProps) {
   return (
     <TooltipSimple label={tooltip}>
+      {/* render="a": asChild hands the link props to this element — without a
+          real anchor it becomes a <div role="link"> that keyboard users can't
+          reach (no tabindex) and middle-click/context-menu can't act on */}
       <Link asChild href={href} target="_blank" aria-label={tooltip}>
-        <Circle>{children}</Circle>
+        <Circle render="a">{children}</Circle>
       </Link>
     </TooltipSimple>
   )

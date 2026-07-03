@@ -41,7 +41,9 @@ function groupByYear(posts: WikiPostMeta[]): { year: string; posts: WikiPostMeta
 function PostRow({ post }: { post: WikiPostMeta }) {
   return (
     <Link asChild href={`/posts/${post.slug}` as Href}>
+      {/* render="a": asChild link target must be a real anchor — see CircleLink */}
       <XStack
+        render="a"
         group
         items="center"
         justify="space-between"

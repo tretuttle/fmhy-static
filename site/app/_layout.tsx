@@ -148,20 +148,10 @@ export function Layout() {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="alternate" type="application/rss+xml" title="FMHY" href="/feed.rss" />
-        <link
-          rel="preload"
-          href="/JetBrainsMono.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="preload"
-          href="/JetBrainsMono-Bold.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
+        {/* JetBrains Mono is deliberately NOT preloaded: it only styles code
+            blocks, which most wiki pages don't have — preloading pushed 172KB
+            of fonts on every page and logged "preload not used" warnings.
+            @font-face fetches it on first actual use. */}
         {/* after the icon links: june seasonal swap (dormant outside June) */}
         <script dangerouslySetInnerHTML={{ __html: JUNE_THEME_SCRIPT }} />
       </head>

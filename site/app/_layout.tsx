@@ -221,16 +221,23 @@ function Shell() {
       minH={`calc(100dvh - ${HEADER_H}px)`}
       items="flex-start"
     >
-      {/* sidebar flows with the page (no nested scroll) — the OptionsCard at the
-          bottom is reached via the main page scroll, with content space below it */}
+      {/* sidebar is its own sticky rail beneath the header (VPSidebar parity):
+          it scrolls independently of the page, so the OptionsCard at the
+          bottom is reached by scrolling the rail itself */}
       <View
         width={260}
         shrink={0}
-        self="stretch"
+        self="flex-start"
         display="none"
         borderRightWidth={1}
         borderRightColor="$color2"
-        $md={{ display: 'flex' }}
+        $md={{
+          display: 'flex',
+          position: 'sticky',
+          t: HEADER_H,
+          height: `calc(100dvh - ${HEADER_H}px)`,
+        }}
+        style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}
       >
         <WikiSidebar />
       </View>

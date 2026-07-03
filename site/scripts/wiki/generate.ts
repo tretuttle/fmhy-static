@@ -1006,6 +1006,17 @@ writeFileSync(join(OUT_DIR, 'nav.json'), JSON.stringify(nav))
 for (const page of pages.values()) {
   writeFileSync(join(OUT_DIR, 'pages', `${page.id}.json`), JSON.stringify(page))
 }
+// per-category outline for the aside ToC / "On this page" bar — statically
+// imported (like nav.json) so the outline renders at SSG time instead of
+// DOM-scanning after deferred-JS hydration left it empty for seconds
+const toc: Record<string, { id: string; title: string; depth: 0 | 1 }[]> = {}
+for (const page of pages.values()) {
+  toc[page.id] = page.sections.flatMap((section) => [
+    { id: section.id, title: section.title, depth: 0 as const },
+    ...section.subsections.map((sub) => ({ id: sub.id, title: sub.title, depth: 1 as const })),
+  ])
+}
+writeFileSync(join(OUT_DIR, 'toc.json'), JSON.stringify(toc))
 for (const page of prosePages) {
   const file = join(OUT_DIR, 'prose', `${page.id}.json`)
   mkdirSync(dirname(file), { recursive: true })

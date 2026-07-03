@@ -14,7 +14,7 @@ import type { SearchCorpus, SearchExcerptMap, WikiNav, WikiNote, WikiPage } from
 
 // a static json import is already the parsed value, a dynamic import() resolves
 // to a module namespace with the json under `default` — unwrap whichever we get
-const fromJsonModule = <T>(mod: unknown): T => {
+export const fromJsonModule = <T>(mod: unknown): T => {
   if (mod && typeof mod === 'object' && 'default' in mod) {
     const def = (mod as { default: unknown }).default
     if (def != null) return def as T

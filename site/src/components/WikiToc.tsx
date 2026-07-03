@@ -2,7 +2,8 @@ import { usePathname } from 'one'
 import { useEffect, useRef, useState } from 'react'
 import { isWeb, YStack } from 'tamagui'
 
-import { WIKI_SLUGS } from '~/features/wiki/data'
+import { fromJsonModule, WIKI_SLUGS } from '~/features/wiki/data'
+import tocJson from '~/features/wiki/generated/toc.json'
 import { breakpoints } from '~/tamagui/breakpoints'
 import { Text } from '~/interface/text/Text'
 
@@ -22,56 +23,23 @@ export function slugFromPathname(pathname: string): string | undefined {
   return slug || undefined
 }
 
-// derive the outline from the rendered section anchors (tagged with
-// data-toc-* by WikiSectionList) — guaranteed to match what's on screen and
-// avoids re-loading the page data in the layout
+// the outline comes straight from the generated wiki data (same source
+// WikiSectionList renders its anchors from), statically imported like
+// nav.json. being synchronous, it renders during SSG — the aside ToC and the
+// "On this page" bar are in the static HTML at first paint instead of waiting
+// for deferred JS to hydrate and DOM-scan (~2s of empty outline before).
 //
-// TODO(native): [P2, task #12] this file is correctly isWeb-guarded (no crash), but
-// the whole active-anchor tracking is DOM-implemented — on native the TOC renders
-// with no tracking. reimplement over ScrollView onScroll when the target exists.
-function scanEntries(): TocEntry[] {
-  if (typeof document === 'undefined') return []
-  const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-toc-level]'))
-  const entries: TocEntry[] = []
-  for (const node of nodes) {
-    const id = node.id
-    const title = node.getAttribute('data-toc-title') ?? ''
-    const depth = node.getAttribute('data-toc-level') === '1' ? 1 : 0
-    if (id && title) entries.push({ id, title, depth })
-  }
-  return entries
-}
+// TODO(native): [P2, task #12] entries are portable now, but the active-anchor
+// tracking below is DOM-implemented — on native the TOC renders with no
+// tracking. reimplement over ScrollView onScroll when the target exists.
+const tocBySlug = fromJsonModule<Record<string, TocEntry[]>>(tocJson)
 
-// shared by the desktop aside ToC and the mobile LocalNav dropdown: rescan the
-// DOM whenever the route changes; retry briefly because section content
-// streams in just after navigation (and for fully-rendered static html)
+// shared by the desktop aside ToC and the mobile LocalNav dropdown
 export function useTocEntries(): TocEntry[] {
   const pathname = usePathname()
   const slug = slugFromPathname(pathname)
   const isCategory = !!slug && WIKI_SLUGS.includes(slug)
-
-  const [entries, setEntries] = useState<TocEntry[]>([])
-
-  useEffect(() => {
-    if (!isWeb || !isCategory) {
-      setEntries([])
-      return
-    }
-    let tries = 0
-    const tick = () => {
-      const found = scanEntries()
-      if (found.length > 0 || tries > 20) {
-        setEntries(found)
-        return
-      }
-      tries += 1
-      timer = window.setTimeout(tick, 150)
-    }
-    let timer = window.setTimeout(tick, 50)
-    return () => window.clearTimeout(timer)
-  }, [isCategory, slug])
-
-  return entries
+  return isCategory ? (tocBySlug[slug] ?? []) : []
 }
 
 // vitepress site data ships scrollOffset: 134 (fmhy.net html); useActiveAnchor

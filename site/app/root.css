@@ -30,9 +30,16 @@ body {
   background: var(--background);
 }
 
-html:has(.body-scrollable),
-body:has(.body-scrollable) {
+html:has(.body-scrollable) {
   overflow: auto;
+}
+
+/* body must stay overflow: visible — giving body its own overflow makes it a
+   scroll container, so position: sticky (the sidebar/aside rails) computes
+   against body's never-scrolling scrollport instead of the window and
+   silently never sticks */
+body:has(.body-scrollable) {
+  overflow: visible;
 }
 
 .body-scrollable {

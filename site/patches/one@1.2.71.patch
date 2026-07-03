@@ -1,0 +1,73 @@
+diff --git a/dist/cjs/views/PreloadLinks.js b/dist/cjs/views/PreloadLinks.js
+index d8363d884aee52803e6830cd38616590006b1c4d..1a82ed8feae39361f499e37d8624430568d950bb 100644
+--- a/dist/cjs/views/PreloadLinks.js
++++ b/dist/cjs/views/PreloadLinks.js
+@@ -22,13 +22,18 @@ const import_meta = {};
+ function PreloadLinks() {
+   return typeof window < "u" && import_meta.env.PROD && (0, import_react.useEffect)(() => {
+     const url = (0, import_getURL.getURL)(), controller = new AbortController();
++    let hoverIntentTimer;
+     return document.addEventListener(
+       "mouseover",
+       (e) => {
+         let target = e.target;
+         if (!(target instanceof HTMLElement) || (target = target instanceof HTMLAnchorElement ? target : target.closest("a"), !(target instanceof HTMLAnchorElement))) return;
+         const href = target.getAttribute("href");
+-        (href?.[0] === "/" || href?.[0].startsWith(url)) && (0, import_router.preloadRoute)(href.replace(url, ""));
++        if (href?.[0] === "/" || href?.[0].startsWith(url)) {
++          clearTimeout(hoverIntentTimer);
++          hoverIntentTimer = setTimeout(() => (0, import_router.preloadRoute)(href.replace(url, "")), 150);
++          target.addEventListener("mouseout", () => clearTimeout(hoverIntentTimer), { once: !0 });
++        }
+       },
+       {
+         passive: !0,
+diff --git a/dist/esm/views/PreloadLinks.js b/dist/esm/views/PreloadLinks.js
+index 8cc07e45703b39fc780bcd83709b97f882a161d8..ab3221c81ffcd444b36e7034fe6d1d9ea018400f 100644
+--- a/dist/esm/views/PreloadLinks.js
++++ b/dist/esm/views/PreloadLinks.js
+@@ -4,13 +4,18 @@ import { preloadRoute } from "../router/router";
+ function PreloadLinks() {
+   return typeof window < "u" && import.meta.env.PROD && useEffect(() => {
+     const url = getURL(), controller = new AbortController();
++    let hoverIntentTimer;
+     return document.addEventListener(
+       "mouseover",
+       (e) => {
+         let target = e.target;
+         if (!(target instanceof HTMLElement) || (target = target instanceof HTMLAnchorElement ? target : target.closest("a"), !(target instanceof HTMLAnchorElement))) return;
+         const href = target.getAttribute("href");
+-        (href?.[0] === "/" || href?.[0].startsWith(url)) && preloadRoute(href.replace(url, ""));
++        if (href?.[0] === "/" || href?.[0].startsWith(url)) {
++          clearTimeout(hoverIntentTimer);
++          hoverIntentTimer = setTimeout(() => preloadRoute(href.replace(url, "")), 150);
++          target.addEventListener("mouseout", () => clearTimeout(hoverIntentTimer), { once: !0 });
++        }
+       },
+       {
+         passive: !0,
+diff --git a/dist/esm/views/PreloadLinks.mjs b/dist/esm/views/PreloadLinks.mjs
+index 878286b7204449f38cd139d6ab19985ca34f2e26..a15aa5628de981edca64ef31ddf2122c75d6352e 100644
+--- a/dist/esm/views/PreloadLinks.mjs
++++ b/dist/esm/views/PreloadLinks.mjs
+@@ -5,11 +5,19 @@ function PreloadLinks() {
+   return typeof window < "u" && import.meta.env.PROD && useEffect(() => {
+     const url = getURL(),
+       controller = new AbortController();
++    let hoverIntentTimer;
+     return document.addEventListener("mouseover", e => {
+       let target = e.target;
+       if (!(target instanceof HTMLElement) || (target = target instanceof HTMLAnchorElement ? target : target.closest("a"), !(target instanceof HTMLAnchorElement))) return;
+       const href = target.getAttribute("href");
+-      (href?.[0] === "/" || href?.[0].startsWith(url)) && preloadRoute(href.replace(url, ""));
++      if (href?.[0] === "/" || href?.[0].startsWith(url)) {
++        clearTimeout(hoverIntentTimer);
++        const anchor = target;
++        hoverIntentTimer = setTimeout(() => preloadRoute(href.replace(url, "")), 150);
++        anchor.addEventListener("mouseout", () => clearTimeout(hoverIntentTimer), {
++          once: !0
++        });
++      }
+     }, {
+       passive: !0,
+       signal: controller.signal

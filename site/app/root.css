@@ -1,0 +1,591 @@
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url(/JetBrainsMono.woff2) format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url(/JetBrainsMono-Bold.woff2) format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  position: relative;
+  max-width: 100vw;
+  min-height: 100vh;
+  background-color: var(--background);
+}
+
+html,
+body {
+  max-width: 100vw;
+  background: var(--background);
+}
+
+html:has(.body-scrollable),
+body:has(.body-scrollable) {
+  overflow: auto;
+}
+
+.body-scrollable {
+  display: flex !important;
+  flex-direction: column;
+  height: auto !important;
+  min-height: 100vh;
+}
+
+.body-scrollable > main {
+  display: block !important;
+  flex: 1;
+}
+
+.body-scrollable > footer {
+  flex-shrink: 0;
+}
+
+/* main layout wrapper - allow content to grow beyond viewport */
+html,
+body {
+  height: auto !important;
+  max-height: none !important;
+}
+
+body > div,
+body > div > span,
+body > div > span > div {
+  height: auto !important;
+  max-height: none !important;
+  width: 100%;
+}
+
+/* fix safari adjusting some random font sizes bigger */
+@media screen and (max-device-width: 480px) {
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+/*
+  quiet mouse/touch focus only — keyboard focus (:focus-visible) keeps the
+  native UA ring (WCAG 2.4.7), matching fmhy.net. components may layer their
+  own :focus-visible styling on top (e.g. Link.tsx's focusVisibleStyle).
+*/
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* programmatic focus target for the skip link / route-change focus — not an
+   interactive control, so never draw a ring around the whole content column */
+#main-content:focus,
+#main-content:focus-visible {
+  outline: none;
+}
+
+/* skip-to-content link: first element in <body>, visually hidden until focused
+   (mirrors VitePress's VPSkipLink) */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 999;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip-link:focus {
+  width: auto;
+  height: auto;
+  clip-path: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--accent11);
+  background-color: var(--color2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.33);
+}
+
+/* default links to not underline */
+a {
+  text-decoration: none;
+  text-decoration-thickness: 0px;
+}
+
+/* (takeout-starter blanket underline rules removed: fmhy.net's link mechanic
+   is per-component — see .vp-link-reveal below and LinkEntryRow. The old
+   `.is_Paragraph a / p a` rule outranked it and forced 2px color5 underlines
+   on every in-paragraph link.) */
+
+/* prevent orphaned punctuation after links in paragraphs */
+.is_Paragraph a::after,
+p a::after {
+  content: '\2060';
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+  hyphens: auto;
+}
+
+:root p {
+  text-wrap: pretty;
+}
+
+/* details/summary animation */
+details .details-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms ease-out;
+}
+
+details[open] .details-content {
+  grid-template-rows: 1fr;
+}
+
+details .details-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+details summary {
+  list-style: none;
+  user-select: none;
+}
+
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+details summary::marker {
+  display: none;
+  content: '';
+}
+
+details summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 10px;
+  transition: transform 200ms ease-out;
+  opacity: 0.6;
+}
+
+details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+details .details-inner > :first-child {
+  margin-top: 0;
+}
+
+details .details-inner > :last-child {
+  margin-bottom: 0;
+}
+
+/* shape background effects */
+.shape-floating {
+  animation: floating 12s ease-in-out infinite;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.shape-inner {
+  background-color: transparent;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  will-change: auto;
+  transform: translateZ(0);
+  box-shadow: 0 8px 32px 0 rgba(147, 51, 234, 0.15);
+  border-radius: 9999px;
+}
+
+.shape-glow {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 0.1),
+    transparent 70%
+  );
+  border-radius: 9999px;
+}
+
+.bg-gradient-purple {
+  background: radial-gradient(
+    circle at 40% 20%,
+    rgba(168, 85, 247, 0.05),
+    transparent 50%
+  );
+  filter: blur(40px);
+}
+
+.bg-gradient-pink {
+  background: radial-gradient(
+    circle at 80% 80%,
+    rgba(236, 72, 153, 0.05),
+    transparent 50%
+  );
+  filter: blur(40px);
+}
+
+.vignette-dark {
+  background: linear-gradient(
+    to top,
+    rgba(3, 3, 3, 0.9),
+    transparent 40%,
+    rgba(3, 3, 3, 0.7)
+  );
+}
+
+.vignette-light {
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.9),
+    transparent 40%,
+    rgba(255, 255, 255, 0.7)
+  );
+}
+
+@keyframes floating {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(15px);
+  }
+}
+
+/* align anchor scroll with the fixed header */
+html {
+  scroll-padding-top: 64px;
+}
+
+/*
+  theme controller overrides (applied at runtime by ThemeController via html classes,
+  mirroring fmhy.net: AMOLED black bg, accent presets, full palette themes).
+  these override the semantic tamagui vars from src/tamagui/tamagui.css; the extra
+  class raises specificity so the override wins. swarm/default are the shipped
+  baselines (no class). full-palette theme blocks live further down this file and
+  are ordered after the accent-* block so their brand colors win the cascade.
+*/
+
+/* AMOLED: pure black backgrounds, dark mode only */
+html.amoled.t_dark {
+  --background: #000000;
+  --backgroundActive: #000000;
+  --backgroundFocus: #050505;
+  --backgroundHover: #0a0a0a;
+  --backgroundPress: #000000;
+  --color1: #000000;
+  --color2: #050505;
+  --color3: #0e0e0e;
+}
+
+/*
+  accent presets — the 7 named palettes from fmhy.net (utils/colors.ts).
+  swarm is the shipped baseline (no class). each block below maps the palette
+  scale onto the tamagui accent vars. base selector = dark mode:
+    accent9→500  accent10→600  accent11→400 (link/brand)  accent12→200  accent1→950  accent2→900
+  .t_light override = light mode:
+    accent9→500  accent10→600  accent11→500 (link/brand)  accent12→800  accent1→50   accent2→100
+*/
+
+/* turquoise */
+html.accent-turquoise.t_dark {
+  --accent9: hsl(188, 86%, 43%);
+  --accent10: hsl(191, 84%, 36%);
+  --accent11: hsl(188, 78%, 60%);
+  --accent12: hsl(185, 85%, 82%);
+  --accent1: hsl(197, 71%, 15%);
+  --accent2: hsl(197, 59%, 24%);
+}
+html.accent-turquoise.t_light {
+  --accent9: hsl(188, 86%, 43%);
+  --accent10: hsl(191, 84%, 36%);
+  --accent11: hsl(188, 86%, 43%);
+  --accent12: hsl(194, 64%, 27%);
+  --accent1: hsl(184, 89%, 96%);
+  --accent2: hsl(186, 88%, 90%);
+}
+
+/* carnation */
+html.accent-carnation.t_dark {
+  --accent9: hsl(0, 84%, 60%);
+  --accent10: hsl(0, 72%, 51%);
+  --accent11: hsl(0, 91%, 71%);
+  --accent12: hsl(0, 96%, 89%);
+  --accent1: hsl(0, 75%, 15%);
+  --accent2: hsl(0, 63%, 31%);
+}
+html.accent-carnation.t_light {
+  --accent9: hsl(0, 84%, 60%);
+  --accent10: hsl(0, 72%, 51%);
+  --accent11: hsl(0, 84%, 60%);
+  --accent12: hsl(0, 70%, 35%);
+  --accent1: hsl(0, 86%, 97%);
+  --accent2: hsl(0, 93%, 94%);
+}
+
+/* cerise */
+html.accent-cerise.t_dark {
+  --accent9: hsl(346, 77%, 57%);
+  --accent10: hsl(343, 67%, 50%);
+  --accent11: hsl(348, 82%, 71%);
+  --accent12: hsl(347, 84%, 90%);
+  --accent1: hsl(339, 75%, 16%);
+  --accent2: hsl(338, 65%, 30%);
+}
+html.accent-cerise.t_light {
+  --accent9: hsl(346, 77%, 57%);
+  --accent10: hsl(343, 67%, 50%);
+  --accent11: hsl(346, 77%, 57%);
+  --accent12: hsl(340, 68%, 35%);
+  --accent1: hsl(350, 86%, 97%);
+  --accent2: hsl(352, 85%, 95%);
+}
+
+/* meadow */
+html.accent-meadow.t_dark {
+  --accent9: hsl(158, 77%, 42%);
+  --accent10: hsl(159, 86%, 30%);
+  --accent11: hsl(156, 59%, 52%);
+  --accent12: hsl(150, 70%, 80%);
+  --accent1: hsl(164, 83%, 9%);
+  --accent2: hsl(162, 79%, 16%);
+}
+html.accent-meadow.t_light {
+  --accent9: hsl(158, 77%, 42%);
+  --accent10: hsl(159, 86%, 30%);
+  --accent11: hsl(158, 77%, 42%);
+  --accent12: hsl(161, 80%, 20%);
+  --accent1: hsl(148, 71%, 96%);
+  --accent2: hsl(148, 73%, 90%);
+}
+
+/* merlin */
+html.accent-merlin.t_dark {
+  --accent9: hsl(45, 93%, 47%);
+  --accent10: hsl(45, 96%, 40%);
+  --accent11: hsl(45, 96%, 53%);
+  --accent12: hsl(46, 98%, 77%);
+  --accent1: hsl(45, 83%, 14%);
+  --accent2: hsl(45, 73%, 26%);
+}
+html.accent-merlin.t_light {
+  --accent9: hsl(45, 93%, 47%);
+  --accent10: hsl(45, 96%, 40%);
+  --accent11: hsl(45, 93%, 47%);
+  --accent12: hsl(45, 81%, 29%);
+  --accent1: hsl(46, 92%, 95%);
+  --accent2: hsl(46, 97%, 88%);
+}
+
+/* blue-violet */
+html.accent-blue-violet.t_dark {
+  --accent9: hsl(242, 91%, 64%);
+  --accent10: hsl(246, 82%, 59%);
+  --accent11: hsl(237, 98%, 74%);
+  --accent12: hsl(231, 100%, 88%);
+  --accent1: hsl(247, 51%, 20%);
+  --accent2: hsl(245, 52%, 34%);
+}
+html.accent-blue-violet.t_light {
+  --accent9: hsl(242, 91%, 64%);
+  --accent10: hsl(246, 82%, 59%);
+  --accent11: hsl(242, 91%, 64%);
+  --accent12: hsl(246, 59%, 41%);
+  --accent1: hsl(227, 100%, 96%);
+  --accent2: hsl(231, 100%, 94%);
+}
+
+/*
+  full palette themes — fmhy.net's ThemeSelector (docs/.vitepress/theme/themes/configs),
+  independent from the accent presets above. these override background/surface,
+  text, tip/warning callouts, and the brand scale together, mirroring
+  themeHandler.ts's applyCSSVariables. selectors come after the accent-* block
+  above so a theme's own brand colors win the cascade while active.
+*/
+
+/* catppuccin (configs/catppuccin.ts). dark mode omits `text` upstream —
+   falls through to the base scale, same as they do. */
+html.theme-catppuccin.t_dark {
+  --background: #1f1e2e;
+  --backgroundHover: #1e1e29;
+  --backgroundPress: #1e1e29;
+  --backgroundFocus: #1e1e29;
+  --color1: #1f1e2e;
+  --color2: #1e1e29;
+  --color3: #1e1e29;
+  --tipBg: #022c22;
+  --tipBorder: #065f46;
+  --tipText: #a7f3d0;
+  --warnBg: #451a03;
+  --warnBorder: #92400e;
+  --warnText: #fef08a;
+  --accent9: #9345ed;
+  --accent10: #7c3aed;
+  --accent11: #a78bfa;
+  --accent12: #ddd6fe;
+  --accent1: #2e1065;
+  --accent2: #4c1d95;
+}
+html.theme-catppuccin.t_dark ::selection {
+  background: #0f2c47;
+}
+html.theme-catppuccin.t_light {
+  --background: #f8fafc;
+  --backgroundHover: #eef2f5;
+  --backgroundPress: #eef2f5;
+  --backgroundFocus: #eef2f5;
+  --color1: #f8fafc;
+  --color2: #eef2f5;
+  --color3: #eef2f5;
+  --color9: #6b7280;
+  --color10: #6b7280;
+  --color11: #334155;
+  --color12: #353638;
+  --tipBg: #d1fae5;
+  --tipBorder: #065f46;
+  --tipText: #065f46;
+  --warnBg: #fef3c7;
+  --warnBorder: #92400e;
+  --warnText: #92400e;
+  --accent9: #9345ed;
+  --accent10: #7c3aed;
+  --accent11: #9345ed;
+  --accent12: #5b21b6;
+  --accent1: #f5f3ff;
+  --accent2: #ede9fe;
+}
+html.theme-catppuccin.t_light ::selection {
+  background: #5586a6;
+}
+
+/* monochrome (configs/monochrome.ts) — real grayscale-family literal colors,
+   not a CSS filter over the existing colored palette. */
+html.theme-monochrome.t_dark {
+  --background: #000000;
+  --backgroundHover: #0a0a0a;
+  --backgroundPress: #0a0a0a;
+  --backgroundFocus: #0a0a0a;
+  --color1: #000000;
+  --color2: #0a0a0a;
+  --color3: #0a0a0a;
+  --color9: #808080;
+  --color10: #808080;
+  --color11: #cccccc;
+  --color12: #ffffff;
+  --tipBg: #1a1a1a;
+  --tipBorder: #cccccc;
+  --tipText: #e0e0e0;
+  --warnBg: #1a1a1a;
+  --warnBorder: #999999;
+  --warnText: #cccccc;
+  --accent9: #ffffff;
+  --accent10: #e0e0e0;
+  --accent11: #ffffff;
+  --accent12: #cccccc;
+  --accent1: #0a0a0a;
+  --accent2: #1a1a1a;
+}
+html.theme-monochrome.t_dark ::selection {
+  background: #333333;
+}
+html.theme-monochrome.t_light {
+  --background: #ffffff;
+  --backgroundHover: #f5f5f5;
+  --backgroundPress: #f5f5f5;
+  --backgroundFocus: #f5f5f5;
+  --color1: #ffffff;
+  --color2: #f5f5f5;
+  --color3: #f5f5f5;
+  --color9: #808080;
+  --color10: #808080;
+  --color11: #333333;
+  --color12: #000000;
+  --tipBg: #f5f5f5;
+  --tipBorder: #333333;
+  --tipText: #1a1a1a;
+  --warnBg: #f5f5f5;
+  --warnBorder: #666666;
+  --warnText: #333333;
+  --accent9: #000000;
+  --accent10: #1a1a1a;
+  --accent11: #000000;
+  --accent12: #333333;
+  --accent1: #f5f5f5;
+  --accent2: #e0e0e0;
+}
+html.theme-monochrome.t_light ::selection {
+  background: #cccccc;
+}
+
+/*
+  theme-switch radial reveal (fmhy.net themeTransition.ts + Layout.vue rules).
+  the JS in src/features/theme/themeTransition.ts animates a circle() clip-path
+  on the view-transition snapshots; these rules disable the default cross-fade
+  and layer the clipped snapshot on top. upstream keys on `.dark`; our dark
+  class is `.t_dark`.
+*/
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Layer the snapshots so the one being clipped sits on top:
+   - switching to light, the new (light) layer grows on top;
+   - switching to dark (.t_dark), the old (light) layer shrinks on top. */
+::view-transition-old(root),
+.t_dark::view-transition-new(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root),
+.t_dark::view-transition-old(root) {
+  z-index: 9999;
+}
+
+/* When transitioning to light mode (not .t_dark), initialize the new snapshot
+   as fully clipped (circle(0px)) to prevent it flashing fully visible before
+   the JS animation runs. */
+html:not(.t_dark)::view-transition-new(root) {
+  clip-path: circle(0px);
+}
+
+/* freeze the page's own CSS transitions while the reveal runs so the clip is
+   the only animation (the clip is a WAAPI animation, untouched by this) */
+html.theme-view-transition,
+html.theme-view-transition * {
+  transition: none !important;
+}
+
+/* fmhy.net entry-link mechanic (upstream .vp-doc a): constant color, underline
+   revealed on hover via text-decoration-color (LinkEntryRow underlineRevealProps) */
+.vp-link-reveal {
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.25s;
+}
+.vp-link-reveal:hover {
+  text-decoration-color: var(--accent11);
+}

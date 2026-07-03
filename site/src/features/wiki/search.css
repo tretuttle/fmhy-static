@@ -1,0 +1,1017 @@
+/*
+  wiki search modal — 1:1 translation of the scoped CSS in fmhy.net's
+  docs/.vitepress/theme/components/VPLocalSearchBox.vue, with VitePress theme
+  variables substituted by our tamagui tokens (so accent presets / palette
+  themes react), plus the icon masks the upstream vpi-* classes provide via
+  unocss, and the post-navigation flash from docs/.vitepress/theme/style.scss.
+
+  TODO(native): [P2, task #8] css only reaches the web build — the native search UI
+  re-implements this styling in tamagui tokens.
+*/
+
+.VPLocalSearchBox {
+  /* --vp-local-search-bg / result-bg */
+  --vpl-bg: var(--background);
+  /* --vp-c-divider (#2e2e32 dark / #e2e2e3 light upstream) */
+  --vpl-divider: var(--color4);
+  /* --vp-local-search-result-border */
+  --vpl-result-border: var(--color4);
+  /* --vp-c-brand-1: our link/brand scale slot (root.css: accent11 = link) —
+     dark accent11 hsl(207,65%,70%) ≈ upstream dark brand hsl(207,65%,68%) */
+  --vpl-brand: var(--accent11);
+  /* --vp-c-bg-soft / --vp-c-bg-alt */
+  --vpl-bg-soft: var(--color3);
+  --vpl-bg-alt: var(--color2);
+  /* --vp-c-text-1/2/3 */
+  --vpl-text-1: var(--color12);
+  --vpl-text-2: var(--color11);
+  --vpl-text-3: var(--color10);
+  /* --vp-local-search-highlight-bg/text (dark flips text to black below) */
+  --vpl-highlight-bg: var(--accent11);
+  --vpl-highlight-text: #ffffff;
+  /* --vp-c-yellow-3: current-match gold (upstream #9f6a00 / #a46a0a) */
+  --vpl-mark-current-bg: #9f6a00;
+  /* --vp-c-danger-1 */
+  --vpl-danger: #b8272c;
+  /* --vp-shadow-1 */
+  --vpl-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+
+  position: fixed;
+  z-index: 400000;
+  inset: 0;
+  display: flex;
+  font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system,
+    sans-serif;
+  font-size: 16px;
+  color: var(--vpl-text-1);
+}
+
+html.t_dark .VPLocalSearchBox {
+  --vpl-highlight-text: #000000;
+  --vpl-mark-current-bg: #a46a0a;
+  --vpl-danger: #f66f81;
+}
+
+/* element resets (the upstream theme resets these globally) */
+.VPLocalSearchBox button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.VPLocalSearchBox form {
+  margin: 0;
+}
+.VPLocalSearchBox ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.VPLocalSearchBox a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.VPLocalSearchBox .backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  will-change: opacity;
+  animation: vpl-backdrop-fade 0.15s ease-out both;
+}
+
+.VPLocalSearchBox .shell {
+  position: relative;
+  padding: 12px;
+  margin: 64px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--vpl-bg);
+  width: min(100vw - 60px, 900px);
+  height: min-content;
+  max-height: min(100vh - 128px, 900px);
+  border-radius: 6px;
+  will-change: transform, opacity;
+  animation: vp-shell-enter 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.VPLocalSearchBox.vpl-leaving .backdrop {
+  animation: vpl-backdrop-fade 0.1s ease-in reverse both;
+}
+.VPLocalSearchBox.vpl-leaving .shell {
+  animation: vp-shell-enter 0.1s cubic-bezier(0.16, 1, 0.3, 1) reverse both;
+}
+
+@media (max-width: 767px) {
+  .VPLocalSearchBox .shell {
+    margin: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    overflow: hidden;
+  }
+}
+
+/* ----------------------------------------------------------------------- */
+/* search bar                                                              */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .search-bar {
+  border: 1px solid var(--vpl-divider);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  cursor: text;
+}
+
+@media (max-width: 767px) {
+  .VPLocalSearchBox .search-bar {
+    padding: 0 8px;
+  }
+}
+
+.VPLocalSearchBox .search-bar:focus-within {
+  border-color: var(--vpl-brand);
+}
+
+.VPLocalSearchBox .local-search-icon {
+  display: block;
+  font-size: 18px;
+}
+
+.VPLocalSearchBox .navigate-icon {
+  display: block;
+  font-size: 14px;
+}
+
+.VPLocalSearchBox .search-icon {
+  margin: 8px;
+}
+
+@media (max-width: 767px) {
+  .VPLocalSearchBox .search-icon {
+    display: none;
+  }
+}
+
+.VPLocalSearchBox .search-input {
+  padding: 6px 12px;
+  font-size: inherit;
+  font-family: inherit;
+  color: var(--vpl-text-1);
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 100%;
+}
+
+.VPLocalSearchBox .search-input::placeholder {
+  color: var(--vpl-text-3);
+}
+
+.VPLocalSearchBox .search-input::-webkit-search-cancel-button,
+.VPLocalSearchBox .search-input::-webkit-search-decoration,
+.VPLocalSearchBox .search-input::-webkit-search-results-button,
+.VPLocalSearchBox .search-input::-webkit-search-results-decoration {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .VPLocalSearchBox .search-input {
+    padding: 6px 4px;
+  }
+}
+
+.VPLocalSearchBox .search-actions {
+  display: flex;
+  gap: 4px;
+}
+
+@media (any-pointer: coarse) {
+  .VPLocalSearchBox .search-actions {
+    gap: 8px;
+  }
+}
+
+@media (min-width: 769px) {
+  .VPLocalSearchBox .search-actions.before {
+    display: none;
+  }
+}
+
+.VPLocalSearchBox .search-actions button {
+  padding: 8px;
+}
+
+.VPLocalSearchBox .search-actions button:not([disabled]):hover,
+.VPLocalSearchBox .toggle-layout-button.detailed-list,
+.VPLocalSearchBox .toggle-fuzzy-button.fuzzy-active {
+  color: var(--vpl-brand);
+}
+
+.VPLocalSearchBox .search-actions button.clear-button:disabled {
+  opacity: 0.37;
+}
+
+/* fuzzy toggle */
+.VPLocalSearchBox .toggle-fuzzy-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.VPLocalSearchBox .toggle-fuzzy-button .fuzzy-icon,
+.VPLocalSearchBox .toggle-fuzzy-button .exact-icon {
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.VPLocalSearchBox .toggle-fuzzy-button:hover {
+  background: var(--vpl-bg-soft);
+}
+
+.VPLocalSearchBox .toggle-fuzzy-button.fuzzy-active {
+  background: var(--vpl-bg-soft);
+}
+
+/* spinner */
+.VPLocalSearchBox .vp-search-spinner {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--vpl-divider);
+  border-top-color: var(--vpl-brand);
+  border-radius: 50%;
+  animation: vp-spin 0.6s linear infinite;
+}
+
+@keyframes vp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ----------------------------------------------------------------------- */
+/* results list                                                            */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .results {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  outline: none;
+  gap: 6px;
+  padding-block-start: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.VPLocalSearchBox .results-info {
+  font-size: 0.75rem;
+  color: var(--vpl-text-3);
+  padding: 6px 12px;
+  border-bottom: 1px dashed var(--vpl-divider);
+  margin-top: -12px;
+  margin-bottom: 4px;
+}
+
+.VPLocalSearchBox .result-item {
+  position: relative;
+}
+
+.VPLocalSearchBox .result {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 4px;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+  line-height: 1rem;
+  border: solid 2px var(--vpl-result-border);
+  outline: none;
+  background: var(--vpl-bg);
+}
+
+.VPLocalSearchBox .result-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.VPLocalSearchBox .result-link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.VPLocalSearchBox .result > div {
+  margin: 12px;
+  width: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  .VPLocalSearchBox .result > div {
+    margin: 8px;
+  }
+}
+
+.VPLocalSearchBox .titles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  z-index: 1001;
+  padding: 2px 0;
+}
+
+.VPLocalSearchBox .title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* the first breadcrumb segment is the page title: bold + brand underline */
+.VPLocalSearchBox .title-icon + .title .text {
+  font-weight: 600;
+  border-bottom: 1px solid var(--vpl-brand);
+}
+
+.VPLocalSearchBox .title.main {
+  font-weight: 500;
+}
+
+.VPLocalSearchBox .title-icon {
+  opacity: 0.5;
+  font-weight: 500;
+  color: var(--vpl-brand);
+}
+
+.VPLocalSearchBox .title .vpi-chevron-right {
+  opacity: 0.5;
+}
+
+.VPLocalSearchBox .result.selected {
+  border-color: var(--vpl-brand);
+}
+
+.VPLocalSearchBox .result.selected .titles,
+.VPLocalSearchBox .result.selected .title-icon {
+  color: var(--vpl-brand) !important;
+}
+
+/* ----------------------------------------------------------------------- */
+/* excerpt                                                                 */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .excerpt-wrapper {
+  position: relative;
+}
+
+.VPLocalSearchBox .excerpt {
+  pointer-events: none;
+  max-height: 140px;
+  overflow: hidden;
+  position: relative;
+  margin-top: 4px;
+  will-change: opacity;
+  transform: translateZ(0);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+@media (hover: hover) {
+  .VPLocalSearchBox .excerpt {
+    opacity: 0.8;
+  }
+}
+
+.VPLocalSearchBox .result.selected .excerpt {
+  opacity: 1;
+}
+
+.VPLocalSearchBox .excerpt strong,
+.VPLocalSearchBox .excerpt b {
+  font-weight: 700;
+  color: var(--vpl-text-1);
+}
+
+.VPLocalSearchBox .excerpt em,
+.VPLocalSearchBox .excerpt i {
+  font-style: italic;
+}
+
+.VPLocalSearchBox .excerpt a {
+  color: var(--vpl-brand);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-style: solid;
+  text-decoration-color: transparent;
+}
+
+.VPLocalSearchBox .excerpt strong a,
+.VPLocalSearchBox .excerpt a strong,
+.VPLocalSearchBox .excerpt b a,
+.VPLocalSearchBox .excerpt a b {
+  font-weight: bold;
+}
+
+.VPLocalSearchBox .excerpt p {
+  margin: 0.5em 0;
+}
+
+.VPLocalSearchBox .excerpt ul,
+.VPLocalSearchBox .excerpt ol {
+  margin: 0.5em 0;
+  padding-inline-start: 1.5em;
+}
+
+.VPLocalSearchBox .excerpt ul {
+  list-style-type: disc;
+}
+
+.VPLocalSearchBox .excerpt ol {
+  list-style-type: decimal;
+}
+
+.VPLocalSearchBox .excerpt li {
+  display: list-item;
+  margin: 0.5em 0;
+}
+
+.VPLocalSearchBox .excerpt :not(pre) > code {
+  background-color: var(--vpl-bg-alt);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  border: 1px solid var(--vpl-divider);
+}
+
+.VPLocalSearchBox .excerpt blockquote {
+  border-left: 3px solid var(--vpl-divider);
+  padding-left: 0.8em;
+  margin: 0.5em 0;
+  color: var(--vpl-text-2);
+}
+
+.VPLocalSearchBox .excerpt img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* twemoji entry markers (⭐ 🌐 🔁) baked into the excerpt html */
+.VPLocalSearchBox .excerpt .vpe-tw {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  border-radius: 0;
+}
+
+/* sub-link / platform indicator icon masks (discord, github, windows, …) */
+.VPLocalSearchBox .vpsic {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  vertical-align: -0.15em;
+  background-color: currentColor;
+  -webkit-mask: var(--icon) no-repeat center / contain;
+  mask: var(--icon) no-repeat center / contain;
+}
+
+.VPLocalSearchBox .excerpt sup {
+  font-size: 12px;
+}
+
+/* highlight marks */
+.VPLocalSearchBox .excerpt mark {
+  background-color: var(--vpl-highlight-bg);
+  color: var(--vpl-highlight-text);
+  border-radius: 2px;
+  padding: 0 2px;
+  margin: 0 -2px;
+  transition: background-color 0.2s;
+}
+
+.VPLocalSearchBox .titles mark {
+  background-color: var(--vpl-highlight-bg);
+  color: var(--vpl-highlight-text);
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+  transition: background-color 0.2s;
+}
+
+/* currently focused highlight (match cycling) */
+.VPLocalSearchBox .excerpt mark.current {
+  background-color: var(--vpl-mark-current-bg);
+  color: #000;
+  font-weight: bold;
+}
+
+.VPLocalSearchBox .excerpt-gradient-bottom {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 8px;
+  background: linear-gradient(transparent, var(--vpl-bg));
+  z-index: 1000;
+}
+
+.VPLocalSearchBox .excerpt-gradient-top {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 100%;
+  height: 8px;
+  background: linear-gradient(var(--vpl-bg), transparent);
+  z-index: 1000;
+}
+
+/* ----------------------------------------------------------------------- */
+/* match navigation pill                                                   */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .excerpt-actions {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  z-index: 2000;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--vpl-bg);
+  border: 1px solid var(--vpl-divider);
+  border-radius: 4px;
+  padding: 2px 4px;
+  box-shadow: var(--vpl-shadow);
+  transition:
+    gap 0.2s,
+    padding 0.2s;
+  animation: vpl-pill-in 0.15s ease both;
+}
+
+@keyframes vpl-pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.VPLocalSearchBox .match-nav-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  color: var(--vpl-text-2);
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    transform 0.1s ease;
+  cursor: pointer;
+}
+
+.VPLocalSearchBox .match-nav-button::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+}
+
+.VPLocalSearchBox .match-nav-button:active {
+  transform: scale(0.92);
+}
+
+.VPLocalSearchBox .match-nav-button:hover {
+  color: var(--vpl-text-1);
+  background-color: var(--vpl-bg-soft);
+}
+
+.VPLocalSearchBox .match-count {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+  color: var(--vpl-text-2);
+  user-select: none;
+  min-width: 24px;
+  text-align: center;
+}
+
+@media (any-pointer: coarse) {
+  .VPLocalSearchBox .excerpt-actions {
+    gap: 12px;
+    padding: 4px 8px;
+  }
+  .VPLocalSearchBox .match-nav-button {
+    width: 32px;
+    height: 32px;
+  }
+  .VPLocalSearchBox .match-count {
+    font-size: 13px;
+  }
+}
+
+/* ----------------------------------------------------------------------- */
+/* no results / suggestions                                                */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .no-results {
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 12px;
+}
+
+.VPLocalSearchBox .no-results-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.VPLocalSearchBox .try-fuzzy-btn,
+.VPLocalSearchBox .suggestion-btn {
+  padding: 2px 8px;
+  border: 1px solid var(--vpl-divider);
+  border-radius: 12px;
+  color: var(--vpl-brand);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.VPLocalSearchBox .try-fuzzy-btn:hover,
+.VPLocalSearchBox .suggestion-btn:hover {
+  background-color: var(--vpl-bg-soft);
+}
+
+.VPLocalSearchBox .did-you-mean {
+  color: var(--vpl-text-2);
+}
+
+/* ----------------------------------------------------------------------- */
+/* recent searches                                                         */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .recent-searches {
+  padding: 8px 12px;
+}
+
+.VPLocalSearchBox .recent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.VPLocalSearchBox .clear-all-btn {
+  font-size: 0.75rem;
+  color: var(--vpl-brand);
+  opacity: 0.75;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  background: transparent;
+  border: none;
+}
+
+.VPLocalSearchBox .clear-all-btn:hover {
+  opacity: 1;
+}
+
+.VPLocalSearchBox .recent-label {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.VPLocalSearchBox .recent-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.VPLocalSearchBox .recent-item-wrapper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--vpl-divider);
+  border-radius: 12px;
+  background-color: transparent;
+  transition: background-color 0.15s;
+}
+
+.VPLocalSearchBox .recent-item-wrapper:hover {
+  background-color: var(--vpl-bg-soft);
+}
+
+.VPLocalSearchBox .recent-item-wrapper .recent-item {
+  border: none;
+  background: transparent;
+  padding: 3px 6px 3px 10px;
+  font-size: 0.8rem;
+  color: var(--vpl-text-2);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.VPLocalSearchBox .recent-item-wrapper:hover .recent-item {
+  color: var(--vpl-text-1);
+}
+
+.VPLocalSearchBox .recent-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 3px 8px 3px 4px;
+  color: var(--vpl-text-3);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.VPLocalSearchBox .recent-delete-btn:hover {
+  color: var(--vpl-danger);
+}
+
+.VPLocalSearchBox .delete-icon-mini {
+  font-size: 11px;
+}
+
+/* ----------------------------------------------------------------------- */
+/* show more                                                               */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .show-more-item {
+  text-align: center;
+  padding: 6px;
+}
+
+.VPLocalSearchBox .show-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  font-size: 0.8rem;
+  color: var(--vpl-brand);
+  opacity: 0.75;
+  padding: 0 12px;
+  border-radius: 4px;
+  transition:
+    opacity 0.15s,
+    background-color 0.15s;
+}
+
+.VPLocalSearchBox .show-more-btn:hover {
+  opacity: 1;
+  background-color: var(--vpl-bg-soft);
+}
+
+/* ----------------------------------------------------------------------- */
+/* keyboard shortcuts footer                                               */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .search-keyboard-shortcuts {
+  font-size: 0.8rem;
+  opacity: 75%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  line-height: 14px;
+}
+
+.VPLocalSearchBox .search-keyboard-shortcuts span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 767px) {
+  .VPLocalSearchBox .search-keyboard-shortcuts {
+    display: none;
+  }
+}
+
+.VPLocalSearchBox .search-keyboard-shortcuts kbd {
+  background: rgba(128, 128, 128, 0.1);
+  border-radius: 4px;
+  padding: 3px 6px;
+  min-width: 24px;
+  display: inline-block;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid rgba(128, 128, 128, 0.15);
+  box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* ----------------------------------------------------------------------- */
+/* misc                                                                    */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.VPLocalSearchBox svg {
+  flex: none;
+}
+
+@keyframes vpl-backdrop-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vp-shell-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.975) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ----------------------------------------------------------------------- */
+/* icon masks — the upstream vpi-* classes (lucide via unocss) plus our     */
+/* excerpt sub-link/platform icons                                          */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox [class^='vpi-'],
+.VPLocalSearchBox [class*=' vpi-'] {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  background-color: currentColor;
+  -webkit-mask: var(--icon) no-repeat;
+  mask: var(--icon) no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+/* ----------------------------------------------------------------------- */
+/* post-navigation scroll-to-match flash — port of the search-highlight     */
+/* rules in docs/.vitepress/theme/style.scss (class added by               */
+/* searchHighlight.ts and removed after the animation)                     */
+/* ----------------------------------------------------------------------- */
+
+/* upstream style.scss: freeze the hide-on-scroll chrome while search's
+   post-navigation jump runs, so the target offset stays correct */
+html.vp-search-scrolling header,
+html.vp-search-scrolling #local-nav {
+  transform: none !important;
+  transition: none !important;
+}
+
+.vp-search-highlight-target {
+  border-radius: 4px;
+  outline: 2px solid #ffd54f;
+  outline-offset: 2px;
+  background-color: rgba(255, 213, 79, 0.22);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .vp-search-highlight-target {
+    animation: vp-search-flash 2s ease-out forwards;
+  }
+}
+
+@media (forced-colors: active) {
+  .vp-search-highlight-target {
+    outline-color: Highlight;
+  }
+}
+
+@keyframes vp-search-flash {
+  0% {
+    background-color: rgba(255, 213, 79, 0.25);
+    outline-color: #ffd54f;
+  }
+  70% {
+    background-color: rgba(255, 241, 118, 0.15);
+    outline-color: #fff176;
+  }
+  100% {
+    background-color: transparent;
+    outline-color: transparent;
+  }
+}
+.VPLocalSearchBox .vpi-search {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-arrow-left {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 19-7-7 7-7'/%3E%3Cpath d='M19 12H5'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-arrow-right {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3Cpath d='m12 5 7 7-7 7'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-arrow-up {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 7-7 7 7'/%3E%3Cpath d='M12 19V5'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-arrow-down {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14'/%3E%3Cpath d='m19 12-7 7-7-7'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-chevron-left {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 18-6-6 6-6'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-chevron-right {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 18 6-6-6-6'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-corner-down-left {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 10 4 15 9 20'/%3E%3Cpath d='M20 4v7a4 4 0 0 1-4 4H4'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-layout-list {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='7' height='7' x='3' y='3' rx='1'/%3E%3Crect width='7' height='7' x='3' y='14' rx='1'/%3E%3Cpath d='M14 4h7'/%3E%3Cpath d='M14 9h7'/%3E%3Cpath d='M14 15h7'/%3E%3Cpath d='M14 20h7'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-delete {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z'/%3E%3Cline x1='18' x2='12' y1='9' y2='15'/%3E%3Cline x1='12' x2='18' y1='9' y2='15'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-discord {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'%3E%3Cpath d='M104%2C140a12%2C12%2C0%2C1%2C1-12-12A12%2C12%2C0%2C0%2C1%2C104%2C140Zm60-12a12%2C12%2C0%2C1%2C0%2C12%2C12A12%2C12%2C0%2C0%2C0%2C164%2C128Zm74.45%2C64.9-67%2C29.71a16.17%2C16.17%2C0%2C0%2C1-21.71-9.1l-8.11-22q-6.72.45-13.63.46t-13.63-.46l-8.11%2C22a16.18%2C16.18%2C0%2C0%2C1-21.71%2C9.1l-67-29.71a15.93%2C15.93%2C0%2C0%2C1-9.06-18.51L38%2C58A16.07%2C16.07%2C0%2C0%2C1%2C51%2C46.14l36.06-5.93a16.22%2C16.22%2C0%2C0%2C1%2C18.26%2C11.88l3.26%2C12.84Q118.11%2C64%2C128%2C64t19.4.93l3.26-12.84a16.21%2C16.21%2C0%2C0%2C1%2C18.26-11.88L205%2C46.14A16.07%2C16.07%2C0%2C0%2C1%2C218%2C58l29.53%2C116.38A15.93%2C15.93%2C0%2C0%2C1%2C238.45%2C192.9ZM232%2C178.28%2C202.47%2C62s0%2C0-.08%2C0L166.33%2C56a.17.17%2C0%2C0%2C0-.17%2C0l-2.83%2C11.14c5%2C.94%2C10%2C2.06%2C14.83%2C3.42A8%2C8%2C0%2C0%2C1%2C176%2C86.31a8.09%2C8.09%2C0%2C0%2C1-2.16-.3A172.25%2C172.25%2C0%2C0%2C0%2C128%2C80a172.25%2C172.25%2C0%2C0%2C0-45.84%2C6%2C8%2C8%2C0%2C1%2C1-4.32-15.4c4.82-1.36%2C9.78-2.48%2C14.82-3.42L89.83%2C56s0%2C0-.12%2C0h0L53.61%2C61.93a.17.17%2C0%2C0%2C0-.09%2C0L24%2C178.33%2C91%2C208a.23.23%2C0%2C0%2C0%2C.22%2C0L98%2C189.72a173.2%2C173.2%2C0%2C0%2C1-20.14-4.32A8%2C8%2C0%2C0%2C1%2C82.16%2C170%2C171.85%2C171.85%2C0%2C0%2C0%2C128%2C176a171.85%2C171.85%2C0%2C0%2C0%2C45.84-6%2C8%2C8%2C0%2C0%2C1%2C4.32%2C15.41A173.2%2C173.2%2C0%2C0%2C1%2C158%2C189.72L164.75%2C208a.22.22%2C0%2C0%2C0%2C.21%2C0Z'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-github {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'%3E%3Cpath d='M212.62%2C75.17A63.7%2C63.7%2C0%2C0%2C0%2C206.39%2C26%2C12%2C12%2C0%2C0%2C0%2C196%2C20a63.71%2C63.71%2C0%2C0%2C0-50%2C24H126A63.71%2C63.71%2C0%2C0%2C0%2C76%2C20a12%2C12%2C0%2C0%2C0-10.39%2C6%2C63.7%2C63.7%2C0%2C0%2C0-6.23%2C49.17A61.5%2C61.5%2C0%2C0%2C0%2C52%2C104v8a60.1%2C60.1%2C0%2C0%2C0%2C45.76%2C58.28A43.66%2C43.66%2C0%2C0%2C0%2C92%2C192v4H76a20%2C20%2C0%2C0%2C1-20-20%2C44.05%2C44.05%2C0%2C0%2C0-44-44%2C12%2C12%2C0%2C0%2C0%2C0%2C24%2C20%2C20%2C0%2C0%2C1%2C20%2C20%2C44.05%2C44.05%2C0%2C0%2C0%2C44%2C44H92v12a12%2C12%2C0%2C0%2C0%2C24%2C0V192a20%2C20%2C0%2C0%2C1%2C40%2C0v40a12%2C12%2C0%2C0%2C0%2C24%2C0V192a43.66%2C43.66%2C0%2C0%2C0-5.76-21.72A60.1%2C60.1%2C0%2C0%2C0%2C220%2C112v-8A61.5%2C61.5%2C0%2C0%2C0%2C212.62%2C75.17ZM196%2C112a36%2C36%2C0%2C0%2C1-36%2C36H112a36%2C36%2C0%2C0%2C1-36-36v-8a37.87%2C37.87%2C0%2C0%2C1%2C6.13-20.12%2C11.65%2C11.65%2C0%2C0%2C0%2C1.58-11.49%2C39.9%2C39.9%2C0%2C0%2C1-.4-27.72%2C39.87%2C39.87%2C0%2C0%2C1%2C26.41%2C17.8A12%2C12%2C0%2C0%2C0%2C119.82%2C68h32.35a12%2C12%2C0%2C0%2C0%2C10.11-5.53%2C39.84%2C39.84%2C0%2C0%2C1%2C26.41-17.8%2C39.9%2C39.9%2C0%2C0%2C1-.4%2C27.72%2C12%2C12%2C0%2C0%2C0%2C1.61%2C11.53A37.85%2C37.85%2C0%2C0%2C1%2C196%2C104Z'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-gitlab {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'%3E%3Cpath d='M230.15%2C117.1%2C210.25%2C41a11.94%2C11.94%2C0%2C0%2C0-22.79-1.11L169.78%2C88H86.22L68.54%2C39.87A11.94%2C11.94%2C0%2C0%2C0%2C45.75%2C41L25.85%2C117.1a57.19%2C57.19%2C0%2C0%2C0%2C22%2C61l73.27%2C51.76a11.91%2C11.91%2C0%2C0%2C0%2C13.74%2C0l73.27-51.76A57.19%2C57.19%2C0%2C0%2C0%2C230.15%2C117.1ZM58%2C57.5%2C73.13%2C98.76A8%2C8%2C0%2C0%2C0%2C80.64%2C104h94.72a8%2C8%2C0%2C0%2C0%2C7.51-5.24L198%2C57.5l13.07%2C50L128%2C166.21%2C44.9%2C107.5ZM40.68%2C124.11%2C114.13%2C176%2C93.41%2C190.65%2C57.09%2C165A41.06%2C41.06%2C0%2C0%2C1%2C40.68%2C124.11Zm87.32%2C91-20.73-14.65L128%2C185.8l20.73%2C14.64ZM198.91%2C165l-36.32%2C25.66L141.87%2C176l73.45-51.9A41.06%2C41.06%2C0%2C0%2C1%2C198.91%2C165Z'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-telegram {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'%3E%3Cpath d='M228.88%2C26.19a9%2C9%2C0%2C0%2C0-9.16-1.57L17.06%2C103.93a14.22%2C14.22%2C0%2C0%2C0%2C2.43%2C27.21L72%2C141.45V200a15.92%2C15.92%2C0%2C0%2C0%2C10%2C14.83%2C15.91%2C15.91%2C0%2C0%2C0%2C17.51-3.73l25.32-26.26L165%2C220a15.88%2C15.88%2C0%2C0%2C0%2C10.51%2C4%2C16.3%2C16.3%2C0%2C0%2C0%2C5-.79%2C15.85%2C15.85%2C0%2C0%2C0%2C10.67-11.63L231.77%2C35A9%2C9%2C0%2C0%2C0%2C228.88%2C26.19Zm-61.14%2C36L78.15%2C126.35l-49.6-9.73ZM88%2C200V152.52l24.79%2C21.74Zm87.53%2C8L92.85%2C135.5l119-85.29Z'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-reddit {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'%3E%3Cpath d='M248%2C104a32%2C32%2C0%2C0%2C0-52.94-24.19c-16.75-8.9-36.76-14.28-57.66-15.53l5.19-31.17%2C17.72%2C2.72a24%2C24%2C0%2C1%2C0%2C2.87-15.74l-26-4a8%2C8%2C0%2C0%2C0-9.11%2C6.59L121.2%2C64.16c-21.84.94-42.82%2C6.38-60.26%2C15.65a32%2C32%2C0%2C0%2C0-42.59%2C47.74A59%2C59%2C0%2C0%2C0%2C16%2C144c0%2C21.93%2C12%2C42.35%2C33.91%2C57.49C70.88%2C216%2C98.61%2C224%2C128%2C224s57.12-8%2C78.09-22.51C228%2C186.35%2C240%2C165.93%2C240%2C144a59%2C59%2C0%2C0%2C0-2.35-16.45A32.16%2C32.16%2C0%2C0%2C0%2C248%2C104ZM184%2C24a8%2C8%2C0%2C1%2C1-8%2C8A8%2C8%2C0%2C0%2C1%2C184%2C24Zm40.13%2C93.78a8%2C8%2C0%2C0%2C0-3.29%2C10A43.58%2C43.58%2C0%2C0%2C1%2C224%2C144c0%2C16.53-9.59%2C32.27-27%2C44.33C178.67%2C201%2C154.17%2C208%2C128%2C208s-50.67-7-69-19.67C41.59%2C176.27%2C32%2C160.53%2C32%2C144a43.75%2C43.75%2C0%2C0%2C1%2C3.14-16.17%2C8%2C8%2C0%2C0%2C0-3.27-10A16%2C16%2C0%2C1%2C1%2C52.94%2C94.59a8%2C8%2C0%2C0%2C0%2C10.45%2C2.23l.36-.22C81.45%2C85.9%2C104.25%2C80%2C128%2C80h0c23.73%2C0%2C46.53%2C5.9%2C64.23%2C16.6l.42.25a8%2C8%2C0%2C0%2C0%2C10.39-2.26%2C16%2C16%2C0%2C1%2C1%2C21.07%2C23.19ZM88%2C144a16%2C16%2C0%2C1%2C1%2C16-16A16%2C16%2C0%2C0%2C1%2C88%2C144Zm96-16a16%2C16%2C0%2C1%2C1-16-16A16%2C16%2C0%2C0%2C1%2C184%2C128Zm-16.93%2C44.25a8%2C8%2C0%2C0%2C1-3.32%2C10.82%2C76.18%2C76.18%2C0%2C0%2C1-71.5%2C0%2C8%2C8%2C0%2C1%2C1%2C7.5-14.14%2C60.18%2C60.18%2C0%2C0%2C0%2C56.5%2C0A8%2C8%2C0%2C0%2C1%2C167.07%2C172.25Z'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-x {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='black'%3E%3Cpath d='M214.75%2C211.71l-62.6-98.38%2C61.77-67.95a8%2C8%2C0%2C0%2C0-11.84-10.76L143.24%2C99.34%2C102.75%2C35.71A8%2C8%2C0%2C0%2C0%2C96%2C32H48a8%2C8%2C0%2C0%2C0-6.75%2C12.3l62.6%2C98.37-61.77%2C68a8%2C8%2C0%2C1%2C0%2C11.84%2C10.76l58.84-64.72%2C40.49%2C63.63A8%2C8%2C0%2C0%2C0%2C160%2C224h48a8%2C8%2C0%2C0%2C0%2C6.75-12.29ZM164.39%2C208%2C62.57%2C48h29L193.43%2C208Z'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-onion {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M12 21.82v-1.46A8.36 8.36 0 0 0 20.36 12A8.36 8.36 0 0 0 12 3.64V2.18A9.83 9.83 0 0 1 21.82 12A9.83 9.83 0 0 1 12 21.82m0-5.09A4.74 4.74 0 0 0 16.73 12A4.74 4.74 0 0 0 12 7.27V5.82A6.17 6.17 0 0 1 18.18 12A6.17 6.17 0 0 1 12 18.18zm0-7.27A2.54 2.54 0 0 1 14.55 12A2.54 2.54 0 0 1 12 14.54zM0 12a12 12 0 0 0 12 12a12 12 0 0 0 12-12A12 12 0 0 0 12 0A12 12 0 0 0 0 12'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-source {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='black'%3E%3Cpath d='M10.218 3.216a.75.75 0 0 0-1.436-.431l-3 10a.75.75 0 0 0 1.436.43zM4.53 4.97a.75.75 0 0 1 0 1.06L2.56 8l1.97 1.97a.75.75 0 0 1-1.06 1.06l-2.5-2.5a.75.75 0 0 1 0-1.06l2.5-2.5a.75.75 0 0 1 1.06 0m6.94 6.06a.75.75 0 0 1 0-1.06L13.44 8l-1.97-1.97a.75.75 0 0 1 1.06-1.06l2.5 2.5a.75.75 0 0 1 0 1.06l-2.5 2.5a.75.75 0 0 1-1.06 0'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-windows {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M11.5 2.568L23 1v10H11.5zm-2 .272L1 4v7h8.5zM1 13v7l8.5 1.16V13zm10.5 8.4L23 22.97v-10H11.5z'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-mac {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='black'%3E%3Cpath d='M10.9 0c.144.973-.255 1.92-.779 2.6c-.562.721-1.53 1.28-2.47 1.25c-.171-.931.268-1.89.8-2.53c.585-.712 1.59-1.26 2.45-1.32zm.4 4c1.07 0 2.2.583 3.01 1.59c-2.65 1.45-2.22 5.23.458 6.24q-.418.998-1.02 1.9c-.661 1.01-1.59 2.26-2.75 2.27c-.476.004-.787-.138-1.12-.292c-.39-.178-.812-.371-1.56-.368c-.744.004-1.17.195-1.57.371c-.345.154-.663.295-1.14.291c-1.16-.01-2.04-1.14-2.7-2.15c-1.85-2.81-2.04-6.12-.903-7.87c.811-1.25 2.09-1.98 3.29-1.98c.641 0 1.16.184 1.65.36c.447.159.874.312 1.36.312c.446 0 .813-.139 1.21-.29c.481-.182 1.01-.382 1.78-.382z'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-linux {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2048 2048' fill='black'%3E%3Cpath d='M1700 1428q32 14 48 38t23 58q4 20 9 37t12 32t16 29t24 31q13 14 23 36t10 42q0 23-12 39t-30 28q-23 16-48 28t-50 25q-41 20-71 42t-60 56q-16 18-36 35t-44 32t-49 22t-50 9q-58 0-96-20t-66-73q-8-15-16-19t-26-7q-51-4-101-8t-102-4q-42 0-86 7t-87 17q-9 2-18 15t-25 29t-43 28t-71 13q-33 0-71-7t-68-23q-62-31-122-42t-127-20q-23-3-44-8t-37-17t-25-28t-10-45q0-31 8-60t9-61q0-22-3-43t-4-45q0-51 24-75t70-38q22-7 38-19t30-26t26-31t27-34q3-4 3-9q0-12-1-23t-2-24q0-68 21-137t55-135t76-127t83-113q58-74 87-154t30-174q0-40-4-79t-4-80q0-80 18-144t56-110t99-69t146-25q101 0 161 40t92 105t41 145t10 162v17q0 41 1 73t8 63t21 62t42 67q48 63 98 127t91 132t67 142t27 160q0 69-21 133M861 386q14 0 23 7t14 19t7 24t2 25q0 10-3 16t-9 11t-12 10t-12 12q-7 11-19 18t-23 15t-20 17t-9 25q0 9 9 15q24 16 34 39t22 45t31 37t59 15h6q40-2 76-21t72-40q5-3 13-6t13-7l73-57q2-7 3-13t2-14q0-11-5-18t-12-12t-17-7t-18-5q-24-5-45-18t-44-20q-4-1-6-6t-4-12t-1-13t-1-10q0-12 2-25t9-25t16-18t26-7q31 0 45 23t15 50q0 13-5 23t-5 22q0 8 5 11t13 4q23 0 30-11t8-33q0-23-4-51t-16-52t-31-40t-49-16q-52 0-75 26t-24 78q0 15 2 30t2 30q0 5-1 5t-6-2t-12-5t-15-5t-16-2q-2 0-10 1t-16 1q-14 0-14-5q0-15-2-38t-10-46t-20-38t-36-16q-17 0-29 11t-21 26t-11 34t-4 32q0 6 2 21t7 31t11 28t14 12q5 0 13-7t8-13q0-3-3-4t-6-1q-7 0-12-7t-8-16t-6-19t-2-15q0-20 9-36t33-17M643 1943q24 0 47-4t43-16t30-31t12-48q0-18-6-35t-17-32q-12-19-26-36t-26-36q-19-28-37-55t-36-57q-16-26-30-52t-34-51q-12-15-28-27t-37-12q-22 0-38 14t-33 34t-38 39t-54 30q-26 8-40 22t-14 43q0 20 3 40t4 40q0 27-8 51t-8 47q0 27 19 38t43 15q30 5 57 8t53 9t52 13t55 22q6 3 18 7t27 9t28 8t19 3m366-120q28 0 60-6t64-17t61-26t52-33q2-2 4-6t3-8v-1q6-22 10-48t7-53t7-53t7-51q4-27 10-52t16-47t27-39t44-32v-2l-1-3q0-9 6-19t15-21t19-17t21-10q-6-24-13-48t-12-48q-6-36-12-61t-14-46t-23-41t-37-48q-11-13-15-20t-6-25q-1-7-6-26t-13-44t-18-52t-22-49t-22-37t-21-15q-24 0-57 19t-70 42t-72 43t-63 19q-30 0-55-19t-46-44t-35-43t-21-20q-8 0-9 12t-1 27v17q0 6-2 8q-11 23-24 45t-26 45t-20 47t-8 50q0 15 2 30t10 29l-2 4q-8 11-17 20t-17 21q-37 55-52 119t-16 130q0 17 2 34t2 34q0 5-1 11t-1 11q17 1 40 14t50 33t51 46t46 51t32 50t13 41q0 26-16 42t-40 26q17 30 42 51t54 34t63 19t66 6m401 142q21 0 41-6q31-9 57-26t48-42q27-31 57-54t68-42q17-8 33-15t33-17q11-7 21-17t10-24q0-8-3-15t-9-15q-15-21-26-39t-19-38t-16-40t-14-45q-1-5-7-13q-21-30-59-30q-18 0-34 9t-34 19t-36 19t-38 9t-33-10t-22-27t-15-33t-12-33q-8 13-18 24t-16 26q-13 30-16 67q-5 58-13 113t-27 110q-5 16-8 35t-4 37q0 49 30 81t81 32'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-android {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M1 18q.225-2.675 1.638-4.925T6.4 9.5L4.55 6.3q-.15-.225-.075-.475T4.8 5.45q.2-.125.45-.05t.4.3L7.5 8.9Q9.65 8 12 8t4.5.9l1.85-3.2q.15-.225.4-.3t.45.05q.25.125.325.375t-.075.475L17.6 9.5q2.35 1.325 3.762 3.575T23 18zm6.888-3.113q.362-.362.362-.887t-.363-.888T7 12.75t-.888.363T5.75 14t.363.888t.887.362t.888-.363m10 0q.362-.362.362-.887t-.363-.888T17 12.75t-.888.363t-.362.887t.363.888t.887.362t.888-.363'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-ios {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M1.1 6.05c-.614 0-1.1.48-1.1 1.08a1.08 1.08 0 0 0 1.1 1.08c.62 0 1.11-.48 1.11-1.08S1.72 6.05 1.1 6.05m7.61.02c-3.36 0-5.46 2.29-5.46 5.93c0 3.67 2.1 5.95 5.46 5.95c3.34 0 5.45-2.28 5.45-5.95c0-3.64-2.11-5.93-5.45-5.93m10.84 0c-2.5 0-4.28 1.38-4.28 3.43c0 1.63 1.01 2.65 3.13 3.14l1.49.36c1.45.33 2.04.81 2.04 1.64c0 .96-.97 1.64-2.35 1.64c-1.41 0-2.47-.69-2.58-1.75h-2c.08 2.12 1.82 3.42 4.46 3.42c2.79 0 4.54-1.37 4.54-3.55c0-1.71-1-2.68-3.32-3.21l-1.33-.3c-1.41-.34-1.99-.79-1.99-1.55c0-.96.88-1.6 2.18-1.6c1.31 0 2.21.65 2.31 1.72h1.96c-.05-2.02-1.72-3.39-4.26-3.39M8.71 7.82c2.04 0 3.35 1.63 3.35 4.18c0 2.57-1.31 4.2-3.35 4.2c-2.06 0-3.36-1.63-3.36-4.2c0-2.55 1.3-4.18 3.36-4.18M.111 9.31v8.45H2.1V9.31z'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpsic-web {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='black'%3E%3Cpath d='M11 16c0-1.393.078-2.734.222-4h9.556c.144 1.266.222 2.607.222 4s-.078 2.734-.222 4h-9.556A36 36 0 0 1 11 16m-1.79 4A38 38 0 0 1 9 16c0-1.379.073-2.72.21-4H2.58A14 14 0 0 0 2 16c0 1.39.203 2.733.58 4zm-5.863 2h6.138c.314 1.86.771 3.547 1.344 4.978c.369.922.793 1.758 1.272 2.472A14.04 14.04 0 0 1 3.347 22m8.168 0h8.97c-.29 1.6-.69 3.032-1.17 4.235c-.516 1.288-1.104 2.262-1.706 2.9c-.6.634-1.144.865-1.609.865s-1.009-.231-1.609-.866c-.602-.637-1.19-1.611-1.705-2.899c-.481-1.203-.881-2.636-1.171-4.235m11 0c-.314 1.86-.771 3.547-1.344 4.978c-.369.922-.793 1.758-1.272 2.472A14.04 14.04 0 0 0 28.653 22zm6.905-2c.377-1.267.58-2.61.58-4s-.203-2.733-.58-4h-6.63c.137 1.28.21 2.621.21 4s-.073 2.72-.21 4zM19.314 5.765c.481 1.203.881 2.636 1.171 4.235h-8.97c.29-1.6.69-3.032 1.17-4.235c.516-1.288 1.104-2.263 1.706-2.9c.598-.631 1.14-.863 1.604-.865h.008c.464 0 1.007.233 1.606.866c.602.636 1.19 1.611 1.705 2.899M22.515 10h6.138a14.04 14.04 0 0 0-8.754-7.45c.479.714.903 1.55 1.272 2.472c.573 1.431 1.03 3.118 1.344 4.978M3.347 10h6.138c.314-1.86.771-3.547 1.344-4.978c.369-.922.793-1.758 1.272-2.472A14.04 14.04 0 0 0 3.347 10'/%3E%3C/svg%3E");
+}

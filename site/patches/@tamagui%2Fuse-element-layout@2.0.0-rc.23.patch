@@ -1,0 +1,165 @@
+diff --git a/node_modules/@tamagui/use-element-layout/.bun-tag-6714d67e617b1380 b/.bun-tag-6714d67e617b1380
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/dist/cjs/index.js b/dist/cjs/index.js
+index 2105f889cd4c4ff60835cf9351f52645b4af6393..f3f959706c949e74e3ad6839533d3b7eac437b4f 100644
+--- a/dist/cjs/index.js
++++ b/dist/cjs/index.js
+@@ -31,6 +31,8 @@ __export(index_exports, {
+ });
+ module.exports = __toCommonJS(index_exports);
+ var import_constants = require("@tamagui/constants"), import_react = require("react"), import_jsx_runtime = require("react/jsx-runtime");
++let loopRunning = false;
++let ensureLayoutLoop = () => {};
+ const LayoutHandlers = /* @__PURE__ */ new WeakMap(), LayoutDisableKey = /* @__PURE__ */ new WeakMap(), Nodes = /* @__PURE__ */ new Set(), IntersectionState = /* @__PURE__ */ new WeakMap(), usePretransformDimensions = () => globalThis.__TAMAGUI_ONLAYOUT_PRETRANSFORM === !0 || process.env.TAMAGUI_ONLAYOUT_PRETRANSFORM === "1";
+ let _debugLayout;
+ function isDebugLayout() {
+@@ -56,6 +58,7 @@ function enable() {
+   avoidUpdates && (avoidUpdates = !1, queuedUpdates && (queuedUpdates.forEach((cb) => cb()), queuedUpdates.clear()));
+ }
+ function startGlobalObservers() {
++  ensureLayoutLoop();
+   !ENABLE || globalIntersectionObserver || (globalIntersectionObserver = new IntersectionObserver(
+     (entries) => {
+       for (let i = 0; i < entries.length; i++) {
+@@ -118,9 +121,14 @@ if (ENABLE) {
+   }
+   const rAF = typeof requestAnimationFrame < "u" ? requestAnimationFrame : void 0, userSkipVal = process.env.TAMAGUI_LAYOUT_FRAME_SKIP, BASE_SKIP_FRAMES = userSkipVal ? +userSkipVal : 10, MAX_SKIP_FRAMES = 20;
+   let skipFrames = BASE_SKIP_FRAMES, frameCount = 0;
++  const scheduleNextPass = () => {
++    setTimeout(() => {
++      rAF ? rAF(layoutOnAnimationFrame) : layoutOnAnimationFrame();
++    }, Math.max(48, skipFrames * 16));
++  };
+   async function layoutOnAnimationFrame() {
+-    if (frameCount++ % skipFrames !== 0) {
+-      rAF ? rAF(layoutOnAnimationFrame) : setTimeout(layoutOnAnimationFrame, 16);
++    if (Nodes.size === 0) {
++      loopRunning = false;
+       return;
+     }
+     if (frameCount >= Number.MAX_SAFE_INTEGER && (frameCount = 0), strategy !== "off") {
+@@ -153,9 +161,13 @@ if (ENABLE) {
+           updateLayoutIfChanged(visibleNodes[i]);
+       }
+     }
+-    rAF ? rAF(layoutOnAnimationFrame) : setTimeout(layoutOnAnimationFrame, 16);
++    scheduleNextPass();
+   }
+-  layoutOnAnimationFrame();
++  ensureLayoutLoop = () => {
++    if (loopRunning) return;
++    loopRunning = true;
++    rAF ? rAF(layoutOnAnimationFrame) : setTimeout(layoutOnAnimationFrame, 16);
++  };
+ }
+ const getElementLayoutEvent = (nodeRect, parentRect, node) => ({
+   nativeEvent: {
+diff --git a/dist/esm/index.js b/dist/esm/index.js
+index d16b1ea7d74eada820c41a13179c4eab52ca09c4..2299fd2cf0815f5b3972cefc2b7f6e3752a66e09 100644
+--- a/dist/esm/index.js
++++ b/dist/esm/index.js
+@@ -1,6 +1,8 @@
+ import { useIsomorphicLayoutEffect } from "@tamagui/constants";
+ import { createContext, useContext, useId } from "react";
+ import { jsx } from "react/jsx-runtime";
++let loopRunning = false;
++let ensureLayoutLoop = () => {};
+ const LayoutHandlers = /* @__PURE__ */ new WeakMap(), LayoutDisableKey = /* @__PURE__ */ new WeakMap(), Nodes = /* @__PURE__ */ new Set(), IntersectionState = /* @__PURE__ */ new WeakMap(), usePretransformDimensions = () => globalThis.__TAMAGUI_ONLAYOUT_PRETRANSFORM === !0 || process.env.TAMAGUI_ONLAYOUT_PRETRANSFORM === "1";
+ let _debugLayout;
+ function isDebugLayout() {
+@@ -26,6 +28,7 @@ function enable() {
+   avoidUpdates && (avoidUpdates = !1, queuedUpdates && (queuedUpdates.forEach((cb) => cb()), queuedUpdates.clear()));
+ }
+ function startGlobalObservers() {
++  ensureLayoutLoop();
+   !ENABLE || globalIntersectionObserver || (globalIntersectionObserver = new IntersectionObserver(
+     (entries) => {
+       for (let i = 0; i < entries.length; i++) {
+@@ -88,9 +91,14 @@ if (ENABLE) {
+   }
+   const rAF = typeof requestAnimationFrame < "u" ? requestAnimationFrame : void 0, userSkipVal = process.env.TAMAGUI_LAYOUT_FRAME_SKIP, BASE_SKIP_FRAMES = userSkipVal ? +userSkipVal : 10, MAX_SKIP_FRAMES = 20;
+   let skipFrames = BASE_SKIP_FRAMES, frameCount = 0;
++  const scheduleNextPass = () => {
++    setTimeout(() => {
++      rAF ? rAF(layoutOnAnimationFrame) : layoutOnAnimationFrame();
++    }, Math.max(48, skipFrames * 16));
++  };
+   async function layoutOnAnimationFrame() {
+-    if (frameCount++ % skipFrames !== 0) {
+-      rAF ? rAF(layoutOnAnimationFrame) : setTimeout(layoutOnAnimationFrame, 16);
++    if (Nodes.size === 0) {
++      loopRunning = false;
+       return;
+     }
+     if (frameCount >= Number.MAX_SAFE_INTEGER && (frameCount = 0), strategy !== "off") {
+@@ -123,9 +131,13 @@ if (ENABLE) {
+           updateLayoutIfChanged(visibleNodes[i]);
+       }
+     }
+-    rAF ? rAF(layoutOnAnimationFrame) : setTimeout(layoutOnAnimationFrame, 16);
++    scheduleNextPass();
+   }
+-  layoutOnAnimationFrame();
++  ensureLayoutLoop = () => {
++    if (loopRunning) return;
++    loopRunning = true;
++    rAF ? rAF(layoutOnAnimationFrame) : setTimeout(layoutOnAnimationFrame, 16);
++  };
+ }
+ const getElementLayoutEvent = (nodeRect, parentRect, node) => ({
+   nativeEvent: {
+diff --git a/dist/esm/index.mjs b/dist/esm/index.mjs
+index 3e2b4d6204a08ad2be4ff8dcc9fac0633ddc4e31..c7f244b3fb9fc9097f04c6a6352d90878dfd1516 100644
+--- a/dist/esm/index.mjs
++++ b/dist/esm/index.mjs
+@@ -1,6 +1,8 @@
+ import { useIsomorphicLayoutEffect } from "@tamagui/constants";
+ import { createContext, useContext, useId } from "react";
+ import { jsx } from "react/jsx-runtime";
++let loopRunning = false;
++let ensureLayoutLoop = () => {};
+ const LayoutHandlers = /* @__PURE__ */new WeakMap(),
+   LayoutDisableKey = /* @__PURE__ */new WeakMap(),
+   Nodes = /* @__PURE__ */new Set(),
+@@ -37,6 +39,7 @@ function enable() {
+   avoidUpdates && (avoidUpdates = !1, queuedUpdates && (queuedUpdates.forEach(cb => cb()), queuedUpdates.clear()));
+ }
+ function startGlobalObservers() {
++  ensureLayoutLoop();
+   !ENABLE || globalIntersectionObserver || (globalIntersectionObserver = new IntersectionObserver(entries => {
+     for (let i = 0; i < entries.length; i++) {
+       const entry = entries[i],
+@@ -96,9 +99,14 @@ if (ENABLE) {
+     MAX_SKIP_FRAMES = 20;
+   let skipFrames = BASE_SKIP_FRAMES,
+     frameCount = 0;
++  const scheduleNextPass = () => {
++    setTimeout(() => {
++      rAF ? rAF(layoutOnAnimationFrame) : layoutOnAnimationFrame();
++    }, Math.max(48, skipFrames * 16));
++  };
+   async function layoutOnAnimationFrame() {
+-    if (frameCount++ % skipFrames !== 0) {
+-      rAF ? rAF(layoutOnAnimationFrame) : setTimeout(layoutOnAnimationFrame, 16);
++    if (Nodes.size === 0) {
++      loopRunning = false;
+       return;
+     }
+     if (frameCount >= Number.MAX_SAFE_INTEGER && (frameCount = 0), strategy !== "off") {
+@@ -127,9 +135,13 @@ if (ENABLE) {
+         for (let i = 0; i < visibleNodes.length; i++) updateLayoutIfChanged(visibleNodes[i]);
+       }
+     }
+-    rAF ? rAF(layoutOnAnimationFrame) : setTimeout(layoutOnAnimationFrame, 16);
++    scheduleNextPass();
+   }
+-  layoutOnAnimationFrame();
++  ensureLayoutLoop = () => {
++    if (loopRunning) return;
++    loopRunning = true;
++    rAF ? rAF(layoutOnAnimationFrame) : setTimeout(layoutOnAnimationFrame, 16);
++  };
+ }
+ const getElementLayoutEvent = (nodeRect, parentRect, node) => ({
+     nativeEvent: {

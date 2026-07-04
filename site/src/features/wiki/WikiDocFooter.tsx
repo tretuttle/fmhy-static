@@ -5,7 +5,6 @@ import { Link } from '~/components/Link'
 
 import { wikiNav } from './data'
 
-import type { WikiPage } from './types'
 import type { Href } from 'one'
 
 // VitePress VPDocFooter parity: "📝 Edit this page" (upstream config.mts editLink)
@@ -59,20 +58,15 @@ const buildSequence = (): PagerEntry[] => {
 
 const SEQUENCE = buildSequence()
 
-// pages that don't live at docs/<id>.md — route + edit path both derive from
-// it. `pager: false` mirrors a `prev: false` / `next: false` frontmatter.
-const PAGE_OVERRIDES: Record<string, { route: string; docPath: string; pager?: false }> =
+// keyed by page.id — category WikiPages use a bare slug ('backups'), while
+// WikiProsePages already carry their doc-relative id ('other/contributing',
+// 'posts/changelog-sites' — see types.ts), so most of these only need to
+// override `pager`. `pager: false` mirrors a `prev: false` / `next: false`
+// frontmatter for pages that don't belong in the sidebar sequence.
+const PAGE_OVERRIDES: Record<string, { route?: string; docPath?: string; pager?: false }> =
   {
     backups: { route: '/other/backups', docPath: 'other/backups.md' },
-    changelog: {
-      route: '/posts/changelog-sites',
-      docPath: 'posts/changelog-sites.md',
-      pager: false,
-    },
-    contributing: { route: '/other/contributing', docPath: 'other/contributing.md' },
-    faq: { route: '/other/FAQ', docPath: 'other/FAQ.md' },
-    selfhosting: { route: '/other/selfhosting', docPath: 'other/selfhosting.md' },
-    wallpapers: { route: '/other/wallpapers', docPath: 'other/wallpapers.md' },
+    'posts/changelog-sites': { pager: false },
   }
 
 // .pager-link: bordered card, border brightens to brand on hover
@@ -175,7 +169,18 @@ const EditLink = ({ docPath }: { docPath: string }) => (
   </XStack>
 )
 
-export function WikiDocFooter({ page }: { page: WikiPage }) {
+// only `page.id` is read, so this accepts both the category WikiPage and the
+// prose WikiProsePage shapes (WikiCategoryContent / WikiProseContent)
+export function WikiDocFooter({
+  page,
+  pager,
+}: {
+  page: { id: string }
+  // explicit override for callers that know better than PAGE_OVERRIDES (e.g.
+  // WikiProseContent suppresses the pager for 'post'-header pages, which
+  // aren't part of the sidebar sequence at all)
+  pager?: boolean
+}) {
   const override = PAGE_OVERRIDES[page.id]
   const route = override?.route ?? `/${page.id}`
   const docPath = override?.docPath ?? `${page.id}.md`
@@ -184,7 +189,7 @@ export function WikiDocFooter({ page }: { page: WikiPage }) {
   // does for pages missing from the sidebar (verified live: fmhy.net/other/backups
   // shows only "Next page → Beginners Guide")
   const index = SEQUENCE.findIndex((entry) => stripHash(entry.link) === route)
-  const showPager = override?.pager !== false
+  const showPager = pager ?? (override?.pager !== false)
   const prev = showPager ? SEQUENCE[index - 1] : undefined
   const next = showPager ? SEQUENCE[index + 1] : undefined
 

@@ -1,11 +1,13 @@
 import { useLinkTo, usePathname } from 'one'
+import { useState } from 'react'
 import { SizableText, styled, XStack, YStack } from 'tamagui'
 
 import { wikiNav } from '~/features/wiki/data'
 import { OptionsCard } from '~/features/wiki/OptionsCard'
 import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
+import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
 
-import type { WikiNavItem } from '~/features/wiki/types'
+import type { WikiNavGroup, WikiNavItem } from '~/features/wiki/types'
 
 // standalone top rows (not in a nav group) — mirrors fmhy.net's sidebar
 // (fmhy/edit docs/.vitepress/shared.ts): Beginners Guide, Posts, Contribute
@@ -56,7 +58,9 @@ const SidebarRowFrame = styled(XStack, {
 
   variants: {
     active: {
-      true: { bg: '$color3' },
+      // fmhy.net's active row is colored text, no background pill — hover
+      // feedback (defined above) still applies to non-active rows as normal.
+      true: { bg: 'transparent' },
     },
   } as const,
 })
@@ -105,7 +109,7 @@ function SidebarRow({ item, onNavigate }: { item: WikiNavItem; onNavigate?: () =
         size="$3"
         fontFamily="$body"
         fontWeight={active ? '600' : '400'}
-        color={active ? '$color12' : '$color11'}
+        color={active ? '$accent11' : '$color11'}
       >
         {item.title}
       </SizableText>
@@ -113,20 +117,64 @@ function SidebarRow({ item, onNavigate }: { item: WikiNavItem; onNavigate?: () =
   )
 }
 
-// uppercase group label mirrors fmhy-app ListTitle (mono, faded, non-selectable)
-function GroupLabel({ label }: { label: string }) {
+// bold, mixed-case, pressable group header mirrors fmhy.net's collapsible
+// sidebar sections — chevron on the right rotates to reflect expanded state.
+function GroupHeader({
+  label,
+  expanded,
+  onToggle,
+}: {
+  label: string
+  expanded: boolean
+  onToggle: () => void
+}) {
   return (
-    <SizableText
-      size="$2"
-      fontFamily="$body"
-      textTransform="uppercase"
-      opacity={0.225}
+    <XStack
+      render="button"
+      onPress={onToggle}
+      aria-expanded={expanded}
+      items="center"
+      justify="space-between"
+      bg="transparent"
+      borderWidth={0}
+      cursor="pointer"
       select="none"
       px="$3"
       pt="$2"
     >
-      {label}
-    </SizableText>
+      <SizableText size="$3" fontFamily="$body" fontWeight="700" color="$color12">
+        {label}
+      </SizableText>
+      <YStack rotate={expanded ? '0deg' : '-90deg'} transition="200ms">
+        <CaretDownIcon size={14} color="$color11" />
+      </YStack>
+    </XStack>
+  )
+}
+
+// per-group collapse state, seeded from the generated nav's `collapsed` flag
+// (nav.json ships "More" pre-collapsed) — session-only, no persistence.
+function WikiNavGroupSection({
+  group,
+  onNavigate,
+}: {
+  group: WikiNavGroup
+  onNavigate?: () => void
+}) {
+  const [expanded, setExpanded] = useState(() => !group.collapsed)
+
+  return (
+    <YStack gap="$0.5">
+      <GroupHeader
+        label={group.title}
+        expanded={expanded}
+        onToggle={() => setExpanded((value) => !value)}
+      />
+      {expanded &&
+        group.items.map((item) => (
+          <SidebarRow key={item.slug} item={item} onNavigate={onNavigate} />
+        ))}
+    </YStack>
   )
 }
 
@@ -135,7 +183,8 @@ export function WikiSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
     <YStack
       render="nav"
       aria-label="Sidebar Navigation"
-      p="$2"
+      px="$3"
+      py="$2"
       pb="$8"
       gap="$4"
       select="none"
@@ -147,12 +196,7 @@ export function WikiSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
       </YStack>
 
       {wikiNav.groups.map((group) => (
-        <YStack key={group.title} gap="$0.5">
-          <GroupLabel label={group.title} />
-          {group.items.map((item) => (
-            <SidebarRow key={item.slug} item={item} onNavigate={onNavigate} />
-          ))}
-        </YStack>
+        <WikiNavGroupSection key={group.title} group={group} onNavigate={onNavigate} />
       ))}
 
       <OptionsCard />

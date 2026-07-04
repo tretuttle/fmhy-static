@@ -44,6 +44,16 @@ const GridItem = styled(YStack, {
   $xxl: { width: '25%' },
 })
 
+// low-opacity tint for the feature icon tile, derived from the card's own
+// lucide-stroke hex so each category reads as a distinct soft color chip
+function hexToRgba(hex: string, alpha: number): string {
+  const value = hex.replace('#', '')
+  const r = Number.parseInt(value.slice(0, 2), 16)
+  const g = Number.parseInt(value.slice(2, 4), 16)
+  const b = Number.parseInt(value.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 // VPFeature parity: uniform soft-neutral card whose border (same color as the
 // bg, so invisible at rest) brightens to the accent on hover. no fill change,
 // no underlines. icon box is a uniform default-soft square — only the lucide
@@ -71,7 +81,7 @@ const FeatureCard = ({ feature }: { feature: HomeFeature }) => (
         rounded={6}
         items="center"
         justify="center"
-        bg="$color4"
+        bg={hexToRgba(feature.color, 0.14) as '$color4'}
         mb={20}
       >
         <LucideIcon paths={feature.paths} color={feature.color} size={24} />
@@ -208,12 +218,26 @@ export function WikiHomeContent() {
               <Button.Text color="$color1">See Beginners Guide</Button.Text>
             </Button>
 
-            <Button {...({ render: 'a', href: POSTS_ROUTE } as object)}>Posts</Button>
+            <Button
+              {...({ render: 'a', href: POSTS_ROUTE } as object)}
+              bg="$color3"
+              hoverStyle={{ bg: '$color4' }}
+            >
+              Posts
+            </Button>
 
-            <Button {...({ render: 'a', href: CONTRIBUTE_ROUTE } as object)}>Contribute</Button>
+            <Button
+              {...({ render: 'a', href: CONTRIBUTE_ROUTE } as object)}
+              bg="$color3"
+              hoverStyle={{ bg: '$color4' }}
+            >
+              Contribute
+            </Button>
 
             <Button
               {...({ render: 'a', href: DISCORD_URL, target: '_blank', rel: 'noopener noreferrer' } as object)}
+              bg="$color3"
+              hoverStyle={{ bg: '$color4' }}
             >
               Discord
             </Button>

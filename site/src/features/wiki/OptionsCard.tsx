@@ -16,6 +16,7 @@ import { useWikiFilters } from './useWikiFilters'
 
 import type { ColorTokens } from 'tamagui'
 import type { IconComponent } from '~/icons/types'
+import type { ThemeName } from '~/features/theme/themeSettings'
 
 // "blue-violet" -> "Blue violet"
 function capitalizeAccent(name: string) {
@@ -67,80 +68,56 @@ function ToggleRow({
   )
 }
 
-// round swatch per accent; active gets a 2px ring (mirrors the fmhy.net ColorPicker).
-function AccentPicker() {
-  const [accent, setAccent] = useAccent()
+// single flat swatch grid mirroring fmhy.net's ColorPicker.vue: the 7 named
+// accent swatches render first, then the full-palette theme swatches
+// (catppuccin, monochrome) — no group headers, no selection rings. Picking an
+// accent swatch also resets back to the 'default' theme (an accent swatch is
+// a "default theme, this accent" pick, same as ColorPicker.vue always driving
+// a generated `color-<name>` theme); picking a theme swatch replaces the full
+// palette and leaves the stored accent inert until 'default' is picked again.
+function ThemeSwatchGrid() {
+  const [, setAccent] = useAccent()
+  const [, setThemeName] = useThemeName()
 
-  return (
-    <XStack flexWrap="wrap" gap="$2">
-      {ACCENT_NAMES.map((name) => {
-        const isActive = accent === name
-        const label = capitalizeAccent(name)
-        return (
-          <XStack
-            key={name}
-            render="button"
-            onPress={() => setAccent(name)}
-            aria-label={label}
-            width={24}
-            height={24}
-            rounded={100}
-            cursor="pointer"
-            borderWidth={2}
-            borderColor={isActive ? '$color12' : 'transparent'}
-            hoverStyle={{ borderColor: isActive ? '$color12' : '$color7' }}
-            style={{ backgroundColor: ACCENT_SWATCHES[name] }}
-          />
-        )
-      })}
-    </XStack>
+  const nonDefaultThemes = THEME_NAMES.filter(
+    (name): name is Exclude<ThemeName, 'default'> => name !== 'default',
   )
-}
-
-// full palette themes (catppuccin, monochrome) — independent from the accent
-// scale above; swaps background/text/callout colors too, not just the brand
-// scale (mirrors fmhy.net's separate ThemeSelector, docs/.vitepress/theme/
-// themes/README.md). "Default" clears back to the base light/dark palette.
-function ThemePicker() {
-  const [themeName, setThemeName] = useThemeName()
 
   return (
     <XStack flexWrap="wrap" gap="$2">
-      <XStack
-        render="button"
-        onPress={() => setThemeName('default')}
-        aria-label="Default"
-        width={24}
-        height={24}
-        rounded={100}
-        cursor="pointer"
-        borderWidth={2}
-        borderColor={themeName === 'default' ? '$color12' : '$color6'}
-        hoverStyle={{ borderColor: '$color12' }}
-        bg="$color4"
-      />
-      {THEME_NAMES.filter((name) => name !== 'default').map((name) => {
-        const isActive = themeName === name
-        const label = capitalizeAccent(name)
-        return (
-          <XStack
-            key={name}
-            render="button"
-            onPress={() => setThemeName(name)}
-            aria-label={label}
-            width={24}
-            height={24}
-            rounded={100}
-            cursor="pointer"
-            borderWidth={2}
-            borderColor={isActive ? '$color12' : 'transparent'}
-            hoverStyle={{ borderColor: isActive ? '$color12' : '$color7' }}
-            style={{
-              backgroundColor: THEME_SWATCHES[name as Exclude<typeof name, 'default'>],
-            }}
-          />
-        )
-      })}
+      {ACCENT_NAMES.map((name) => (
+        <XStack
+          key={name}
+          render="button"
+          onPress={() => {
+            setAccent(name)
+            setThemeName('default')
+          }}
+          aria-label={capitalizeAccent(name)}
+          width={24}
+          height={24}
+          rounded={100}
+          cursor="pointer"
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
+          style={{ backgroundColor: ACCENT_SWATCHES[name] }}
+        />
+      ))}
+      {nonDefaultThemes.map((name) => (
+        <XStack
+          key={name}
+          render="button"
+          onPress={() => setThemeName(name)}
+          aria-label={capitalizeAccent(name)}
+          width={24}
+          height={24}
+          rounded={100}
+          cursor="pointer"
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
+          style={{ backgroundColor: THEME_SWATCHES[name] }}
+        />
+      ))}
     </XStack>
   )
 }
@@ -187,17 +164,10 @@ export function OptionsCard() {
         onCheckedChange={setIndexesOnly}
       />
 
-      <SizableText size="$2" color="$color10">
-        Accent
-      </SizableText>
-      <AccentPicker />
+      <ThemeSwatchGrid />
 
       <SizableText size="$2" color="$color10">
-        Theme
-      </SizableText>
-      <ThemePicker />
-
-      <SizableText size="$2" color="$color10">
+        Theme:{' '}
         {themeName === 'default' ? capitalizeAccent(accent) : capitalizeAccent(themeName)}
       </SizableText>
     </YStack>

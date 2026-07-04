@@ -3,13 +3,14 @@ import { Separator, SizableText, XStack, YStack } from 'tamagui'
 
 import { Link } from '~/components/Link'
 import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
-import { ChatCircleIcon } from '~/icons/phosphor/ChatCircleIcon'
 import { H1, H2, H3, H4 } from '~/interface/text/Headings'
 import { Text } from '~/interface/text/Text'
 
+import { FeedbackCard } from './FeedbackCard'
 import { InlineMarkdown } from './InlineMarkdown'
 import { openExternal } from './openExternal'
 import { AuthorAvatar, ProseImage, WallpaperPreview } from './proseImages'
+import { WikiDocFooter } from './WikiDocFooter'
 
 import type { Href } from 'one'
 import type { ReactNode } from 'react'
@@ -321,7 +322,11 @@ function ProseBlocks({ blocks }: { blocks: WikiProseBlock[] }) {
           case 'code':
             return <CodeBlock key={index} block={block} />
           case 'hr':
-            return <Separator key={index} my="$4" opacity={0.5} />
+            // $color4 matches the subtle-but-visible dividers used elsewhere
+            // in this file family (WikiDocFooter's pager rule, FeedbackCard's
+            // border) — $backgroundFocus + opacity 0.5 rendered almost
+            // invisible against the page background
+            return <Separator key={index} my="$4" borderColor="$color4" />
           case 'image':
             return <ProseImage key={index} src={block.src} alt={block.alt} />
           case 'wallpaper':
@@ -375,56 +380,11 @@ const formatPostDate = (raw: string): string =>
     timeZone: 'UTC',
   })
 
-// same subtle "Got feedback?" card WikiCategoryContent shows under wiki titles
-const FeedbackCard = () => (
-  <XStack
-    items="center"
-    gap="$3"
-    mt="$2"
-    p="$3"
-    bg="$color2"
-    borderWidth={1}
-    borderColor="$color4"
-    rounded="$4"
-  >
-    <ChatCircleIcon size={20} color="$color10" />
-    <YStack flex={1} gap="$0.5">
-      <SizableText size="$4" fontWeight="600" color="$color12">
-        Got feedback?
-      </SizableText>
-      <SizableText size="$3" color="$color10">
-        We'd love to know what you think about this page.
-      </SizableText>
-    </YStack>
-    <Link asChild href={'/feedback' as Href} aria-label="Share Feedback">
-      <XStack
-        items="center"
-        px="$3"
-        py="$2"
-        rounded="$4"
-        borderWidth={1}
-        borderColor="$color6"
-        bg="$color3"
-        cursor="pointer"
-        hoverStyle={{ bg: '$color4', borderColor: '$color8' }}
-        pressStyle={{ bg: '$color2' }}
-      >
-        <SizableText size="$3" fontWeight="600" color="$color12">
-          Share Feedback
-        </SizableText>
-      </XStack>
-    </Link>
-  </XStack>
-)
-
+// .vp-doc h1: 32px/40px 600, plain text color — fmhy.net underlines+accents
+// CATEGORY page H1s (e.g. "Adblocking / Privacy") but leaves PROSE page H1s
+// (e.g. "Changelog Sites" under /posts) plain — see WikiCategoryContent's H1
 const PageTitle = ({ title }: { title: string }) => (
-  <H1
-    fontSize={32}
-    lineHeight={40}
-    fontWeight="600"
-    color="$accent11"
-    textDecorationLine="underline"
-  >
+  <H1 fontSize={32} lineHeight={40} fontWeight="600" color="$color12">
     {title}
   </H1>
 )
@@ -458,6 +418,12 @@ export function WikiProseContent({ page }: { page: WikiProsePage }) {
       {page.header === 'none' && <YStack pt="$2" />}
 
       <ProseBlocks blocks={page.blocks} />
+
+      {/* fmhy.net's "Edit this page" footer, mirrored from WikiCategoryContent.
+          Prose posts (header 'post') aren't part of the sidebar sequence, so
+          the prev/next pager is suppressed for them — verified live against
+          fmhy.net/posts/changelog-sites, which shows only the edit link. */}
+      <WikiDocFooter page={page} pager={page.header !== 'post'} />
     </YStack>
   )
 }

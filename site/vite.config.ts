@@ -1,11 +1,27 @@
+import { execFileSync } from 'node:child_process'
+
 import { tamaguiPlugin } from '@tamagui/vite-plugin'
 import { one } from 'one/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 
 import type { UserConfig } from 'vite'
 
+function getGitRev() {
+  try {
+    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+      encoding: 'utf-8',
+    }).trim()
+  } catch {
+    return 'dev'
+  }
+}
+
 export default {
   envPrefix: ['VITE_', 'TAMAGUI_'],
+
+  define: {
+    __GIT_REV__: JSON.stringify(getGitRev()),
+  },
 
   resolve: {
     alias: {

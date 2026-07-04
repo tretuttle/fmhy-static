@@ -1,3 +1,4 @@
+import { usePathname } from 'one'
 import { useEffect, useRef, useState } from 'react'
 import {
   Image,
@@ -24,6 +25,7 @@ import { RedditLogoIcon } from '~/icons/phosphor/RedditLogoIcon'
 import { ThemeMenu } from '~/features/theme/ThemeMenu'
 import { wikiNav } from '~/features/wiki/data'
 import { openSearch } from '~/features/wiki/searchModal'
+import { useSearchHotkeyLabel } from '~/features/wiki/searchHotkeyLabel'
 
 import { CircleButton, CircleLink } from './CircleButton'
 import { Container } from './Container'
@@ -117,7 +119,18 @@ const SOCIAL_LINKS: SocialLink[] = [
 const Logo = () => (
   <Link href="/" aria-label="Home">
     <XStack items="center" gap="$2">
-      <Image src="/fmhy-logo.webp" width={22} height={22} alt="FMHY logo" />
+      {/* badged mark, mirroring fmhy.net's rounded logo tile */}
+      <YStack
+        width={28}
+        height={28}
+        rounded={8}
+        overflow="hidden"
+        items="center"
+        justify="center"
+        bg="$color3"
+      >
+        <Image src="/fmhy-logo.webp" width={28} height={28} alt="FMHY logo" />
+      </YStack>
       <SizableText
         select="none"
         fontFamily="$heading"
@@ -141,16 +154,20 @@ const VisuallyHiddenLabel = ({ id, children }: { id: string; children: string })
 
 const NavTextLink = ({ emoji, label, href, arrow }: NavLink) => {
   const external = href.startsWith('http')
+  const pathname = usePathname()
+  const active = !external && pathname.startsWith(href)
   return (
     <Link
       href={href as never}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
     >
-      <XStack items="center" gap="$1" opacity={0.85} hoverStyle={{ opacity: 1 }}>
-        <SizableText fontFamily="$body" size="$3" color="$color12">
+      <XStack items="center" gap="$1" opacity={active ? 1 : 0.85} hoverStyle={{ opacity: 1 }}>
+        <SizableText fontFamily="$body" size="$3" color={active ? '$accent11' : '$color12'}>
           {emoji} {label}
         </SizableText>
-        {arrow ? <ArrowUpRightIcon size={11} color="$color9" /> : null}
+        {arrow ? (
+          <ArrowUpRightIcon size={11} color={active ? '$accent11' : '$color9'} />
+        ) : null}
       </XStack>
     </Link>
   )
@@ -304,45 +321,49 @@ const SocialLinksRow = () => (
 )
 
 // expanded search trigger beside the logo on wide screens (phase 1 placeholder)
-const HeaderSearchBox = () => (
-  <XStack
-    render="button"
-    onPress={openSearch}
-    aria-label="Search"
-    width={240}
-    maxW="100%"
-    px="$3"
-    py="$1.5"
-    gap="$2"
-    rounded="$4"
-    borderWidth={0.5}
-    borderColor="$color5"
-    bg="$color2"
-    items="center"
-    cursor="pointer"
-    hoverStyle={{ bg: '$color3', borderColor: '$color6' }}
-    pressStyle={{ bg: '$color4' }}
-  >
-    <MagnifyingGlassIcon size={15} color="$color8" />
-    <SizableText flex={1} text="left" size="$3" color="$color9">
-      Search
-    </SizableText>
-    <SizableText
-      size="$2"
-      color="$color8"
-      fontFamily="$body"
-      letterSpacing={1}
-      px="$1.5"
-      py="$0.5"
-      rounded="$2"
-      bg="$color3"
+const HeaderSearchBox = () => {
+  const hotkeyLabel = useSearchHotkeyLabel()
+  return (
+    <XStack
+      render="button"
+      onPress={openSearch}
+      aria-label="Search"
+      width={240}
+      maxW="100%"
+      px="$3"
+      py="$1.5"
+      gap="$2"
+      rounded="$4"
       borderWidth={0.5}
       borderColor="$color5"
+      bg="$color2"
+      items="center"
+      cursor="pointer"
+      hoverStyle={{ bg: '$color3', borderColor: '$color6' }}
+      pressStyle={{ bg: '$color4' }}
     >
-      ⌘K
-    </SizableText>
-  </XStack>
-)
+      <MagnifyingGlassIcon size={15} color="$color8" />
+      <SizableText flex={1} text="left" size="$3" color="$color9">
+        Search
+      </SizableText>
+      {/* bordered kbd-style badge, mirroring fmhy.net's boxed "Ctrl K" hint */}
+      <SizableText
+        size="$2"
+        color="$color9"
+        fontFamily="$body"
+        letterSpacing={0.5}
+        px="$1.5"
+        py="$0.5"
+        rounded="$2"
+        bg="$color3"
+        borderWidth={1}
+        borderColor="$color6"
+      >
+        {hotkeyLabel}
+      </SizableText>
+    </XStack>
+  )
+}
 
 // VPNavBarHamburger port: three 16x2 bars in a clipped 16x14 box, staggered at
 // rest, sliding on hover, morphing into an X when active (top/bottom rotate,

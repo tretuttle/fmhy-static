@@ -27,10 +27,16 @@ export type InlineSpan =
       height?: number
     }
 
+// bare-URL alternative (no [text](url) brackets) mirrors vitepress's
+// markdown-it `linkify: true` default — upstream autolinks raw URLs like the
+// changelog page's `**https://fmhy-tracker.pages.dev/**`
 const TOKEN_RE =
-  /(`[^`]+`)|(\*\*(?:[^*]|\*(?!\*))+\*\*)|(\[[^\]]+\]\([^()\s]+\))|(<img\b[^>]*?\/?>)/g
+  /(`[^`]+`)|(\*\*(?:[^*]|\*(?!\*))+\*\*)|(\[[^\]]+\]\([^()\s]+\))|(<img\b[^>]*?\/?>)|(https?:\/\/[^\s<>*)\]]+)/g
 const LINK_RE = /^\[([^\]]+)\]\(([^()\s]+)\)$/
 const ATTR_RE = /([a-zA-Z-]+)\s*=\s*"([^"]*)"/g
+// trailing sentence punctuation that shouldn't be swallowed into a bare-URL
+// autolink, e.g. "see https://example.com." → link stops before the period
+const URL_TRAILING_PUNCT_RE = /[.,;:!?'")\]]+$/
 
 function parseImgTag(token: string): InlineSpan | null {
   const attrs: Record<string, string> = {}
@@ -77,6 +83,13 @@ export function parseInlineMarkdown(markdown: string, bold = false): InlineSpan[
       const image = parseImgTag(token)
       if (image) {
         spans.push(image)
+      }
+    } else if (/^https?:\/\//i.test(token)) {
+      const url = token.replace(URL_TRAILING_PUNCT_RE, '')
+      const trailing = token.slice(url.length)
+      spans.push({ kind: 'link', text: url, url, bold })
+      if (trailing) {
+        spans.push({ kind: 'text', text: trailing, bold })
       }
     } else {
       const link = token.match(LINK_RE)

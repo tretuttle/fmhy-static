@@ -6,6 +6,7 @@ import { TooltipSimple } from '~/components/TooltipSimple'
 import { DiscordLogoIcon } from '~/icons/phosphor/DiscordLogoIcon'
 import { GithubLogoIcon } from '~/icons/phosphor/GithubLogoIcon'
 import { GitlabLogoIcon } from '~/icons/phosphor/GitlabLogoIcon'
+import { InfoIcon } from '~/icons/phosphor/InfoIcon'
 import { RedditLogoIcon } from '~/icons/phosphor/RedditLogoIcon'
 import { TelegramLogoIcon } from '~/icons/phosphor/TelegramLogoIcon'
 import { WarningCircleIcon } from '~/icons/phosphor/WarningCircleIcon'
@@ -304,10 +305,10 @@ const NoteSubLink = ({
           cursor="pointer"
           color="$accent11"
           hoverStyle={{ color: '$accent12', textDecorationLine: 'underline' }}
-          style={Icon ? { verticalAlign: '-0.15em' } : undefined}
+          style={{ verticalAlign: '-0.15em' }}
           aria-label={label}
         >
-          {Icon ? <Icon size={14} color="$accent11" /> : label}
+          {Icon ? <Icon size={14} color="$accent11" /> : <InfoIcon size={14} color="$accent11" />}
         </Text>
       </Tooltip.Trigger>
 
@@ -451,8 +452,8 @@ export const LinkEntryRow = memo(
     }
 
     return (
-      <Paragraph size="$5" lineHeight={26} color="$color11" my={0} py="$1">
-        {showMarker && (
+      <Paragraph size="$5" lineHeight={26} color="$color11" my={0} py="$0.5">
+        {showMarker ? (
           <>
             <InlineIcon>
               {isWarningOnly ? (
@@ -463,6 +464,16 @@ export const LinkEntryRow = memo(
               ) : (
                 <MarkerIcon marker={entry.marker} />
               )}
+            </InlineIcon>{' '}
+          </>
+        ) : (
+          // no leading marker icon — a muted bullet keeps text alignment
+          // identical to icon rows (fmhy.net's plain list-item dot)
+          <>
+            <InlineIcon>
+              <Text size="$2" color="$color9">
+                •
+              </Text>
             </InlineIcon>{' '}
           </>
         )}

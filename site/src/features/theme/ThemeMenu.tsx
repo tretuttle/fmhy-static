@@ -1,158 +1,55 @@
 import { useUserScheme } from '@vxrn/color-scheme'
 import { flushSync } from 'react-dom'
-import { Popover, Switch, XStack, YStack } from 'tamagui'
+import { Popover, XStack, YStack } from 'tamagui'
 
-import { CircleHalfIcon } from '~/icons/phosphor/CircleHalfIcon'
+import { CheckIcon } from '~/icons/phosphor/CheckIcon'
 import { MoonStarsIcon } from '~/icons/phosphor/MoonStarsIcon'
-import { SunIcon } from '~/icons/phosphor/SunIcon'
 import { Text } from '~/interface/text/Text'
 
 import { AMOLED_CLASS } from './themePrePaint'
-import { THEME_NAMES, useAmoled, useThemeName } from './themeSettings'
+import { useAmoled } from './themeSettings'
 import { pointFromPressEvent, revealThemeChange } from './themeTransition'
 
-import type { IconComponent } from '~/icons/types'
-import type { ThemeName } from './themeSettings'
+// fmhy.net parity: the header popup only ever offers Light / Dark / AMOLED —
+// no System (the underlying @vxrn/color-scheme 'system' setting still exists,
+// it's just not offered here) and no theme-name section (that lives only in
+// the sidebar OptionsCard, see themeSettings.ts).
+type Row = 'light' | 'dark' | 'amoled'
 
-// base light/dark/system reuses the tamagui scheme provider (same mechanism as ThemeSwitch).
-// amoled/accent/monochrome are the extra fmhy theming layers wired through themeSettings.
-type ModeId = 'light' | 'dark' | 'system'
-
-const MODES: { id: ModeId; label: string; Icon: IconComponent }[] = [
-  { id: 'light', label: 'Light', Icon: SunIcon },
-  { id: 'dark', label: 'Dark', Icon: MoonStarsIcon },
-  { id: 'system', label: 'System', Icon: CircleHalfIcon },
+const ROWS: { id: Row; label: string }[] = [
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'amoled', label: 'AMOLED' },
 ]
 
-function SectionLabel({ children }: { children: string }) {
-  return (
-    <Text
-      size="$1"
-      color="$color10"
-      fontWeight="600"
-      letterSpacing={0.5}
-      textTransform="uppercase"
-    >
-      {children}
-    </Text>
-  )
-}
-
-function ModeSegment({
-  active,
-  onSelect,
-}: {
-  active: ModeId
-  onSelect: (mode: ModeId, event?: unknown) => void
-}) {
-  return (
-    <XStack gap="$1" bg="$color3" rounded="$4" p="$1">
-      {MODES.map(({ id, label, Icon }) => {
-        const isActive = active === id
-        return (
-          <XStack
-            key={id}
-            render="button"
-            onPress={(event) => onSelect(id, event)}
-            aria-label={`${label} mode`}
-            flex={1}
-            items="center"
-            justify="center"
-            gap="$1.5"
-            py="$1.5"
-            rounded="$3"
-            cursor="pointer"
-            bg={isActive ? '$color1' : 'transparent'}
-            hoverStyle={isActive ? {} : { bg: '$color2' }}
-            pressStyle={{ bg: '$color4' }}
-          >
-            <Icon size={14} color={isActive ? '$color12' : '$color10'} />
-            <Text
-              size="$2"
-              color={isActive ? '$color12' : '$color10'}
-              fontWeight={isActive ? '600' : '400'}
-            >
-              {label}
-            </Text>
-          </XStack>
-        )
-      })}
-    </XStack>
-  )
-}
-
-function ToggleRow({
+function MenuRow({
   label,
-  checked,
-  onCheckedChange,
+  active,
+  onPress,
 }: {
   label: string
-  checked: boolean
-  onCheckedChange: (value: boolean) => void
+  active: boolean
+  onPress: (event?: unknown) => void
 }) {
   return (
-    <XStack items="center" justify="space-between" gap="$3">
-      <Text size="$3" color="$color11">
+    <XStack
+      render="button"
+      onPress={(event) => onPress(event)}
+      aria-label={label}
+      items="center"
+      justify="space-between"
+      gap="$2"
+      px="$3.5"
+      py="$2.5"
+      cursor="pointer"
+      bg="transparent"
+      hoverStyle={{ bg: '$color3' }}
+      pressStyle={{ bg: '$color4' }}
+    >
+      <Text size="$3" color={active ? '$accent11' : '$color12'} fontWeight={active ? '600' : '400'}>
         {label}
       </Text>
-      <Switch
-        size="$2"
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        aria-label={label}
-        bg={checked ? '$color9' : '$color6'}
-      >
-        <Switch.Thumb bg="$color12" />
-      </Switch>
-    </XStack>
-  )
-}
-
-const THEME_LABELS: Record<ThemeName, string> = {
-  default: 'Default',
-  catppuccin: 'Catppuccin',
-  monochrome: 'Monochrome',
-}
-
-// full palette themes are their own axis from accent (see themeSettings.ts) —
-// this picks between them, independent of the accent swatches in OptionsCard.
-function ThemeSegment({
-  active,
-  onSelect,
-}: {
-  active: ThemeName
-  onSelect: (theme: ThemeName) => void
-}) {
-  return (
-    <XStack gap="$1" bg="$color3" rounded="$4" p="$1">
-      {THEME_NAMES.map((name) => {
-        const isActive = active === name
-        return (
-          <XStack
-            key={name}
-            render="button"
-            onPress={() => onSelect(name)}
-            aria-label={`${THEME_LABELS[name]} theme`}
-            flex={1}
-            items="center"
-            justify="center"
-            py="$1.5"
-            rounded="$3"
-            cursor="pointer"
-            bg={isActive ? '$color1' : 'transparent'}
-            hoverStyle={isActive ? {} : { bg: '$color2' }}
-            pressStyle={{ bg: '$color4' }}
-          >
-            <Text
-              size="$2"
-              color={isActive ? '$color12' : '$color10'}
-              fontWeight={isActive ? '600' : '400'}
-            >
-              {THEME_LABELS[name]}
-            </Text>
-          </XStack>
-        )
-      })}
+      {active && <CheckIcon size={14} color="$accent11" />}
     </XStack>
   )
 }
@@ -161,24 +58,24 @@ function ThemeSegment({
 export function ThemeMenuContents() {
   const userScheme = useUserScheme()
   const [amoled, setAmoled] = useAmoled()
-  const [themeName, setThemeName] = useThemeName()
+
+  const activeRow: Row = amoled ? 'amoled' : userScheme.value === 'dark' ? 'dark' : 'light'
 
   // light/dark flips run inside a radial view-transition reveal from the click
   // point (fmhy.net's themeTransition.ts). flushSync forces the scheme
   // provider's class flip to commit inside the transition callback so both
   // snapshots capture around it.
-  const onSelectMode = (mode: ModeId, event?: unknown) => {
-    if (mode === userScheme.setting) {
+  const onSelectMode = (mode: 'light' | 'dark', event?: unknown) => {
+    const isDarkAfter = mode === 'dark'
+    const noVisualChange = isDarkAfter === (userScheme.value === 'dark') && !amoled
+
+    if (noVisualChange && mode === userScheme.setting) {
       return
     }
 
-    const isDarkAfter =
-      mode === 'dark' ||
-      (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
-    // e.g. light -> system while the system is light: nothing visual changes,
-    // so skip the reveal and just persist the setting
-    if (isDarkAfter === (userScheme.value === 'dark')) {
+    if (noVisualChange) {
+      // setting changes (e.g. was 'system' resolving to the same value) but
+      // nothing on screen flips, so skip the reveal and just persist it
       userScheme.set(mode)
       return
     }
@@ -186,49 +83,52 @@ export function ThemeMenuContents() {
     void revealThemeChange(pointFromPressEvent(event), isDarkAfter, () => {
       flushSync(() => {
         userScheme.set(mode)
+        if (amoled) {
+          setAmoled(false)
+        }
       })
     })
   }
 
-  // amoled is a dark-mode variant, so enabling it forces the dark scheme to take
-  // effect. the switch's onCheckedChange has no event — revealThemeChange falls
-  // back to the last pointer press for the reveal origin.
-  const onAmoledChange = (next: boolean) => {
-    // amoled only shows in dark mode — turning it off while light changes nothing
-    if (!next && userScheme.value !== 'dark') {
-      setAmoled(next)
+  // amoled is a dark-mode variant, so enabling it forces the dark scheme to
+  // take effect.
+  const onSelectAmoled = (event?: unknown) => {
+    if (amoled) {
       return
     }
 
-    void revealThemeChange(undefined, true, () => {
+    void revealThemeChange(pointFromPressEvent(event), true, () => {
       flushSync(() => {
-        setAmoled(next)
-        if (next && userScheme.value !== 'dark') {
+        setAmoled(true)
+        if (userScheme.value !== 'dark') {
           userScheme.set('dark')
         }
       })
       // ThemeController toggles this from a passive effect that may land after
       // the new snapshot is captured — set it directly so the reveal shows it
       // (the later effect re-applies the same class, a no-op).
-      document.documentElement.classList.toggle(AMOLED_CLASS, next)
+      document.documentElement.classList.add(AMOLED_CLASS)
     })
   }
 
+  const onSelectRow = (row: Row, event?: unknown) => {
+    if (row === 'amoled') {
+      onSelectAmoled(event)
+      return
+    }
+    onSelectMode(row, event)
+  }
+
   return (
-    <YStack gap="$3.5" p="$3.5" width={280}>
-      <YStack gap="$2">
-        <SectionLabel>Mode</SectionLabel>
-        <ModeSegment active={userScheme.setting} onSelect={onSelectMode} />
-      </YStack>
-
-      <YStack gap="$2">
-        <SectionLabel>Theme</SectionLabel>
-        <ThemeSegment active={themeName} onSelect={setThemeName} />
-      </YStack>
-
-      <YStack gap="$2.5">
-        <ToggleRow label="AMOLED" checked={amoled} onCheckedChange={onAmoledChange} />
-      </YStack>
+    <YStack width={200} py="$1.5">
+      {ROWS.map(({ id, label }) => (
+        <MenuRow
+          key={id}
+          label={label}
+          active={activeRow === id}
+          onPress={(event) => onSelectRow(id, event)}
+        />
+      ))}
     </YStack>
   )
 }
@@ -261,8 +161,10 @@ export function ThemeMenu() {
         borderColor="$color5"
         rounded="$4"
         p="$0"
+        overflow="hidden"
         elevate
       >
+        <Popover.Arrow bg="$color2" borderWidth={1} borderColor="$color5" />
         <ThemeMenuContents />
       </Popover.Content>
     </Popover>

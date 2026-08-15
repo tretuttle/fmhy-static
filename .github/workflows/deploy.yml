@@ -1,18 +1,57 @@
 name: Deploy fmhy-static
 
-# Nightly 1:1 mirror rebuild. The job clones fmhy/edit (the mirror's single
-# source of truth), regenerates our Tamagui dataset from it, runs THEIR
-# vitepress build on the same commit, and parity-checks our data against the
-# exact HTML fmhy.net serves — so a deploy only happens when the mirror
-# provably carries everything the real site renders. Then our SSG build ships
-# dist/client to EAS Hosting (one deployment per run, well under the free cap).
+# Proactive 1:1 mirror: poll fmhy/edit hourly and rebuild ONLY when upstream
+# actually moved, so the mirror lags the real site by at most ~1 hour.
+#
+# Cost math (private repo, 2,000 free Actions min/mo; every job bills a 1-min
+# minimum): 24 hourly polls/day ≈ 720 min/mo, plus a ~7-min full pipeline only
+# on the handful of days-parts upstream changed (~600 min/mo at 3 changes/day)
+# ≈ 1,350 min/mo total. A 30-min cadence would blow the budget on polls alone;
+# making the repo public would make any cadence free.
+#
+# The full pipeline clones fmhy/edit, regenerates our Tamagui dataset, runs
+# THEIR vitepress build on the same commit, and parity-checks our data against
+# the exact HTML fmhy.net serves — a deploy only happens when the mirror
+# provably carries everything the real site renders. EAS Hosting has no
+# deployment-count cap on the free plan, so deploy-on-change is safe.
 on:
   schedule:
-    - cron: '0 6 * * *' # daily at 06:00 UTC
-  workflow_dispatch: {} # manual "Run workflow" button
+    - cron: '7 * * * *' # hourly at :07 (top-of-hour cron slots run late)
+  workflow_dispatch: {} # manual runs always do the full pipeline
+
+permissions:
+  contents: read
+  # the check job records the last-deployed upstream sha as a repo variable
+  actions: write
 
 jobs:
+  # ---- cheap gate: has fmhy/edit moved since the last successful deploy? ----
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.gate.outputs.changed }}
+      sha: ${{ steps.gate.outputs.sha }}
+    steps:
+      - name: Compare upstream HEAD to last deployed sha
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git ls-remote https://github.com/fmhy/edit.git refs/heads/main | cut -f1)
+          last=$(gh api "repos/${{ github.repository }}/actions/variables/LAST_DEPLOYED_UPSTREAM_SHA" \
+                   --jq .value 2>/dev/null || echo "none")
+          echo "upstream: $sha · last deployed: $last"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$sha" != "$last" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  # ---- full pipeline: only when upstream moved (or manual) ------------------
   deploy:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,3 +100,15 @@ jobs:
         run: bunx eas-cli@latest deploy --prod --export-dir=dist/client --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      # only after a successful deploy — a failed run leaves the variable
+      # untouched, so the next hourly poll retries automatically
+      - name: Record deployed upstream sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X PATCH \
+            "repos/${{ github.repository }}/actions/variables/LAST_DEPLOYED_UPSTREAM_SHA" \
+            -f name=LAST_DEPLOYED_UPSTREAM_SHA -f value="${{ needs.check.outputs.sha }}" \
+          || gh api -X POST "repos/${{ github.repository }}/actions/variables" \
+            -f name=LAST_DEPLOYED_UPSTREAM_SHA -f value="${{ needs.check.outputs.sha }}"

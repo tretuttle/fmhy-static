@@ -81,6 +81,8 @@ export type Upstream = {
   homeAnnouncement: HomeAnnouncement | null
   /** the home page feature cards, icons included */
   homeFeatures: HomeFeature[]
+  /** hero.image.src from index.md, relative to docs/public (e.g. "test.png") */
+  homeHeroImage: string | null
   /** upstream carries a header for recently-removed even though it emits no file */
   recentlyRemovedHeader: UpstreamHeader
   /** docs/other/*.md rendered through the prose pipeline */
@@ -208,19 +210,21 @@ function svgToPrimitives(svg: string): LucidePrimitive[] {
 type HomeFrontmatter = {
   announcement: HomeAnnouncement | null
   features: HomeFeature[]
+  /** hero.image.src from index.md (e.g. "test.png"), relative to docs/public */
+  heroImage: string | null
 }
 
 function readHomeFrontmatter(indexFile: string): HomeFrontmatter {
-  if (!existsSync(indexFile)) return { announcement: null, features: [] }
+  if (!existsSync(indexFile)) return { announcement: null, features: [], heroImage: null }
   const src = readFileSync(indexFile, 'utf8')
-  if (!src.startsWith('---')) return { announcement: null, features: [] }
+  if (!src.startsWith('---')) return { announcement: null, features: [], heroImage: null }
   const end = src.indexOf('\n---', 3)
-  if (end < 0) return { announcement: null, features: [] }
+  if (end < 0) return { announcement: null, features: [], heroImage: null }
 
   // Bun ships a YAML parser, so the multi-line `icon: |` blocks and wrapped
   // `details:` values parse correctly without adding a dependency.
   const doc = Bun.YAML.parse(src.slice(4, end)) as {
-    hero?: { announcement?: { title?: string; link?: string } }
+    hero?: { announcement?: { title?: string; link?: string }; image?: { src?: string } }
     features?: { title?: string; link?: string; details?: string; icon?: string }[]
   }
 
@@ -241,7 +245,7 @@ function readHomeFrontmatter(indexFile: string): HomeFrontmatter {
       }
     })
 
-  return { announcement, features }
+  return { announcement, features, heroImage: doc.hero?.image?.src ?? null }
 }
 
 export async function loadUpstream(docsDir: string): Promise<Upstream> {
@@ -407,6 +411,7 @@ export async function loadUpstream(docsDir: string): Promise<Upstream> {
     postAuthors,
     homeAnnouncement: home.announcement,
     homeFeatures: home.features,
+    homeHeroImage: home.heroImage,
     recentlyRemovedHeader: removedHeader ?? {
       title: 'Recently Removed Sites',
       description: 'List of sites recently removed from the wiki',

@@ -153,7 +153,7 @@ export function Layout() {
           content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
         />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/fmhy-logo.webp" type="image/webp" />
+        <link rel="icon" href="/upstream/fmhy.ico" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="alternate" type="application/rss+xml" title="FMHY" href="/feed.rss" />

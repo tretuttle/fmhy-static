@@ -168,7 +168,11 @@ export function WikiHomeContent() {
           >
             {/* fmhy.net play-button mark (glow baked into the png) */}
             <img
-              src={uwu ? '/logo-uwu.svg' : '/fmhy-hero.png'}
+              src={
+                uwu
+                  ? (homeJson.brand.uwuLogo ?? '/upstream/logo-uwu.svg')
+                  : (homeJson.brand.heroImage ?? '/upstream/test.png')
+              }
               alt="FMHY"
               onClick={handleLogoClick}
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}

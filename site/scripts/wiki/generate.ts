@@ -1064,9 +1064,37 @@ writeFileSync(join(OUT_DIR, 'posts.json'), JSON.stringify(postsManifest))
 // be a const in WikiHomeContent.tsx, so the hero advertised July's post through
 // mid-August; the cards were a second hand-copy in homeFeatures.ts.
 const homeAnnouncement = upstream.homeAnnouncement
+
+// brand assets, copied fresh from their docs/public every sync so a logo swap
+// upstream (they change it seasonally — june_icon.webp is the pride variant
+// their client script applies when getMonth() === 5) lands here automatically.
+// The mirror once froze a June capture as THE logo and served pride branding
+// into August. Filenames are existence-gated pointers into their config:
+// fmhy.ico = themeConfig.logo.src, june_icon.webp = their June script,
+// logo-uwu.svg = the ?uwu easter egg, hero from index.md hero.image.src.
+const brandDir = join(SITE, 'public', 'upstream')
+mkdirSync(brandDir, { recursive: true })
+const copyBrandAsset = (name: string | null): string | null => {
+  if (!name) return null
+  const src = join(DOCS_DIR, 'public', name)
+  if (!existsSync(src)) return null
+  writeFileSync(join(brandDir, name), readFileSync(src))
+  return `/upstream/${name}`
+}
+const brand = {
+  logo: copyBrandAsset('fmhy.ico'),
+  juneLogo: copyBrandAsset('june_icon.webp'),
+  uwuLogo: copyBrandAsset('logo-uwu.svg'),
+  heroImage: copyBrandAsset(upstream.homeHeroImage),
+}
+
 writeFileSync(
   join(OUT_DIR, 'home.json'),
-  JSON.stringify({ announcement: homeAnnouncement, features: upstream.homeFeatures }),
+  JSON.stringify({
+    announcement: homeAnnouncement,
+    features: upstream.homeFeatures,
+    brand,
+  }),
 )
 
 // site chrome (header bar + social icons) — upstream's shared.ts `nav` and
@@ -1292,6 +1320,16 @@ console.info(`pages written: ${pages.size} → src/features/wiki/generated/`)
     `home features: ${upstream.homeFeatures.length} cards, ` +
       `${upstream.homeFeatures.reduce((n, f) => n + f.paths.length, 0)} icon primitives ` +
       `${featuresOk ? 'OK' : 'FAIL'}`,
+  )
+
+  // brand assets: the header logo and home hero must have copied from their
+  // docs/public — a missing one means upstream renamed it and our pointer is
+  // stale. juneLogo/uwuLogo are seasonal/easter-egg extras: warn, don't block.
+  const brandOk = brand.logo !== null && brand.heroImage !== null
+  if (!brandOk) failed = true
+  console.info(
+    `brand assets: logo ${brand.logo ?? 'MISSING'}, hero ${brand.heroImage ?? 'MISSING'}, ` +
+      `june ${brand.juneLogo ?? '—'}, uwu ${brand.uwuLogo ?? '—'} ${brandOk ? 'OK' : 'FAIL'}`,
   )
 }
 console.info(

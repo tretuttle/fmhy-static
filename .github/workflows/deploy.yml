@@ -119,4 +119,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .github/last-deployed-upstream-sha
           git commit -m "chore: deployed fmhy/edit @ ${{ needs.check.outputs.sha }}"
-          git pull --rebase origin main && git push origin main
+          # the build leaves regenerated files unstaged in this checkout —
+          # autostash them if a rebase is needed at all (concurrency group
+          # already serializes deploys, so this is belt-and-suspenders)
+          git push origin main || (git pull --rebase --autostash origin main && git push origin main)

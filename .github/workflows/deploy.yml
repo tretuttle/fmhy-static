@@ -20,9 +20,15 @@ on:
   workflow_dispatch: {} # manual runs always do the full pipeline
 
 permissions:
-  contents: read
-  # the check job records the last-deployed upstream sha as a repo variable
-  actions: write
+  # the deploy job records the last-deployed upstream sha as a committed file
+  # (.github/last-deployed-upstream-sha) — an audit trail of what shipped when,
+  # and writable by the workflow token (the Actions-variables API is not)
+  contents: write
+
+# never let an hourly run and a manual run deploy at the same time
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
   # ---- cheap gate: has fmhy/edit moved since the last successful deploy? ----
@@ -38,8 +44,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           sha=$(git ls-remote https://github.com/fmhy/edit.git refs/heads/main | cut -f1)
-          last=$(gh api "repos/${{ github.repository }}/actions/variables/LAST_DEPLOYED_UPSTREAM_SHA" \
-                   --jq .value 2>/dev/null || echo "none")
+          last=$(gh api "repos/${{ github.repository }}/contents/.github/last-deployed-upstream-sha" \
+                   --jq .content 2>/dev/null | base64 -d | tr -d '[:space:]' || echo "none")
           echo "upstream: $sha · last deployed: $last"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$sha" != "$last" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -101,14 +107,16 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # only after a successful deploy — a failed run leaves the variable
-      # untouched, so the next hourly poll retries automatically
+      # only after a successful deploy — a failed run leaves the record
+      # untouched, so the next hourly poll retries automatically. A committed
+      # file (not an Actions variable: that API 403s the workflow token) —
+      # doubling as a git-log audit trail of exactly what shipped when.
       - name: Record deployed upstream sha
-        env:
-          GH_TOKEN: ${{ github.token }}
+        working-directory: .
         run: |
-          gh api -X PATCH \
-            "repos/${{ github.repository }}/actions/variables/LAST_DEPLOYED_UPSTREAM_SHA" \
-            -f name=LAST_DEPLOYED_UPSTREAM_SHA -f value="${{ needs.check.outputs.sha }}" \
-          || gh api -X POST "repos/${{ github.repository }}/actions/variables" \
-            -f name=LAST_DEPLOYED_UPSTREAM_SHA -f value="${{ needs.check.outputs.sha }}"
+          echo "${{ needs.check.outputs.sha }}" > .github/last-deployed-upstream-sha
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/last-deployed-upstream-sha
+          git commit -m "chore: deployed fmhy/edit @ ${{ needs.check.outputs.sha }}"
+          git pull --rebase origin main && git push origin main

@@ -294,17 +294,12 @@ html {
   are ordered after the accent-* block so their brand colors win the cascade.
 */
 
-/* AMOLED: pure black backgrounds, dark mode only */
-html.amoled.t_dark {
-  --background: #000000;
-  --backgroundActive: #000000;
-  --backgroundFocus: #050505;
-  --backgroundHover: #0a0a0a;
-  --backgroundPress: #000000;
-  --color1: #000000;
-  --color2: #050505;
-  --color3: #0e0e0e;
-}
+/* AMOLED: pure black backgrounds, dark mode only. The block itself lives at
+   the END of this file — upstream's themeHandler forces black backgrounds
+   over the ACTIVE THEME's palette too (catppuccin + AMOLED = black bg with
+   catppuccin accents), so it must come after every theme-* block in the
+   cascade. It used to sit here, before them, which made AMOLED a no-op the
+   moment any theme was selected. */
 
 /*
   accent presets — the 7 named palettes from fmhy.net (utils/colors.ts).
@@ -595,4 +590,17 @@ html.theme-view-transition * {
 }
 .vp-link-reveal:hover {
   text-decoration-color: var(--accent11);
+}
+
+/* AMOLED override — must stay LAST so it beats every theme-* block above
+   (upstream forces black backgrounds over the active theme's palette) */
+html.amoled.t_dark {
+  --background: #000000;
+  --backgroundActive: #000000;
+  --backgroundFocus: #050505;
+  --backgroundHover: #0a0a0a;
+  --backgroundPress: #000000;
+  --color1: #000000;
+  --color2: #050505;
+  --color3: #0e0e0e;
 }

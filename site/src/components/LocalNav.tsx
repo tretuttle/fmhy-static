@@ -6,7 +6,11 @@ import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
 import { breakpoints } from '~/tamagui/breakpoints'
 
 import { HEADER_HEIGHT, setLocalNavDropdownOpen } from './ScrollHeader'
+import { WikiSidebar } from './WikiSidebar'
 import { useTocEntries, type TocEntry } from './WikiToc'
+
+// aria-controls target for the menu button, mirroring VPSidebarNav
+const SIDEBAR_DRAWER_ID = 'sidebar-drawer'
 
 import type { TamaguiElement } from 'tamagui'
 import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
@@ -28,6 +32,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
   const entries = useTocEntries()
 
   const [open, setOpenState] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
   const rootRef = useRef<TamaguiElement>(null)
 
@@ -151,15 +156,48 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
     >
       {/* VPLocalNavOutlineDropdown: padding 12px 20px 11px (12px 36px 11px
           once the sidebar is visible) */}
-      <YStack
+      <XStack
         position="relative"
         width="100%"
         pl={20}
         pr={20}
         pt={12}
         pb={11}
+        gap={16}
+        items="center"
         $md={{ pl: 36, pr: 36 }}
       >
+        {/* VPLocalNav menu button: toggles the sidebar as a left drawer at
+            widths where the rail is hidden (fmhy.net parity — their bar's
+            "Menu" button, aria-controls VPSidebarNav). From $md the rail is
+            pinned, so the button disappears exactly like theirs does. */}
+        <XStack
+          render="button"
+          onPress={() => setMenuOpen(true)}
+          aria-expanded={menuOpen}
+          aria-controls={SIDEBAR_DRAWER_ID}
+          display="flex"
+          $md={{ display: 'none' }}
+          items="center"
+          gap={6}
+          bg="transparent"
+          borderWidth={0}
+          cursor="pointer"
+          group
+        >
+          <SizableText
+            fontSize={12}
+            lineHeight={24}
+            fontWeight="500"
+            color="$color11"
+            $group-hover={{ color: '$color12' }}
+            style={{ transition: 'color 0.25s', whiteSpace: 'nowrap' }}
+            shrink={0}
+          >
+            ☰ Menu
+          </SizableText>
+        </XStack>
+
         <XStack
           render="button"
           onPress={() => setOpen(!open)}
@@ -259,7 +297,44 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
             </YStack>
           </YStack>
         ) : null}
-      </YStack>
+      </XStack>
+
+      {/* sidebar drawer (VPSidebar.open parity): backdrop + left panel with
+          the full wiki sidebar, for widths where the rail is hidden */}
+      {menuOpen ? (
+        <>
+          <View
+            position="fixed"
+            t={0}
+            l={0}
+            r={0}
+            b={0}
+            z={60}
+            bg="rgba(0,0,0,0.6)"
+            onPress={() => setMenuOpen(false)}
+            {...({ 'aria-hidden': true } as object)}
+          />
+          <YStack
+            {...({ id: SIDEBAR_DRAWER_ID } as object)}
+            position="fixed"
+            t={0}
+            l={0}
+            b={0}
+            z={61}
+            width={300}
+            maxW="85vw"
+            bg="$background"
+            borderRightWidth={1}
+            borderRightColor="$color4"
+            pt={8}
+            style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}
+            enterStyle={{ x: -300 }}
+            transition="200ms"
+          >
+            <WikiSidebar onNavigate={() => setMenuOpen(false)} />
+          </YStack>
+        </>
+      ) : null}
     </YStack>
   )
 }

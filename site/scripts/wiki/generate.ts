@@ -1085,6 +1085,8 @@ const brand = {
   logo: copyBrandAsset('fmhy.ico'),
   juneLogo: copyBrandAsset('june_icon.webp'),
   uwuLogo: copyBrandAsset('logo-uwu.svg'),
+  // raster icon source for our favicon/OG generator (sharp can't read .ico)
+  pwaIcon: copyBrandAsset('pwa_icon.png'),
   heroImage: copyBrandAsset(upstream.homeHeroImage),
 }
 
@@ -1325,7 +1327,7 @@ console.info(`pages written: ${pages.size} → src/features/wiki/generated/`)
   // brand assets: the header logo and home hero must have copied from their
   // docs/public — a missing one means upstream renamed it and our pointer is
   // stale. juneLogo/uwuLogo are seasonal/easter-egg extras: warn, don't block.
-  const brandOk = brand.logo !== null && brand.heroImage !== null
+  const brandOk = brand.logo !== null && brand.heroImage !== null && brand.pwaIcon !== null
   if (!brandOk) failed = true
   console.info(
     `brand assets: logo ${brand.logo ?? 'MISSING'}, hero ${brand.heroImage ?? 'MISSING'}, ` +

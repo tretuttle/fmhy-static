@@ -11,7 +11,7 @@
  *    '/' -> 'home', '/other/backups' -> 'other-backups'.
  *
  * 2. favicons / pwa icons — favicon.ico (16/32/48 png-in-ico), apple-touch-icon.png
- *    (180px), pwa-192.png and pwa-512.png, all derived from public/fmhy-logo.webp.
+ *    (180px), pwa-192.png and pwa-512.png, all derived from public/upstream/pwa_icon.png (copied from fmhy/edit at sync).
  */
 
 import { createHash } from 'node:crypto'
@@ -307,9 +307,11 @@ console.info()
 console.info('generate-images: favicons + og cards')
 console.info()
 
-const logoPath = join(publicDir, 'fmhy-logo.webp')
+// raster source derived from upstream's own docs/public (see generate.ts brand
+// assets) — never a checked-in copy that can go stale
+const logoPath = join(publicDir, 'upstream', 'pwa_icon.png')
 if (!existsSync(logoPath)) {
-  console.error('  missing public/fmhy-logo.webp — cannot generate icons/og cards')
+  console.error('  missing public/upstream/pwa_icon.png — run bun scripts/sync-fmhy.ts first')
   process.exit(1)
 }
 
@@ -333,9 +335,13 @@ if (existsSync(cacheFile) && !process.env.OG_FORCE) {
   }
 }
 
+// the logo bytes are part of the key: when upstream swaps their icon (they do
+// it seasonally), every card re-renders automatically — no version bump needed
+const logoHash = createHash('sha256').update(readFileSync(logoPath)).digest('hex').slice(0, 12)
+
 const hashFor = (page: OgPage) =>
   createHash('sha256')
-    .update(`${DESIGN_VERSION}\0${page.title}\0${page.description ?? ''}`)
+    .update(`${DESIGN_VERSION}\0${logoHash}\0${page.title}\0${page.description ?? ''}`)
     .digest('hex')
     .slice(0, 16)
 

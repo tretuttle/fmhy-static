@@ -3,14 +3,19 @@ import { Button, isWeb, SizableText, styled, XStack, YStack } from 'tamagui'
 
 import { H1, SubHeading } from '~/interface/text/Headings'
 
-import { homeFeatures } from './homeFeatures'
+import homeJson from './generated/home.json'
 import { LucideIcon } from './LucideIcon'
 
 import type { HomeFeature } from './homeFeatures'
 
 // hero action links, mirroring docs/index.md hero.actions (posts + contribute
 // are in-app routes)
-const ANNOUNCEMENT = { title: 'July Updates ✨', link: '/posts/july-2026' }
+//
+// the announcement is generated from docs/index.md frontmatter every sync —
+// upstream rolls it monthly, so hardcoding it here left the hero pointing at
+// July's post halfway through August.
+const ANNOUNCEMENT = homeJson.announcement
+const FEATURES = homeJson.features as HomeFeature[]
 const POSTS_ROUTE = '/posts'
 const CONTRIBUTE_ROUTE = '/other/contributing'
 const DISCORD_URL = 'https://github.com/fmhy/FMHY/wiki/FMHY-Discord'
@@ -180,15 +185,16 @@ export function WikiHomeContent() {
           $xl={{ flex: 1, items: 'flex-start' }}
         >
           {/* announcement badge (upstream Announcement.vue): soft pill, no border */}
-          <XStack
-            {...({ render: 'a', href: ANNOUNCEMENT.link } as object)}
-            items="center"
-            px={16}
-            py={4}
-            rounded={8}
-            bg="$color3"
-            cursor="pointer"
-          >
+          {ANNOUNCEMENT && (
+            <XStack
+              {...({ render: 'a', href: ANNOUNCEMENT.link } as object)}
+              items="center"
+              px={16}
+              py={4}
+              rounded={8}
+              bg="$color3"
+              cursor="pointer"
+            >
               <SizableText
                 fontSize={14}
                 lineHeight={20}
@@ -197,7 +203,8 @@ export function WikiHomeContent() {
               >
                 {ANNOUNCEMENT.title}
               </SizableText>
-          </XStack>
+            </XStack>
+          )}
 
           <HeroTitle text="center" $xl={{ text: 'left' }}>
             freemediaheckyeah
@@ -252,7 +259,7 @@ export function WikiHomeContent() {
         </SizableText>
 
         <XStack flexWrap="wrap" rowGap="$4" columnGap={0} mx="$-2">
-          {homeFeatures.map((feature) => (
+          {FEATURES.map((feature) => (
             <GridItem key={feature.link} px="$2">
               <FeatureCard feature={feature} />
             </GridItem>

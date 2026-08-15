@@ -17,3 +17,6 @@ public/og/
 .eas
 .expo
 *.tar.gz
+
+# fmhy/edit clone maintained by scripts/sync-fmhy.ts — the mirror's source
+.fmhy-edit/

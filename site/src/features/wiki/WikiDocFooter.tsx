@@ -2,6 +2,7 @@ import Svg, { Path } from 'react-native-svg'
 import { SizableText, styled, XStack, YStack, isWeb, useTheme } from 'tamagui'
 
 import { Link } from '~/components/Link'
+import { TwemojiIcon } from '~/icons/TwemojiIcon'
 
 import { wikiNav } from './data'
 
@@ -19,28 +20,25 @@ const EDIT_URL_BASE = 'https://github.com/fmhy/edit/edit/main/docs/'
 
 type PagerEntry = {
   emoji: string
+  icon?: string
   title: string
   link: string
   external: boolean
 }
 
-// standalone sidebar rows above the groups (upstream shared.ts sidebar)
-const TOP_LINKS: PagerEntry[] = [
-  { emoji: '📚', title: 'Beginners Guide', link: '/beginners-guide', external: false },
-  { emoji: '📰', title: 'Posts', link: '/posts', external: false },
-  { emoji: '💡', title: 'Contribute', link: '/other/contributing', external: false },
-]
-
 const stripHash = (link: string) => link.replace(/[?#].*$/, '')
 
 const buildSequence = (): PagerEntry[] => {
-  const all = [...TOP_LINKS]
-  for (const group of wikiNav.groups) {
-    for (const item of group.items) {
+  const all: PagerEntry[] = []
+  // standalone rows above the groups, then the groups — both generated from
+  // upstream's sidebar (shared.ts); the top links used to be a hand-copy here
+  for (const item of [...wikiNav.topLinks, ...wikiNav.groups.flatMap((g) => g.items)]) {
+    {
       const link = item.externalUrl ?? item.route
       if (!link) continue
       all.push({
         emoji: item.emoji,
+        icon: item.icon,
         title: item.title,
         link,
         external: !!item.externalUrl,
@@ -93,9 +91,12 @@ const PagerCard = ({ entry, kind }: { entry: PagerEntry; kind: 'prev' | 'next' }
       <SizableText fontSize={12} lineHeight={20} fontWeight="500" color="$color10">
         {kind === 'prev' ? 'Previous page' : 'Next page'}
       </SizableText>
-      <SizableText fontSize={14} lineHeight={20} fontWeight="500" color="$accent11">
-        {entry.emoji} {entry.title}
-      </SizableText>
+      <XStack items="center" gap={6}>
+        {entry.icon ? <TwemojiIcon code={entry.icon} size={14} /> : null}
+        <SizableText fontSize={14} lineHeight={20} fontWeight="500" color="$accent11">
+          {entry.icon ? entry.title : `${entry.emoji} ${entry.title}`}
+        </SizableText>
+      </XStack>
     </>
   )
 

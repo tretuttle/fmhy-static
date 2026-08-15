@@ -1,6 +1,6 @@
 // recently-removed page generation — port of fmhy/edit scripts/generate-removed.js
 // (Apache-2.0, Copyright (c) taskylizard — see scripts/wiki/generate.ts NOTICE).
-// scans the last 30 days of docs/ history on the `upstream` remote (fmhy/edit)
+// scans the last 30 days of docs/ history of the .fmhy-edit clone
 // and emits the same markdown body the real site deploys at /recently-removed.
 
 import { execFileSync } from 'node:child_process'
@@ -70,13 +70,13 @@ export function generateRemovedMarkdown(root: string): RemovedResult {
       maxBuffer: 32 * 1024 * 1024,
     })
 
-  // the docs mirror is synced from the `upstream` remote (fmhy/edit) — its
-  // history is what carries the removals. shallow clones (CI) need deepening.
+  // root is the .fmhy-edit clone of fmhy/edit — its history carries the
+  // removals. sync-fmhy.ts keeps ~31 days around; deepen if we're short.
   let logOutput = ''
   try {
     if (existsSync(join(root, '.git', 'shallow'))) {
       try {
-        git('fetch', '--quiet', `--shallow-since=${DAYS + 1} days ago`, 'upstream', 'main')
+        git('fetch', '--quiet', `--shallow-since=${DAYS + 1} days ago`, 'origin', 'main')
       } catch {
         // offline / already deep enough — the log below decides what we have
       }
@@ -87,7 +87,7 @@ export function generateRemovedMarkdown(root: string): RemovedResult {
       '--pretty=format:---COMMIT---%H---MSG---%s',
       '-p',
       '--unified=0',
-      'upstream/main',
+      'HEAD',
       '--',
       'docs/',
     )

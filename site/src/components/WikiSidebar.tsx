@@ -6,40 +6,13 @@ import { wikiNav } from '~/features/wiki/data'
 import { OptionsCard } from '~/features/wiki/OptionsCard'
 import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
 import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
+import { TwemojiIcon } from '~/icons/TwemojiIcon'
 
 import type { WikiNavGroup, WikiNavItem } from '~/features/wiki/types'
 
-// standalone top rows (not in a nav group) — mirrors fmhy.net's sidebar
-// (fmhy/edit docs/.vitepress/shared.ts): Beginners Guide, Posts, Contribute
-const TOP_ITEMS: WikiNavItem[] = [
-  {
-    slug: 'beginners-guide',
-    title: 'Beginners Guide',
-    emoji: '📚',
-    description: '',
-    route: '/beginners-guide',
-    externalUrl: null,
-    entryCount: 0,
-  },
-  {
-    slug: 'posts',
-    title: 'Posts',
-    emoji: '📰',
-    description: '',
-    route: '/posts',
-    externalUrl: null,
-    entryCount: 0,
-  },
-  {
-    slug: 'contribute',
-    title: 'Contribute',
-    emoji: '💡',
-    description: '',
-    route: '/other/contributing',
-    externalUrl: null,
-    entryCount: 0,
-  },
-]
+// standalone top rows (not in a nav group) — generated from upstream's
+// sidebar (shared.ts) into nav.json, same as the groups
+const TOP_ITEMS: WikiNavItem[] = wikiNav.topLinks
 
 // row frame mirrors fmhy-app SidebarRowFrame (height 36, rounded, hover/press, active bg)
 const SidebarRowFrame = styled(XStack, {
@@ -102,9 +75,15 @@ function SidebarRow({ item, onNavigate }: { item: WikiNavItem; onNavigate?: () =
         setTimeout(settle, 50)
       }}
     >
-      <SizableText size="$3" width={22} text="center">
-        {item.emoji}
-      </SizableText>
+      {item.icon ? (
+        <XStack width={22} justify="center">
+          <TwemojiIcon code={item.icon} size={16} />
+        </XStack>
+      ) : (
+        <SizableText size="$3" width={22} text="center">
+          {item.emoji}
+        </SizableText>
+      )}
       <SizableText
         size="$3"
         fontFamily="$body"

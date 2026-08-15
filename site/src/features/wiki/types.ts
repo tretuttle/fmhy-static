@@ -89,6 +89,9 @@ export type WikiNavItem = {
   slug: string
   title: string
   emoji: string
+  // twemoji codepoint ("1f4d7") — rendered as the SVG via TwemojiIcon, exactly
+  // like fmhy.net's i-twemoji spans; emoji is the unicode fallback
+  icon?: string
   description: string
   // in-app route, e.g. "/video" or "/audio#audio-tools"
   route: string
@@ -105,6 +108,8 @@ export type WikiNavGroup = {
 
 export type WikiNav = {
   generatedAt: string
+  // standalone sidebar rows above the groups (Beginners Guide / Posts / Contribute)
+  topLinks: WikiNavItem[]
   groups: WikiNavGroup[]
 }
 

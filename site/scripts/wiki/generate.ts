@@ -1,6 +1,6 @@
 /**
- * FMHY wiki content generator — parses content/fmhy/docs/*.md into the JSON
- * bundle consumed by src/features/wiki/data.ts.
+ * FMHY wiki content generator — parses the .fmhy-edit clone's docs/*.md into
+ * the JSON bundle consumed by src/features/wiki/data.ts.
  *
  * Run: ~/.bun/bin/bun scripts/wiki/generate.ts  (or: bun wiki:generate)
  *
@@ -29,6 +29,7 @@ import type {
   WikiEntry,
   WikiNav,
   WikiNavGroup,
+  WikiNavItem,
   WikiNote,
   WikiNotice,
   WikiPage,
@@ -38,23 +39,15 @@ import type {
   WikiSection,
   WikiSubsection,
 } from '../../src/features/wiki/types'
-import {
-  EXPECTED_BULLETS,
-  NAV_GROUPS,
-  PAGE_HEADERS,
-  PAGE_ORDER,
-  POST_AUTHORS,
-  profileFor,
-  PROSE_OTHER_PAGES,
-  RECENTLY_REMOVED_HEADER,
-  REDDIT_WIKI_PAGES,
-} from './constants'
+import { profileFor, REDDIT_WIKI_PAGES } from './constants'
 import { noteIdFromUrl, parsePage, stripInvisible, type PageStats } from './parse'
 import { parseProse, splitForSearch, type ParsedProse } from './prose'
+import { assertFmhyRoot } from './fmhy-root'
 import { generateRemovedMarkdown } from './removed'
+import { loadUpstream } from './upstream'
 
 const SITE = join(import.meta.dirname, '..', '..')
-const ROOT = join(import.meta.dirname, '..', '..', '..')
+const ROOT = assertFmhyRoot()
 const DOCS_DIR = join(ROOT, 'docs')
 const NOTES_DIR = join(ROOT, 'docs', '.vitepress', 'notes')
 const OUT_DIR = join(SITE, 'src', 'features', 'wiki', 'generated')
@@ -63,11 +56,18 @@ const OUT_DIR = join(SITE, 'src', 'features', 'wiki', 'generated')
 // parse all pages
 // ---------------------------------------------------------------------------
 
+// The page set, page titles, sidebar taxonomy, header nav, social links and
+// post-author roster all come from fmhy/edit's own .vitepress config, read
+// straight out of the .fmhy-edit clone that sync-fmhy.ts maintains. See
+// upstream.ts — nothing about the mirror's structure is hand-maintained here.
+const upstream = await loadUpstream(DOCS_DIR)
+const PAGE_ORDER = upstream.pageOrder
+
 const pages = new Map<string, WikiPage>()
 const statsById = new Map<string, PageStats>()
 
 for (const pageId of PAGE_ORDER) {
-  const header = PAGE_HEADERS[pageId]!
+  const header = upstream.pageHeaders[pageId]!
   const source = readFileSync(join(DOCS_DIR, `${pageId}.md`), 'utf8')
   const { page, stats } = parsePage(
     pageId,
@@ -236,6 +236,11 @@ let indexEntries = 0
 let refUrlSections = 0
 let totalEntries = 0
 let nsfwEntries = 0
+// integrity counters: an entry with no title or no link is a parse artifact,
+// not real upstream content. these are shape checks — they hold no matter how
+// much the wiki grows or shrinks between runs.
+let untitledEntries = 0
+let linklessEntries = 0
 
 const eachContainer = function* (
   page: WikiPage,
@@ -256,6 +261,9 @@ for (const page of pages.values()) {
     }
     for (const entry of container.entries) {
       totalEntries++
+      if (!entry.title?.trim()) untitledEntries++
+      if (!entry.url && entry.links.length === 0 && entry.alternatives.length === 0)
+        linklessEntries++
       if (entry.marker === 'crossref') crossrefEntries++
       if (entry.marker === 'starred') starredEntries++
       if (entry.marker === 'index') indexEntries++
@@ -296,7 +304,7 @@ const sectionDescription = (pageId: string, sectionId: string): string => {
     .join(', ')
 }
 
-const navGroups: WikiNavGroup[] = NAV_GROUPS.map((group) => ({
+const navGroups: WikiNavGroup[] = upstream.navGroups.map((group) => ({
   title: group.title,
   collapsed: group.collapsed,
   items: group.items.map((item) => {
@@ -316,6 +324,7 @@ const navGroups: WikiNavGroup[] = NAV_GROUPS.map((group) => ({
       slug: item.slug,
       title: item.title,
       emoji: item.emoji,
+      icon: item.icon,
       description,
       route: item.route,
       externalUrl: item.externalUrl,
@@ -324,7 +333,25 @@ const navGroups: WikiNavGroup[] = NAV_GROUPS.map((group) => ({
   }),
 }))
 
-const nav: WikiNav = { generatedAt: new Date().toISOString(), groups: navGroups }
+// standalone sidebar rows above the groups (Beginners Guide / Posts /
+// Contribute) — from upstream's sidebar, same as the groups. These used to be
+// hardcoded twice more in WikiSidebar.tsx and WikiDocFooter.tsx.
+const navTopLinks: WikiNavItem[] = upstream.navTopLinks.map((item) => ({
+  slug: item.slug,
+  title: item.title,
+  emoji: item.emoji,
+  icon: item.icon,
+  description: item.description ?? '',
+  route: item.route,
+  externalUrl: item.externalUrl,
+  entryCount: 0,
+}))
+
+const nav: WikiNav = {
+  generatedAt: new Date().toISOString(),
+  topLinks: navTopLinks,
+  groups: navGroups,
+}
 
 // ---------------------------------------------------------------------------
 // search corpus + excerpts — section-level docs mirroring the real site's
@@ -343,11 +370,15 @@ const searchExcerpts = new Map<string, SearchExcerptMap>()
 // we bake it into `titles` at build time. pages absent from the sidebar
 // (posts/*, other/FAQ|selfhosting|wallpapers|backups) get no prepend, exactly
 // like the real client when findPageTitle misses.
-const SEARCH_PAGE_TITLES: Record<string, string> = {
-  'beginners-guide': '📚 Beginners Guide',
-  'other/contributing': '💡 Contribute',
+// derived from upstream's sidebar: the standalone entries above the groups
+// (Beginners Guide / Posts / Contribute) plus every grouped page below
+const SEARCH_PAGE_TITLES: Record<string, string> = {}
+for (const item of upstream.navTopLinks) {
+  if (item.route.startsWith('/')) {
+    SEARCH_PAGE_TITLES[item.route.slice(1)] = `${item.emoji} ${item.title}`
+  }
 }
-for (const group of NAV_GROUPS) {
+for (const group of upstream.navGroups) {
   for (const item of group.items) {
     if (!item.route.startsWith('/') || item.route.includes('#')) continue
     SEARCH_PAGE_TITLES[item.route.slice(1)] = `${item.emoji} ${item.title}`
@@ -738,7 +769,7 @@ function resolveIncludes(source: string, baseDir: string): string {
     try {
       return execFileSync(
         'git',
-        ['-C', ROOT, 'show', `upstream/main:${parts.join('/')}`],
+        ['-C', ROOT, 'show', `HEAD:${parts.join('/')}`],
         { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
       )
     } catch {
@@ -758,8 +789,8 @@ function buildProsePage(
   parsed: ParsedProse,
 ): WikiProsePage {
   const authors = parsed.authorNames
-    .filter((name) => POST_AUTHORS[name])
-    .map((name) => ({ name, github: POST_AUTHORS[name]! }))
+    .filter((name) => upstream.postAuthors[name])
+    .map((name) => ({ name, github: upstream.postAuthors[name]! }))
   return {
     id,
     route: `/${id}`,
@@ -774,7 +805,7 @@ function buildProsePage(
 }
 
 // other/* pages (body carries its own h1 — header 'none')
-for (const name of PROSE_OTHER_PAGES) {
+for (const name of upstream.proseOtherPages) {
   const file = join(DOCS_DIR, 'other', `${name}.md`)
   if (!existsSync(file)) {
     console.warn(`missing prose page docs/other/${name}.md`)
@@ -822,8 +853,8 @@ const removed = generateRemovedMarkdown(ROOT)
 {
   const parsed = parseProse(removed.markdown)
   const page = buildProsePage('recently-removed', 'page', parsed)
-  page.title = RECENTLY_REMOVED_HEADER.title
-  page.description = RECENTLY_REMOVED_HEADER.description
+  page.title = upstream.recentlyRemovedHeader.title
+  page.description = upstream.recentlyRemovedHeader.description
   prosePages.push(page)
 }
 
@@ -1023,6 +1054,39 @@ for (const page of prosePages) {
   writeFileSync(file, JSON.stringify(page))
 }
 writeFileSync(join(OUT_DIR, 'posts.json'), JSON.stringify(postsManifest))
+
+// ---------------------------------------------------------------------------
+// home page (docs/index.md frontmatter)
+// ---------------------------------------------------------------------------
+//
+// Both the hero badge and the feature-card grid come from upstream's index.md.
+// The badge rolls monthly ("August Updates ✨" → /posts/aug-2026) and used to
+// be a const in WikiHomeContent.tsx, so the hero advertised July's post through
+// mid-August; the cards were a second hand-copy in homeFeatures.ts.
+const homeAnnouncement = upstream.homeAnnouncement
+writeFileSync(
+  join(OUT_DIR, 'home.json'),
+  JSON.stringify({ announcement: homeAnnouncement, features: upstream.homeFeatures }),
+)
+
+// site chrome (header bar + social icons) — upstream's shared.ts `nav` and
+// `socialLinks`, so adding an Ecosystem entry upstream shows up here with no
+// edit on our side. Header.tsx renders straight from this.
+writeFileSync(
+  join(OUT_DIR, 'chrome.json'),
+  JSON.stringify({ nav: upstream.headerNav, socialLinks: upstream.socialLinks }),
+)
+
+// twemoji SVGs for the sidebar icons — the same @iconify-json/twemoji set
+// UnoCSS resolves for fmhy.net, written per-icon for TwemojiIcon. A new
+// upstream icon lands here on the next sync with no code change.
+{
+  const twemojiDir = join(SITE, 'public', 'twemoji')
+  mkdirSync(twemojiDir, { recursive: true })
+  for (const { code, svg } of upstream.twemojiAssets) {
+    writeFileSync(join(twemojiDir, `${code}.svg`), svg)
+  }
+}
 const searchCorpus: SearchCorpus = { docs: searchDocs, customMetadata: searchMetadata }
 writeFileSync(join(OUT_DIR, 'search-corpus.json'), JSON.stringify(searchCorpus))
 for (const [excerptPageId, excerptMap] of searchExcerpts) {
@@ -1047,71 +1111,149 @@ writeFileSync(
 // ---------------------------------------------------------------------------
 // validation summary
 // ---------------------------------------------------------------------------
+//
+// This mirror live-syncs a wiki that changes many times a day — entries are
+// added and pruned continuously — so ANY expected-count or count-drift check
+// is guaranteed to go stale and then fail on perfectly healthy content. That
+// is not hypothetical: a frozen per-page bullet table with a +/-3% tolerance
+// wedged the nightly deploy for 41 consecutive runs, starting the day a single
+// page grew 3.1%.
+//
+// So nothing below asserts on how MUCH content there is. Every gate is either
+// scale-free (a ratio, or "> 0") or structural ("this page produced output",
+// "this nav-linked page exists"). Volume is printed for eyeballing, never
+// gated. A real parse regression — upstream changes its markdown and we stop
+// recognizing it — surfaces as unparsed lines, a collapsed page, or a parse
+// path dropping to zero. Those are what these gates catch.
 
-const DRIFT = 0.03
+// share of a page's output that may be lines the parser could not classify
+const UNPARSED_SHARE = 0.02
+// share of entries that may carry no title / no link of any kind. both fields
+// are legitimately nullable upstream, so these are ratios, not counts.
+const UNTITLED_SHARE = 0.05
+const LINKLESS_SHARE = 0.05
+
 let failed = false
+const fail = (msg: string) => {
+  failed = true
+  console.error(`FAIL — ${msg}`)
+}
 
 console.info('\nFMHY wiki generation — validation summary')
 console.info('=========================================')
-console.info('page                 expected  parsed  notices  total  drift')
 
+// --- gate 1: parse coverage ------------------------------------------------
+// `unparsed` is the direct parse-health signal: source lines that fell through
+// every handler in parse.ts. Held as a share of the page's own output so the
+// threshold means the same thing on a 41-entry page and a 1,552-entry one.
+console.info('page                  entries  sections  unparsed   share')
 for (const pageId of [...PAGE_ORDER].sort()) {
   const stats = statsById.get(pageId)!
-  const expected = EXPECTED_BULLETS[pageId]!
-  const comparable = stats.countedEntries + stats.noticeBullets
-  const drift = Math.abs(comparable - expected) / expected
-  const ok = drift <= DRIFT
+  const page = pages.get(pageId)!
+  const entries = [...eachContainer(page)].reduce((n, c) => n + c.entries.length, 0)
+  const sections = page.sections.length
+  const unparsed = stats.unexpected.length
+  const share = entries > 0 ? unparsed / entries : 1
+  const ok = entries > 0 && sections > 0 && share <= UNPARSED_SHARE
   if (!ok) failed = true
   console.info(
-    `${pageId.padEnd(22)} ${String(expected).padStart(6)} ${String(stats.countedEntries).padStart(7)} ${String(
-      stats.noticeBullets,
-    ).padStart(
-      8,
-    )} ${String(stats.entries).padStart(6)}  ${(drift * 100).toFixed(2)}%  ${ok ? 'OK' : 'FAIL'}`,
+    `${pageId.padEnd(22)} ${String(entries).padStart(6)} ${String(sections).padStart(9)} ` +
+      `${String(unparsed).padStart(9)}  ${(share * 100).toFixed(2)}%  ${ok ? 'OK' : 'FAIL'}`,
   )
+  if (entries === 0) console.error(`  ! ${pageId}: no entries parsed — parser broke on this file`)
+  if (sections === 0) console.error(`  ! ${pageId}: no sections parsed — parser broke on this file`)
   for (const u of stats.unexpected.slice(0, 5)) {
-    console.info(`  ! unexpected line ${u.line}: ${u.text}`)
+    console.info(`  ! unparsed line ${u.line}: ${u.text}`)
   }
 }
 
-// aggregate totals are informational only: this mirror live-syncs upstream, so
-// totals legitimately grow over time. per-page parse validation is the real gate.
-const aggregate = (
-  label: string,
-  actual: number,
-  expected: number,
-  tolerance = DRIFT,
-) => {
-  const drift = Math.abs(actual - expected) / expected
-  const ok = drift <= tolerance
-  console.info(`${label}: ${actual} (expect ≈${expected}) ${ok ? 'OK' : 'drift'}`)
+console.info('-----------------------------------------')
+
+// --- gate 2: parse-path liveness -------------------------------------------
+// each of these is a distinct branch of the parser (bullet markers, the NSFW
+// tag atom, reddit-wiki crossref resolution). The numbers move every day and
+// that is fine and expected; zero means the branch itself stopped working.
+const live = (label: string, n: number) => {
+  if (n === 0) fail(`${label} is 0 — this parse path produced nothing`)
+  else console.info(`${label}: ${n}`)
+}
+console.info(`total entries: ${totalEntries}`)
+live('starred entries', starredEntries)
+live('index entries', indexEntries)
+live('crossref entries', crossrefEntries)
+live('sections with refUrl', refUrlSections)
+live('nsfw-tagged entries', nsfwEntries)
+live('notes resolved', Object.keys(notes).length)
+if (missingNotes.size) console.warn(`  ! unresolved notes: ${[...missingNotes].join(', ')}`)
+console.info(
+  `crossref urls: resolved=${crossrefStats.resolved} (fuzzy-anchor=${crossrefStats.anchorFuzzy}), ` +
+    `unverified-anchor-dropped=${crossrefStats.anchorDropped}, unresolvable=${crossrefStats.unresolvable}`,
+)
+
+// --- gate 2b: upstream-derived structure -----------------------------------
+// everything here is read out of fmhy/edit's own .vitepress config. These are
+// existence checks, not shape-of-today checks: upstream adding a page, a
+// sidebar group or an Ecosystem link must flow through silently, while the
+// config going missing or failing to import must not.
+{
+  const missingHeaders = upstream.pageOrder.filter((id) => !upstream.pageHeaders[id])
+  const emptyNavItems = upstream.navGroups.flatMap((g) =>
+    g.items.filter((i) => !i.title || (!i.route && !i.externalUrl)),
+  )
+  const ok =
+    upstream.pageOrder.length > 0 &&
+    missingHeaders.length === 0 &&
+    upstream.navGroups.length > 0 &&
+    emptyNavItems.length === 0 &&
+    upstream.navTopLinks.length > 0 &&
+    upstream.headerNav.length > 0 &&
+    upstream.socialLinks.length > 0 &&
+    Object.keys(upstream.postAuthors).length > 0 &&
+    upstream.proseOtherPages.length > 0
+  if (!ok) failed = true
+  if (missingHeaders.length) fail(`pages with no upstream header: ${missingHeaders.join(', ')}`)
+  if (emptyNavItems.length)
+    fail(`sidebar items with no title/target: ${emptyNavItems.map((i) => i.slug).join(', ')}`)
+  console.info(
+    `upstream config: ${upstream.pageOrder.length} pages, ` +
+      `${upstream.navGroups.length} sidebar groups (+${upstream.navTopLinks.length} top links), ` +
+      `${upstream.headerNav.length} header nav, ${upstream.socialLinks.length} social, ` +
+      `${Object.keys(upstream.postAuthors).length} authors, ` +
+      `${upstream.proseOtherPages.length} prose-other ${ok ? 'OK' : 'FAIL'}`,
+  )
+  // an unmapped icon is cosmetic (it renders the fallback), so it warns rather
+  // than failing — a nightly CONTENT deploy must never be blocked by upstream
+  // introducing a new emoji. If a name is unknown, @iconify-json/twemoji is
+  // behind upstream's icon set — `bun update @iconify-json/twemoji` fixes it.
+  if (upstream.unknownEmoji.length) {
+    console.warn(
+      `  ! unmapped twemoji icons (rendering fallback): ${upstream.unknownEmoji.join(', ')}`,
+    )
+  }
 }
 
-console.info('-----------------------------------------')
-aggregate('total entries', totalEntries, 16_100)
-aggregate('starred entries', starredEntries, 1_985)
-aggregate('index entries', indexEntries, 570)
-aggregate('crossref entries', crossrefEntries, 353)
-aggregate('sections with refUrl', refUrlSections, 49)
-console.info(
-  `crossref urls: resolved=${crossrefStats.resolved} (fuzzy-anchor=${crossrefStats.anchorFuzzy}), unverified-anchor-dropped=${crossrefStats.anchorDropped}, unresolvable=${crossrefStats.unresolvable}`,
-)
+// --- gate 3: entry integrity -----------------------------------------------
+// an entry with no title, or with no link of any kind, is usually a parse
+// artifact — but not always (description-only entries exist upstream), so this
+// is a ratio. Normal churn does not move it; a regression spikes it.
 {
-  const ok = nsfwEntries >= 60
+  const untitledShare = totalEntries > 0 ? untitledEntries / totalEntries : 1
+  const linklessShare = totalEntries > 0 ? linklessEntries / totalEntries : 1
+  const ok = untitledShare <= UNTITLED_SHARE && linklessShare <= LINKLESS_SHARE
   if (!ok) failed = true
-  console.info(`nsfw-tagged entries: ${nsfwEntries} (expect >= 60) ${ok ? 'OK' : 'FAIL'}`)
+  console.info(
+    `entry integrity: untitled ${untitledEntries} (${(untitledShare * 100).toFixed(2)}%), ` +
+      `linkless ${linklessEntries} (${(linklessShare * 100).toFixed(2)}%) ${ok ? 'OK' : 'FAIL'}`,
+  )
 }
-console.info(
-  `notes: ${Object.keys(notes).length} resolved${missingNotes.size ? `, MISSING: ${[...missingNotes].join(', ')}` : ''}`,
-)
+
+// --- gate 4: structural completeness ---------------------------------------
+// pure shape checks: every wiki page must contribute to the search index, and
+// every nav-linked prose page must exist. No thresholds, nothing to go stale.
 {
-  // section-level corpus gate: every wiki page should contribute docs, and
-  // the metadata/excerpt maps must be populated alongside them
-  const ok =
-    searchDocs.length >= 500 &&
-    Object.keys(searchMetadata).length >= 400 &&
-    searchExcerpts.size >= pages.size
-  if (!ok) failed = true
+  const missingFromSearch = PAGE_ORDER.filter((id) => !searchExcerpts.has(id))
+  const ok = missingFromSearch.length === 0
+  if (!ok) fail(`pages missing from search corpus: ${missingFromSearch.join(', ')}`)
   console.info(
     `search corpus: ${searchDocs.length} section docs (${proseSearchDocs} prose), ` +
       `${Object.keys(searchMetadata).length} metadata sections, ` +
@@ -1120,20 +1262,45 @@ console.info(
 }
 console.info(`pages written: ${pages.size} → src/features/wiki/generated/`)
 {
-  // prose pipeline gate: all nav-linked pages must exist, and the posts
-  // manifest is a cross-agent contract (RSS) — an empty one is a build bug
-  const ok = proseMissing === 0 && postsManifest.length >= 40
+  // the posts manifest is a cross-agent contract (RSS) — an empty one is a
+  // build bug, but its size is upstream's business, not ours.
+  const ok = proseMissing === 0 && postsManifest.length > 0
   if (!ok) failed = true
   console.info(
-    `prose pages: ${prosePages.length} (posts manifest: ${postsManifest.length}, missing: ${proseMissing}) ${ok ? 'OK' : 'FAIL'}`,
-  )
-  console.info(
-    `recently-removed: ${removed.entryCount} entries${removed.fromHistory ? '' : ' (git history unavailable — emitted fallback body)'}`,
+    `prose pages: ${prosePages.length} (posts manifest: ${postsManifest.length}, ` +
+      `missing: ${proseMissing}) ${ok ? 'OK' : 'FAIL'}`,
   )
 }
+{
+  // the hero announcement must exist AND point at a post we actually built —
+  // a dangling link here is how the home page ends up advertising last month.
+  const slug = homeAnnouncement?.link.replace(/^\/posts\//, '') ?? null
+  const resolved = slug ? postsManifest.some((p) => p.slug === slug) : false
+  if (!homeAnnouncement) fail('no hero announcement parsed from docs/index.md')
+  else if (!resolved) fail(`hero announcement links to unknown post: ${homeAnnouncement.link}`)
+  else console.info(`hero announcement: "${homeAnnouncement.title}" → ${homeAnnouncement.link} OK`)
+
+  // feature cards: every card needs a target and a drawable icon. Count is
+  // upstream's business, so it is reported, not asserted.
+  const broken = upstream.homeFeatures.filter(
+    (f) => !f.title || !f.link || f.paths.length === 0,
+  )
+  const featuresOk = upstream.homeFeatures.length > 0 && broken.length === 0
+  if (!featuresOk) failed = true
+  if (broken.length) fail(`home feature cards missing link/icon: ${broken.map((f) => f.title).join(', ')}`)
+  console.info(
+    `home features: ${upstream.homeFeatures.length} cards, ` +
+      `${upstream.homeFeatures.reduce((n, f) => n + f.paths.length, 0)} icon primitives ` +
+      `${featuresOk ? 'OK' : 'FAIL'}`,
+  )
+}
+console.info(
+  `recently-removed: ${removed.entryCount} entries` +
+    `${removed.fromHistory ? '' : ' (git history unavailable — emitted fallback body)'}`,
+)
 
 if (failed) {
-  console.error('\nVALIDATION FAILED — counts drifted beyond tolerance, see above')
+  console.error('\nVALIDATION FAILED — see FAIL rows above')
   process.exitCode = 1
 } else {
   console.info('\nvalidation passed')

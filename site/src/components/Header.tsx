@@ -24,6 +24,7 @@ import { RedditLogoIcon } from '~/icons/phosphor/RedditLogoIcon'
 
 import { ThemeMenu } from '~/features/theme/ThemeMenu'
 import { wikiNav } from '~/features/wiki/data'
+import chrome from '~/features/wiki/generated/chrome.json'
 import { openSearch } from '~/features/wiki/searchModal'
 import { useSearchHotkeyLabel } from '~/features/wiki/searchHotkeyLabel'
 
@@ -35,27 +36,38 @@ import { ScrollHeader, useMobileNavHidden } from './ScrollHeader'
 
 import type { TamaguiElement } from 'tamagui'
 
-// fmhy social channels, mirrored from upstream shared.ts socialLinks
-const GITHUB_URL = 'https://github.com/fmhy/edit'
-const DISCORD_INVITE_URL = 'https://github.com/fmhy/FMHY/wiki/FMHY-Discord'
-const REDDIT_URL = 'https://www.reddit.com/r/FREEMEDIAHECKYEAH/'
+// fmhy social channels — upstream's shared.ts socialLinks, via chrome.json.
+// upstream keys them by icon name; the icon components are ours.
+const socialHref = (icon: string, fallback: string) =>
+  chrome.socialLinks.find((s) => s.icon === icon)?.link ?? fallback
+
+const GITHUB_URL = socialHref('github', 'https://github.com/fmhy/edit')
+const DISCORD_INVITE_URL = socialHref(
+  'discord',
+  'https://github.com/fmhy/FMHY/wiki/FMHY-Discord',
+)
+const REDDIT_URL = socialHref('reddit', 'https://www.reddit.com/r/FREEMEDIAHECKYEAH/')
 
 // id target for the hamburger's aria-controls (VPNavScreen equivalent)
 const MOBILE_NAV_SHEET_ID = 'mobile-nav-screen'
 
-// top-nav links mirroring upstream shared.ts nav
+// Top nav comes from upstream's own shared.ts `nav`, generated into
+// chrome.json on every content sync (see scripts/wiki/upstream.ts). It used to
+// be a hand-copy, and had already drifted: it pointed Glossary at a dead
+// rentry, Search at /search instead of /posts/search, and Bookmarks at the
+// wrong repo. Deriving it means an upstream nav change just shows up.
 type NavLink = { emoji: string; label: string; href: string; arrow?: boolean }
 
-const NAV_LINKS: NavLink[] = [
-  { emoji: '📑', label: 'Changelog', href: '/posts/changelog-sites' },
-  {
-    emoji: '📖',
-    label: 'Glossary',
-    href: 'https://rentry.org/The-Piracy-Glossary',
-    arrow: true,
-  },
-  { emoji: '💾', label: 'Backups', href: '/other/backups' },
-]
+const isExternal = (href: string) => /^https?:\/\//.test(href)
+
+const NAV_LINKS: NavLink[] = chrome.nav
+  .filter((n) => !n.items?.length)
+  .map((n) => ({
+    emoji: n.emoji,
+    label: n.label,
+    href: n.href,
+    arrow: isExternal(n.href),
+  }))
 
 // fmhy ecosystem menu, mirroring upstream shared.ts nav '🌱 Ecosystem'.
 // internal where a route exists; the rest deep-link externally
@@ -66,39 +78,14 @@ type EcosystemItem = {
   external?: boolean
 }
 
-const ECOSYSTEM_ITEMS: EcosystemItem[] = [
-  { emoji: '🌐', label: 'Search', href: '/search' },
-  { emoji: '❓', label: 'FAQs', href: '/other/FAQ' },
-  {
-    emoji: '🔖',
-    label: 'Bookmarks',
-    href: 'https://github.com/fmhy/bookmarks',
-    external: true,
-  },
-  {
-    emoji: '✅',
-    label: 'SafeGuard',
-    href: 'https://github.com/fmhy/FMHY-SafeGuard',
-    external: true,
-  },
-  { emoji: '🚀', label: 'Startpage', href: '/startpage' },
-  {
-    emoji: '🔎',
-    label: 'SearXNG',
-    href: 'https://searx.fmhy.net/',
-    external: true,
-  },
-  {
-    emoji: '💡',
-    label: 'Site Hunting',
-    href: 'https://www.reddit.com/r/FREEMEDIAHECKYEAH/wiki/find-new-sites/',
-    external: true,
-  },
-  { emoji: '😇', label: 'SFW FMHY', href: 'https://fmhy.xyz/', external: true },
-  { emoji: '🏠', label: 'Selfhosting', href: '/other/selfhosting' },
-  { emoji: '🏞', label: 'Wallpapers', href: '/other/wallpapers' },
-  { emoji: '💙', label: 'Feedback', href: '/feedback' },
-]
+const ECOSYSTEM_ITEMS: EcosystemItem[] = (
+  chrome.nav.find((n) => n.items?.length)?.items ?? []
+).map((item) => ({
+  emoji: item.emoji,
+  label: item.label,
+  href: item.href,
+  external: isExternal(item.href),
+}))
 
 // "Search" opens the live ⌘K modal instead of routing anywhere — desktop and
 // mobile both need to special-case it out of the plain link-rendering loop

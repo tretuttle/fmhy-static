@@ -20,10 +20,11 @@ import {
 import { dirname, join } from 'node:path'
 
 import { profileFor } from './wiki/constants'
+import { assertFmhyRoot } from './wiki/fmhy-root'
 import { parsePage } from './wiki/parse'
 
 const SITE = join(import.meta.dir, '..')
-const ROOT = join(SITE, '..')
+const ROOT = assertFmhyRoot()
 const PAGES = join(SITE, 'src', 'features', 'wiki', 'generated', 'pages')
 const APP = join(SITE, 'app')
 const MARKER = '/* @generated fmhy route — do not edit */'

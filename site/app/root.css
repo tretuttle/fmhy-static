@@ -592,6 +592,135 @@ html.theme-view-transition * {
   text-decoration-color: var(--accent11);
 }
 
+/* ---- flattened wiki entry rows (LinkEntryRow.tsx) ----
+   the ~900-entry pages render rows as plain markup with these classes instead
+   of per-element tamagui (which cost ~260 chars of atomic classes per element
+   and a >1s hydration block). every declaration mirrors what tamagui resolved
+   for the old markup: Paragraph size $5 / lineHeight 26, the .vp-doc link
+   mechanic, the focus-visible ring from Link.tsx. */
+.wk-entry {
+  margin: 0;
+  padding: var(--c-space-0--5) 0;
+  font-family: var(--f-family);
+  font-size: var(--f-size-5);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 26px;
+  color: var(--color11);
+  overflow-wrap: break-word;
+}
+.wk-entry a {
+  color: var(--accent11);
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 0.25s;
+}
+.wk-entry a:hover {
+  text-decoration-color: var(--accent11);
+}
+.wk-entry a:focus-visible {
+  outline: 2px solid var(--color02);
+  outline-offset: 1px;
+  border-radius: var(--c-radius-4);
+}
+.wk-name {
+  font-weight: 500;
+}
+/* linkless entry name — plain emphasized text, not a dead blue link */
+.wk-name-text {
+  color: var(--color12);
+  font-weight: 500;
+}
+/* after .wk-name / .wk-name-text so the source's ** bold wins at equal specificity */
+.wk-bold {
+  font-weight: 700;
+}
+/* superscript "[2] [3]" mirror links */
+.wk-mirror {
+  font-size: 12px;
+  font-weight: 400;
+  vertical-align: super;
+}
+/* inline icon box riding the text baseline (old InlineIcon trick); icons fill
+   with currentColor so the wrapper's text color themes them */
+.wk-icon {
+  display: inline-flex;
+  vertical-align: -0.15em;
+  text-decoration-line: none;
+}
+.wk-bullet {
+  font-size: var(--f-size-2);
+  color: var(--color9);
+}
+.wk-warn {
+  color: var(--warnText);
+}
+.wk-danger {
+  color: var(--dangerText);
+}
+/* dead internal link — accent-colored text without a target */
+.wk-accent {
+  color: var(--accent11);
+}
+/* inline `code` in descriptions ($mono $2 on color4, radius $2) */
+.wk-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  background: var(--color4);
+  padding: 0 4px;
+  border-radius: var(--c-radius-2);
+}
+/* pure-css tooltip for the static icon labels (Discord/Windows/…), styled like
+   the global tamagui tooltip: mono 13px on the surface color, 1px color4
+   border, 200ms open delay. renders in place, so paint containment from the
+   content-visibility sections can clip it at extreme edges — fine for these
+   one-word labels. note tooltips (lazy content) stay real components. */
+.wk-tip {
+  position: relative;
+}
+.wk-tip::before,
+.wk-tip::after {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  z-index: 100000;
+}
+.wk-tip::after {
+  content: attr(data-tip);
+  transform: translate(-50%, -10px);
+  background: var(--background);
+  border: 1px solid var(--color4);
+  border-radius: var(--c-radius-2);
+  padding: 4px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--color);
+  white-space: nowrap;
+}
+.wk-tip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -7px) rotate(45deg);
+  background: var(--background);
+  border-right: 1px solid var(--color4);
+  border-bottom: 1px solid var(--color4);
+}
+.wk-tip:hover::before,
+.wk-tip:hover::after,
+.wk-tip:focus-visible::before,
+.wk-tip:focus-visible::after {
+  opacity: 1;
+  transition-delay: 0.2s;
+}
+
 /* AMOLED override — must stay LAST so it beats every theme-* block above
    (upstream forces black backgrounds over the active theme's palette) */
 html.amoled.t_dark {

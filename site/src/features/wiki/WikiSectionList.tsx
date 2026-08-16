@@ -1,3 +1,4 @@
+import { router } from 'one'
 import { SizableText, XStack, YStack } from 'tamagui'
 
 import { Link } from '~/components/Link'
@@ -236,6 +237,21 @@ const SectionBlock = ({
   )
 }
 
+// one delegated click handler covers every flattened in-app link in the entry
+// rows (LinkEntryRow renders plain <a data-spa> instead of a Link component per
+// anchor — the per-anchor hooks were the page's hydration cost). modified
+// clicks and middle clicks fall through to native anchor behavior.
+function onEntryLinkClick(event: React.MouseEvent) {
+  if (event.defaultPrevented || event.button !== 0) return
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  const anchor = (event.target as Element).closest?.('a[data-spa]')
+  if (!anchor) return
+  const href = anchor.getAttribute('href')
+  if (!href) return
+  event.preventDefault()
+  router.navigate(href as Parameters<typeof router.navigate>[0])
+}
+
 export function WikiSectionList({ page }: { page: WikiPage }) {
   const { starredOnly, indexesOnly } = useWikiFilters()
   const filters: EntryVisibilityFilters = { starredOnly, indexesOnly }
@@ -243,16 +259,20 @@ export function WikiSectionList({ page }: { page: WikiPage }) {
   const unsafe = page.kind === 'unsafe'
 
   return (
-    <YStack gap="$2">
-      {page.sections.map((section) => (
-        <SectionBlock
-          key={section.id}
-          section={section}
-          filters={filters}
-          filterActive={filterActive}
-          unsafe={unsafe}
-        />
-      ))}
-    </YStack>
+    // raw div, same reasoning as Anchor: keep the delegation target a plain
+    // DOM node with a real MouseEvent (button/metaKey), untouched by tamagui
+    <div onClick={onEntryLinkClick}>
+      <YStack gap="$2">
+        {page.sections.map((section) => (
+          <SectionBlock
+            key={section.id}
+            section={section}
+            filters={filters}
+            filterActive={filterActive}
+            unsafe={unsafe}
+          />
+        ))}
+      </YStack>
+    </div>
   )
 }

@@ -1,45 +1,59 @@
-import { Fragment, memo, useState, type ComponentProps, type ReactNode } from 'react'
-import { Paragraph, Tooltip, YStack } from 'tamagui'
+import { Fragment, memo, useState, type ReactNode } from 'react'
+import { Tooltip, YStack } from 'tamagui'
 
-import { Link } from '~/components/Link'
-import { TooltipSimple } from '~/components/TooltipSimple'
-import { DiscordLogoIcon } from '~/icons/phosphor/DiscordLogoIcon'
-import { GithubLogoIcon } from '~/icons/phosphor/GithubLogoIcon'
-import { GitlabLogoIcon } from '~/icons/phosphor/GitlabLogoIcon'
-import { InfoIcon } from '~/icons/phosphor/InfoIcon'
-import { RedditLogoIcon } from '~/icons/phosphor/RedditLogoIcon'
-import { TelegramLogoIcon } from '~/icons/phosphor/TelegramLogoIcon'
-import { WarningCircleIcon } from '~/icons/phosphor/WarningCircleIcon'
-import { XLogoIcon } from '~/icons/phosphor/XLogoIcon'
+import { NoteLink } from '~/components/NoteLink'
 import { TwemojiIcon, TWEMOJI_CODES } from '~/icons/TwemojiIcon'
-import { AndroidIcon } from '~/icons/wiki/AndroidIcon'
-import { IosIcon } from '~/icons/wiki/IosIcon'
-import { LinuxIcon } from '~/icons/wiki/LinuxIcon'
-import { MacIcon } from '~/icons/wiki/MacIcon'
-import { SourceCodeIcon } from '~/icons/wiki/SourceCodeIcon'
-import { TorBrowserIcon } from '~/icons/wiki/TorBrowserIcon'
-import { WebIcon } from '~/icons/wiki/WebIcon'
-import { WindowsIcon } from '~/icons/wiki/WindowsIcon'
 import { Text } from '~/interface/text/Text'
 
-import { InlineMarkdown } from './InlineMarkdown'
-import { loadNote } from './notes'
-import { openExternal } from './openExternal'
+import {
+  AndroidEntrySvg,
+  DiscordLogoEntrySvg,
+  GithubLogoEntrySvg,
+  GitlabLogoEntrySvg,
+  InfoEntrySvg,
+  IosEntrySvg,
+  LinuxEntrySvg,
+  MacEntrySvg,
+  RedditLogoEntrySvg,
+  SourceCodeEntrySvg,
+  TelegramLogoEntrySvg,
+  TorBrowserEntrySvg,
+  WarningCircleEntrySvg,
+  WebEntrySvg,
+  WindowsEntrySvg,
+  XLogoEntrySvg,
+  type EntryIcon,
+} from './entryIcons'
+import { InlineImage } from './InlineImage'
+import { InlineMarkdown, parseInlineMarkdown } from './InlineMarkdown'
+import { loadNote, parseNoteLink } from './notes'
 import { toPlatformWikiRoute } from './routes'
 
 import type { WikiAlternative, WikiEntry, WikiNote, WikiSubLink } from './types'
-import type { Href } from 'one'
-import type { IconComponent } from '~/icons/types'
 
-const SUB_LINK_ICONS: Record<string, IconComponent> = {
-  discord: DiscordLogoIcon,
-  github: GithubLogoIcon,
-  gitlab: GitlabLogoIcon,
-  telegram: TelegramLogoIcon,
-  reddit: RedditLogoIcon,
-  x: XLogoIcon,
-  onion: TorBrowserIcon,
-  source: SourceCodeIcon,
+// FLATTENED ROWS (perf): ~900 entries per big wiki page made the old
+// tamagui-per-element markup the whole performance story - ~1.4MB of atomic
+// class attributes in the SSG HTML and a >1s hydration block (a Link component
+// with a useDebounce hook per anchor, a Tooltip.Trigger per icon). Rows now
+// render plain <p>/<a>/<span> with the wk-* classes in root.css (same resolved
+// styles, written once), external links are native anchors (target=_blank +
+// rel severs the opener exactly like openExternal did), in-app links carry
+// data-spa and WikiSectionList's single delegated click handler does the SPA
+// navigation, and static icon tooltips are the pure-css wk-tip bubble. Only
+// note tooltips (lazy-loaded content, a handful per page) stay as components.
+//
+// TODO(native): [P1, task #7] plain DOM is web-only, same as WikiSectionList's
+// raw-div Anchor - native needs a LinkEntryRow.native fork when that lands.
+
+const SUB_LINK_ICONS: Record<string, EntryIcon> = {
+  discord: DiscordLogoEntrySvg,
+  github: GithubLogoEntrySvg,
+  gitlab: GitlabLogoEntrySvg,
+  telegram: TelegramLogoEntrySvg,
+  reddit: RedditLogoEntrySvg,
+  x: XLogoEntrySvg,
+  onion: TorBrowserEntrySvg,
+  source: SourceCodeEntrySvg,
 }
 
 // fmhy.net tooltip text per icon sub-link (transformer.ts v-tooltip values) —
@@ -48,24 +62,14 @@ const iconTooltipLabel = (label: string) => (label === 'Subreddit' ? 'Reddit' : 
 
 // platform indicator icons trailing an entry (upstream transformer.ts
 // "Platform indicators" rules — same iconify glyphs, same tooltip labels)
-const PLATFORM_ICONS: Record<string, { label: string; Icon: IconComponent }> = {
-  windows: { label: 'Windows', Icon: WindowsIcon },
-  mac: { label: 'Mac', Icon: MacIcon },
-  linux: { label: 'Linux', Icon: LinuxIcon },
-  android: { label: 'Android', Icon: AndroidIcon },
-  ios: { label: 'iOS', Icon: IosIcon },
-  web: { label: 'Web', Icon: WebIcon },
+const PLATFORM_ICONS: Record<string, { label: string; Icon: EntryIcon }> = {
+  windows: { label: 'Windows', Icon: WindowsEntrySvg },
+  mac: { label: 'Mac', Icon: MacEntrySvg },
+  linux: { label: 'Linux', Icon: LinuxEntrySvg },
+  android: { label: 'Android', Icon: AndroidEntrySvg },
+  ios: { label: 'iOS', Icon: IosEntrySvg },
+  web: { label: 'Web', Icon: WebEntrySvg },
 }
-
-// $platform-web overrides that drop Link.tsx's inherit pins so the chosen
-// props win on web. each variant inherits only what should flow from the line.
-const INHERIT_SIZE = { fontSize: 'inherit', lineHeight: 'inherit' } as const
-const INHERIT_SIZE_WEIGHT = {
-  fontSize: 'inherit',
-  fontWeight: 'inherit',
-  lineHeight: 'inherit',
-} as const
-const INHERIT_WEIGHT = { fontWeight: 'inherit', lineHeight: 'inherit' } as const
 
 function hostnameOf(url: string) {
   try {
@@ -74,23 +78,6 @@ function hostnameOf(url: string) {
     return url
   }
 }
-
-// wraps an svg so it rides the text baseline within the flowing line (NoteLink
-// trick). rest props are forwarded so tooltip triggers can attach handlers.
-const InlineIcon = ({
-  children,
-  ...rest
-}: { children: ReactNode } & ComponentProps<typeof Text>) => (
-  <Text
-    render="span"
-    tag="span"
-    display="inline-flex"
-    style={{ verticalAlign: '-0.15em' }}
-    {...rest}
-  >
-    {children}
-  </Text>
-)
 
 // colorful twemoji markers, exactly like fmhy.net (transformer.ts rewrites
 // ⭐→:star:, 🌐→:globe-with-meridians:, ↪→:repeat-button: and emoji.ts
@@ -101,24 +88,8 @@ const MARKER_TWEMOJI: Record<string, string> = {
   crossref: TWEMOJI_CODES.repeatButton,
 }
 
-const MarkerIcon = ({ marker }: { marker: WikiEntry['marker'] }) => {
-  const code = marker ? MARKER_TWEMOJI[marker] : undefined
-  return code ? <TwemojiIcon code={code} size={14} /> : null
-}
-
-// fmhy.net's link mechanic (upstream style.scss .vp-doc a): constant brand
-// color; the underline is always present but transparent and fades in on
-// hover via text-decoration-color, offset 4px below the baseline. A plain CSS
-// class (root.css .vp-link-reveal): the tamagui textDecorationColor prop
-// leaked onto the DOM as an unknown attribute (React warning), and an inline
-// style could never be overridden by the :hover rule.
-const underlineRevealProps = {
-  className: 'vp-link-reveal',
-} as const
-
-// fmhy.net's primary name: constant blue rgb(120,179,226); bold only when the
-// source wraps it in ** (entry.bold — most entries are 500-weight like
-// vitepress's `.vp-doc a`, bolded via `#VPContent strong > a`)
+// fmhy.net's primary name: constant blue, 500-weight like vitepress's
+// `.vp-doc a`, bold only when the source wraps it in ** (entry.bold)
 const NameLink = ({
   title,
   url,
@@ -130,142 +101,44 @@ const NameLink = ({
   crossrefRoute?: string | null
   bold?: boolean
 }) => {
-  const weight = bold ? '700' : '500'
+  const className = bold ? 'wk-name wk-bold' : 'wk-name'
 
   if (crossrefRoute) {
     return (
-      <Link
-        href={crossrefRoute as Href}
-        color="$accent11"
-        fontWeight={weight}
-        {...underlineRevealProps}
-        $platform-web={INHERIT_SIZE}
-        aria-label={title}
-      >
+      <a className={className} href={crossrefRoute} data-spa="">
         {title}
-      </Link>
+      </a>
     )
   }
 
   // no link target — a plain bold name, not a dead blue link
   if (!url) {
-    return (
-      <Text render="strong" fontWeight={weight} color="$color12">
-        {title}
-      </Text>
-    )
+    return <strong className={bold ? 'wk-name-text wk-bold' : 'wk-name-text'}>{title}</strong>
   }
 
   return (
-    <Link
-      href={url as Href}
-      target="_blank"
-      rel="noopener noreferrer"
-      color="$accent11"
-      fontWeight={weight}
-      {...underlineRevealProps}
-      $platform-web={INHERIT_SIZE}
-      aria-label={title}
-      onPress={(e) => {
-        e.preventDefault()
-        openExternal(url)
-      }}
-    >
+    <a className={className} href={url} target="_blank" rel="noopener noreferrer">
       {title}
-    </Link>
+    </a>
   )
 }
 
 // small superscript "[2] [3]" mirror links trailing the name
 const MirrorLink = ({ url, index }: { url: string; index: number }) => (
-  <Link
-    href={url as Href}
-    fontSize={12}
-    color="$accent11"
-    {...underlineRevealProps}
-    $platform-web={INHERIT_WEIGHT}
-    style={{ verticalAlign: 'super' }}
+  <a
+    className="wk-mirror"
+    href={url}
+    target="_blank"
+    rel="noopener noreferrer"
     aria-label={`Mirror ${index}`}
-    onPress={(e) => {
-      e.preventDefault()
-      openExternal(url)
-    }}
   >
     [{index}]
-  </Link>
+  </a>
 )
 
-// shared blue text-link style for sub-links (regular weight, same constant
-// color + underline-reveal hover as every other wiki link)
-const subLinkProps = {
-  color: '$accent11',
-  ...underlineRevealProps,
-  '$platform-web': INHERIT_SIZE_WEIGHT,
-} as const
-
-const IconSubLink = ({ link, Icon }: { link: WikiSubLink; Icon: IconComponent }) => {
-  const route = toPlatformWikiRoute(link.route)
-  const icon = <Icon size={14} color="$accent11" />
-  const tooltip = iconTooltipLabel(link.label)
-
-  if (route) {
-    return (
-      <TooltipSimple label={tooltip}>
-        <Link
-          href={route as Href}
-          display="inline-flex"
-          style={{ verticalAlign: '-0.15em' }}
-          aria-label={tooltip}
-        >
-          {icon}
-        </Link>
-      </TooltipSimple>
-    )
-  }
-
-  return (
-    <TooltipSimple label={tooltip}>
-      <Link
-        href={link.url as Href}
-        display="inline-flex"
-        style={{ verticalAlign: '-0.15em' }}
-        aria-label={tooltip}
-        onPress={(e) => {
-          e.preventDefault()
-          openExternal(link.url)
-        }}
-      >
-        {icon}
-      </Link>
-    </TooltipSimple>
-  )
-}
-
-// plain (non-link) platform indicators at the entry tail with tooltips, like
-// fmhy.net's v-tooltip divs — several platforms sit space-separated after one
-// " / " separator, mirroring upstream's transformed markup
-const PlatformIndicators = ({ platforms }: { platforms: string[] }) => (
-  <>
-    {platforms.map((token, index) => {
-      const platform = PLATFORM_ICONS[token]
-      if (!platform) {
-        return null
-      }
-      return (
-        <Fragment key={token}>
-          {index > 0 && ' '}
-          <TooltipSimple label={platform.label}>
-            <InlineIcon aria-label={platform.label}>
-              <platform.Icon size={14} />
-            </InlineIcon>
-          </TooltipSimple>
-        </Fragment>
-      )
-    })}
-  </>
-)
-
-// vitepress note sub-links have no toast on web, so reveal the note in a lazy tooltip
+// vitepress note sub-links have no toast on web, so reveal the note in a lazy
+// tooltip. the one stateful row piece that stays a component (content loads on
+// hover) — a handful per page, so its tamagui weight doesn't matter.
 const NoteSubLink = ({
   noteId,
   label,
@@ -273,11 +146,13 @@ const NoteSubLink = ({
 }: {
   noteId: string
   label: string
-  Icon?: IconComponent
+  Icon?: EntryIcon
 }) => {
   const [open, setOpen] = useState(false)
   const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle')
   const [note, setNote] = useState<WikiNote | null>(null)
+
+  const TriggerIcon = Icon ?? InfoEntrySvg
 
   return (
     <Tooltip
@@ -308,7 +183,7 @@ const NoteSubLink = ({
           style={{ verticalAlign: '-0.15em' }}
           aria-label={label}
         >
-          {Icon ? <Icon size={14} color="$accent11" /> : <InfoIcon size={14} color="$accent11" />}
+          <TriggerIcon size={14} />
         </Text>
       </Tooltip.Trigger>
 
@@ -363,40 +238,135 @@ const SubLink = ({ link }: { link: WikiSubLink }) => {
     return <NoteSubLink noteId={link.noteId} label={link.label} Icon={Icon} />
   }
 
-  // known platform icon renders as the link itself
+  const route = toPlatformWikiRoute(link.route)
+
+  // known platform icon renders as the link itself, tooltip is the css bubble
   if (Icon) {
-    return <IconSubLink link={link} Icon={Icon} />
+    const tooltip = iconTooltipLabel(link.label)
+    return route ? (
+      <a className="wk-icon wk-tip" data-tip={tooltip} aria-label={tooltip} href={route} data-spa="">
+        <Icon />
+      </a>
+    ) : (
+      <a
+        className="wk-icon wk-tip"
+        data-tip={tooltip}
+        aria-label={tooltip}
+        href={link.url}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <Icon />
+      </a>
+    )
   }
 
   // reddit-wiki cross-references resolve to in-app routes
-  const route = toPlatformWikiRoute(link.route)
   if (route) {
     return (
-      <Link href={route as Href} {...subLinkProps}>
+      <a href={route} data-spa="">
         {link.label}
-      </Link>
+      </a>
     )
   }
 
   return (
-    <Link
-      href={link.url as Href}
-      target="_blank"
-      {...subLinkProps}
-      onPress={(e) => {
-        e.preventDefault()
-        openExternal(link.url)
-      }}
-    >
+    <a href={link.url} target="_blank" rel="noopener noreferrer">
       {link.label}
-    </Link>
+    </a>
   )
 }
 
+// plain (non-link) platform indicators at the entry tail with tooltips, like
+// fmhy.net's v-tooltip divs — several platforms sit space-separated after one
+// " / " separator, mirroring upstream's transformed markup
+const PlatformIndicators = ({ platforms }: { platforms: string[] }) => (
+  <>
+    {platforms.map((token, index) => {
+      const platform = PLATFORM_ICONS[token]
+      if (!platform) {
+        return null
+      }
+      return (
+        <Fragment key={token}>
+          {index > 0 && ' '}
+          <span className="wk-icon wk-tip" data-tip={platform.label} aria-label={platform.label}>
+            <platform.Icon />
+          </span>
+        </Fragment>
+      )
+    })}
+  </>
+)
+
+// flattened sibling of InlineMarkdown for entry descriptions: same span parse,
+// plain elements out. notices/blockquotes/notes keep the tamagui renderer (they
+// carry per-context link colors); note links still get the NoteLink tooltip.
+const InlineMarkdownFlat = ({ markdown }: { markdown: string }) => (
+  <>
+    {parseInlineMarkdown(markdown).map((span, index) => {
+      switch (span.kind) {
+        case 'code':
+          return (
+            <code key={index} className="wk-code">
+              {span.text}
+            </code>
+          )
+        case 'image':
+          return (
+            <InlineImage key={index} src={span.src} alt={span.alt} width={span.width} />
+          )
+        case 'link': {
+          if (parseNoteLink(span.url)) {
+            return (
+              <NoteLink key={index} href={span.url}>
+                {span.text}
+              </NoteLink>
+            )
+          }
+          const className = span.bold ? 'wk-bold' : undefined
+          if (span.url.startsWith('/')) {
+            const route = toPlatformWikiRoute(span.url)
+            if (route) {
+              return (
+                <a key={index} className={className} href={route} data-spa="">
+                  {span.text}
+                </a>
+              )
+            }
+            // no route target — keep the text, drop the dead link
+            return (
+              <span key={index} className={span.bold ? 'wk-accent wk-bold' : 'wk-accent'}>
+                {span.text}
+              </span>
+            )
+          }
+          return (
+            <a
+              key={index}
+              className={className}
+              href={span.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {span.text}
+            </a>
+          )
+        }
+        case 'text':
+          return span.bold ? (
+            <strong key={index}>{span.text}</strong>
+          ) : (
+            <Fragment key={index}>{span.text}</Fragment>
+          )
+      }
+    })}
+  </>
+)
+
 const AlternativeInline = ({ alternative }: { alternative: WikiAlternative }) => (
   <>
-    {' '}
-    <Text color="$color11">or</Text>{' '}
+    {' or '}
     <NameLink
       title={alternative.title}
       url={alternative.url}
@@ -421,13 +391,14 @@ export const LinkEntryRow = memo(
     const isWarningOnly =
       unsafe || (!entry.url && entry.links.length === 0 && !crossrefRoute)
     const showMarker = isWarningOnly || entry.marker !== null
+    const markerCode = entry.marker ? MARKER_TWEMOJI[entry.marker] : undefined
 
     // everything after the name flows inline: description first (if any), then the
     // unsafe evidence host or each sub-link. fmhy.net joins the first part with
     // " - " and every following part with " / "
     const tail: ReactNode[] = []
     if (entry.description) {
-      tail.push(<InlineMarkdown markdown={entry.description} />)
+      tail.push(<InlineMarkdownFlat markdown={entry.description} />)
     }
     if (unsafe && entry.url) {
       tail.push(
@@ -452,37 +423,23 @@ export const LinkEntryRow = memo(
     }
 
     return (
-      <Paragraph size="$5" lineHeight={26} color="$color11" my={0} py="$0.5">
+      <p className="wk-entry">
         {showMarker ? (
-          <>
-            <InlineIcon>
-              {isWarningOnly ? (
-                <WarningCircleIcon
-                  size={14}
-                  color={unsafe ? '$dangerText' : '$warnText'}
-                />
-              ) : (
-                <MarkerIcon marker={entry.marker} />
-              )}
-            </InlineIcon>{' '}
-          </>
+          <span className={isWarningOnly ? (unsafe ? 'wk-icon wk-danger' : 'wk-icon wk-warn') : 'wk-icon'}>
+            {isWarningOnly ? (
+              <WarningCircleEntrySvg size={14} />
+            ) : markerCode ? (
+              <TwemojiIcon code={markerCode} size={14} />
+            ) : null}
+          </span>
         ) : (
           // no leading marker icon — a muted bullet keeps text alignment
           // identical to icon rows (fmhy.net's plain list-item dot)
-          <>
-            <InlineIcon>
-              <Text size="$2" color="$color9">
-                •
-              </Text>
-            </InlineIcon>{' '}
-          </>
-        )}
-
+          <span className="wk-icon wk-bullet">•</span>
+        )}{' '}
         {unsafe ? (
           // never a clickable recommendation — bold plain text only
-          <Text render="strong" fontWeight="700" color="$color12">
-            {title}
-          </Text>
+          <strong className="wk-name-text wk-bold">{title}</strong>
         ) : (
           <NameLink
             title={title}
@@ -491,25 +448,22 @@ export const LinkEntryRow = memo(
             bold={entry.bold}
           />
         )}
-
         {entry.mirrors.map((mirror, index) => (
           <Fragment key={mirror}>
             {' '}
             <MirrorLink url={mirror} index={index + 2} />
           </Fragment>
         ))}
-
         {entry.alternatives.map((alternative) => (
           <AlternativeInline key={alternative.title} alternative={alternative} />
         ))}
-
         {tail.map((node, index) => (
           <Fragment key={index}>
             {index === 0 ? ' - ' : ' / '}
             {node}
           </Fragment>
         ))}
-      </Paragraph>
+      </p>
     )
   }
 )

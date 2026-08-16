@@ -5,15 +5,9 @@ import { Link } from '~/components/Link'
 import { ArrowBendUpRightIcon } from '~/icons/phosphor/ArrowBendUpRightIcon'
 import { SepHeading } from '~/interface/text/Headings'
 
-import {
-  countVisible,
-  filterEntries,
-  type EntryVisibilityFilters,
-} from './entryVisibility'
 import { InlineMarkdown } from './InlineMarkdown'
 import { LinkEntryRow } from './LinkEntryRow'
 import { openExternal } from './openExternal'
-import { useWikiFilters } from './useWikiFilters'
 import { WikiNotice } from './WikiNotice'
 
 import type {
@@ -145,21 +139,11 @@ const CrossrefRow = ({
 
 const SubsectionBlock = ({
   subsection,
-  filters,
-  filterActive,
   unsafe,
 }: {
   subsection: WikiSubsection
-  filters: EntryVisibilityFilters
-  filterActive: boolean
   unsafe: boolean
 }) => {
-  const visible = filterEntries(subsection.entries, filters)
-
-  if (filterActive && visible.length === 0 && !subsection.refUrl) {
-    return null
-  }
-
   return (
     <Anchor id={subsection.id} tocLevel={1} tocTitle={subsection.title}>
       <YStack>
@@ -174,7 +158,7 @@ const SubsectionBlock = ({
             crossrefRoute={subsection.crossrefRoute}
           />
         ) : (
-          visible.map((entry) => (
+          subsection.entries.map((entry) => (
             <LinkEntryRow key={entry.id} entry={entry} unsafe={unsafe} />
           ))
         )}
@@ -185,26 +169,11 @@ const SubsectionBlock = ({
 
 const SectionBlock = ({
   section,
-  filters,
-  filterActive,
   unsafe,
 }: {
   section: WikiSection
-  filters: EntryVisibilityFilters
-  filterActive: boolean
   unsafe: boolean
 }) => {
-  const visibleOwn = filterEntries(section.entries, filters)
-  const visibleTotal =
-    visibleOwn.length +
-    section.subsections.reduce((sum, sub) => sum + countVisible(sub.entries, filters), 0)
-  const hasRef =
-    !!section.refUrl || section.subsections.some((subsection) => !!subsection.refUrl)
-
-  if (filterActive && visibleTotal === 0 && !hasRef) {
-    return null
-  }
-
   return (
     <Anchor id={section.id} tocLevel={0} tocTitle={section.title}>
       <YStack>
@@ -219,18 +188,12 @@ const SectionBlock = ({
             crossrefRoute={section.crossrefRoute}
           />
         ) : (
-          visibleOwn.map((entry) => (
+          section.entries.map((entry) => (
             <LinkEntryRow key={entry.id} entry={entry} unsafe={unsafe} />
           ))
         )}
         {section.subsections.map((subsection) => (
-          <SubsectionBlock
-            key={subsection.id}
-            subsection={subsection}
-            filters={filters}
-            filterActive={filterActive}
-            unsafe={unsafe}
-          />
+          <SubsectionBlock key={subsection.id} subsection={subsection} unsafe={unsafe} />
         ))}
       </YStack>
     </Anchor>
@@ -253,9 +216,6 @@ function onEntryLinkClick(event: React.MouseEvent) {
 }
 
 export function WikiSectionList({ page }: { page: WikiPage }) {
-  const { starredOnly, indexesOnly } = useWikiFilters()
-  const filters: EntryVisibilityFilters = { starredOnly, indexesOnly }
-  const filterActive = starredOnly || indexesOnly
   const unsafe = page.kind === 'unsafe'
 
   return (
@@ -264,13 +224,7 @@ export function WikiSectionList({ page }: { page: WikiPage }) {
     <div onClick={onEntryLinkClick}>
       <YStack>
         {page.sections.map((section) => (
-          <SectionBlock
-            key={section.id}
-            section={section}
-            filters={filters}
-            filterActive={filterActive}
-            unsafe={unsafe}
-          />
+          <SectionBlock key={section.id} section={section} unsafe={unsafe} />
         ))}
       </YStack>
     </div>

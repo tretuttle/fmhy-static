@@ -1,4 +1,4 @@
-import { createContext, use, useMemo, useState, type ReactNode } from 'react'
+import { createContext, use, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 export type WikiFiltersValue = {
   starredOnly: boolean
@@ -16,23 +16,24 @@ const defaultValue: WikiFiltersValue = {
 
 const WikiFiltersContext = createContext<WikiFiltersValue>(defaultValue)
 
-// session-scoped starred/indexes toggles, mutually exclusive like the site
+// session-scoped starred/indexes toggles. filtering itself is pure css like
+// upstream's ToggleStarred/ToggleIndexes: html classes hide non-matching rows
+// in place — no re-render, headings stay, the browser's own scroll anchoring
+// absorbs the height change. both can be on at once (union), like theirs.
 export function WikiFiltersProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState({ starredOnly: false, indexesOnly: false })
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.documentElement.classList.toggle('starred-only', state.starredOnly)
+    document.documentElement.classList.toggle('indexes-only', state.indexesOnly)
+  }, [state])
 
   const value = useMemo<WikiFiltersValue>(
     () => ({
       ...state,
-      setStarredOnly: (on) =>
-        setState((prev) => ({
-          starredOnly: on,
-          indexesOnly: on ? false : prev.indexesOnly,
-        })),
-      setIndexesOnly: (on) =>
-        setState((prev) => ({
-          indexesOnly: on,
-          starredOnly: on ? false : prev.starredOnly,
-        })),
+      setStarredOnly: (on) => setState((prev) => ({ ...prev, starredOnly: on })),
+      setIndexesOnly: (on) => setState((prev) => ({ ...prev, indexesOnly: on })),
     }),
     [state],
   )

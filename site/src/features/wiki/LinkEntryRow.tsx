@@ -326,10 +326,18 @@ export const LinkEntryRow = memo(
     // rows with nothing to open render as a plain warning (upstream style)
     const isWarningOnly = !entry.url && entry.links.length === 0 && !entry.crossrefRoute
 
+    const rowClass =
+      'wk-entry' +
+      (entry.starred ? ' wk-starred' : '') +
+      (entry.marker === 'index' ? ' wk-index' : '')
+
     return (
       // display: list-item — the disc marker every row wears comes from css
-      // (vitepress renders these as real <li>s); marker emoji follow the disc
-      <p className="wk-entry">
+      // (vitepress renders these as real <li>s); marker emoji follow the disc.
+      // wk-starred / wk-index let the filter toggles hide rows in PLACE, like
+      // upstream's ToggleStarred css — no re-render, headings stay, the
+      // browser's own scroll anchoring absorbs the height change
+      <p className={rowClass}>
         {isWarningOnly ? (
           <>
             <span className="wk-icon wk-warn">

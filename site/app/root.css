@@ -793,6 +793,19 @@ html.theme-view-transition * {
   padding: 0 4px;
   border-radius: var(--c-radius-2);
 }
+/* filter toggles hide rows in place (upstream ToggleStarred/ToggleIndexes
+   css verbatim, li -> .wk-entry): no re-render, headings stay, no scroll
+   jumps */
+html.starred-only:not(.indexes-only) .wk-entry:not(.wk-starred) {
+  display: none;
+}
+html.indexes-only:not(.starred-only) .wk-entry:not(.wk-index) {
+  display: none;
+}
+html.starred-only.indexes-only .wk-entry:not(.wk-starred):not(.wk-index) {
+  display: none;
+}
+
 /* per-section feedback chip beside every h2 (fmhy.net parity) */
 .wk-h2-feedback {
   display: inline-flex;

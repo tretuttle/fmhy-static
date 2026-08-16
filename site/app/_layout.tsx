@@ -2,6 +2,9 @@ import '@fontsource-variable/inter'
 import './root.css'
 import '~/features/wiki/search.css'
 
+// hashed asset url of the latin Inter subset, for the font preload below
+import interLatinWoff2 from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url'
+
 import { Slot, usePathname } from 'one'
 import { useEffect, useRef } from 'react'
 import { View, XStack } from 'tamagui'
@@ -157,6 +160,19 @@ export function Layout() {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="alternate" type="application/rss+xml" title="FMHY" href="/feed.rss" />
+        {/* Inter latin is the body face for everything above the fold — same
+            preload fmhy.net ships (inter-roman-latin woff2). without it the
+            first paint uses the fallback font and the swap repaint re-fires
+            LCP; worse, that repaint queues behind the hydration block
+            (measured on /video: text paints at 189ms, LCP re-fires at
+            1,247ms). other scripts still lazy-load via unicode-range. */}
+        <link
+          rel="preload"
+          href={interLatinWoff2}
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         {/* JetBrains Mono is deliberately NOT preloaded: it only styles code
             blocks, which most wiki pages don't have — preloading pushed 172KB
             of fonts on every page and logged "preload not used" warnings.

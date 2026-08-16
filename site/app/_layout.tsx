@@ -41,6 +41,11 @@ const IFRAME_BUSTER_SCRIPT = `(function(){if(window.self!==window.top){window.to
 // so analytics never competes with LCP even in dev
 const CLARITY_SCRIPT = `(function(c,l,a,r,i){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};var s=function(){var t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;var y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y)};if(l.readyState==="complete"){s()}else{c.addEventListener("load",function(){"requestIdleCallback"in c?c.requestIdleCallback(s):setTimeout(s,1)})}})(window,document,"clarity","script","xgj8fxpg16");`
 
+// service worker registration (fmhy.net parity: vite-plugin-pwa autoUpdate).
+// prod only — the sw only exists in the built output (scripts/generate-sw.ts)
+// — and after `load`, so it never competes with first paint or hydration.
+const SW_REGISTER_SCRIPT = `if('serviceWorker' in navigator){addEventListener('load',function(){navigator.serviceWorker.register('/sw.js')})}`
+
 // June seasonal icon swap (upstream config.mts applyJuneTheme, month-gated so
 // it is dormant outside June). simplified from upstream: the swap only runs
 // once the asset actually loads (no broken-icon fallback if /june_icon.webp is
@@ -179,6 +184,9 @@ export function Layout() {
             @font-face fetches it on first actual use. */}
         {/* after the icon links: june seasonal swap (dormant outside June) */}
         <script dangerouslySetInnerHTML={{ __html: JUNE_THEME_SCRIPT }} />
+        {import.meta.env.PROD && (
+          <script dangerouslySetInnerHTML={{ __html: SW_REGISTER_SCRIPT }} />
+        )}
       </head>
 
       <body>

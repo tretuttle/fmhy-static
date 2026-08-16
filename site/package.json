@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "one dev",
     "prebuild": "bun scripts/generate-images.tsx",
-    "build": "one build && bun scripts/sitemap-gen.ts && bun scripts/defer-hydration.ts",
+    "build": "one build && bun scripts/sitemap-gen.ts && bun scripts/defer-hydration.ts && bun scripts/generate-sw.ts",
     "images": "bun scripts/generate-images.tsx",
     "serve": "one serve",
     "format": "oxfmt",
@@ -54,7 +54,8 @@
     "oxlint": "^1.31.0",
     "rollup-plugin-visualizer": "^6.0.5",
     "typescript": "^5.9.3",
-    "vite": "^7.3.0"
+    "vite": "^7.3.0",
+    "workbox-build": "^7.4.1"
   },
   "patchedDependencies": {
     "@tamagui/use-element-layout@2.0.0-rc.23": "patches/@tamagui%2Fuse-element-layout@2.0.0-rc.23.patch",

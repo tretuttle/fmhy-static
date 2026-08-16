@@ -133,7 +133,7 @@ function SkipLink() {
   )
 }
 
-// TODO(native): [P0, task #1] this layout renders <html>/<head>/<body> and imports
+// TODO(native): this layout renders <html>/<head>/<body> and imports
 // root.css/search.css — web-only by nature. a native target needs a _layout.native.tsx
 // fork plus expo/react-native deps in package.json before anything can boot on ios/android.
 export function Layout() {

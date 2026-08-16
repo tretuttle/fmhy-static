@@ -3,11 +3,9 @@ name: Deploy fmhy-static
 # Proactive 1:1 mirror: poll fmhy/edit hourly and rebuild ONLY when upstream
 # actually moved, so the mirror lags the real site by at most ~1 hour.
 #
-# Cost math (private repo, 2,000 free Actions min/mo; every job bills a 1-min
-# minimum): 24 hourly polls/day ≈ 720 min/mo, plus a ~7-min full pipeline only
-# on the handful of days-parts upstream changed (~600 min/mo at 3 changes/day)
-# ≈ 1,350 min/mo total. A 30-min cadence would blow the budget on polls alone;
-# making the repo public would make any cadence free.
+# Actions minutes are free on public repos, so the hourly cadence is a
+# politeness choice (an ls-remote against upstream per hour), not a budget one
+# — it can be raised freely if a tighter lag ever matters.
 #
 # The full pipeline clones fmhy/edit, regenerates our Tamagui dataset, runs
 # THEIR vitepress build on the same commit, and parity-checks our data against

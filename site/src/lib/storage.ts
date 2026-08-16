@@ -1,7 +1,7 @@
 // tiny localStorage wrapper replacing @take-out/helpers createStorageValue.
 // ssr-safe: returns null / no-ops when localStorage is unavailable.
 //
-// TODO(native): [P2, task #10] localStorage is undefined on react-native, so this
+// TODO(native): localStorage is undefined on react-native, so this
 // no-ops and every setting (theme, accent, amoled, nsfw filters) silently stops
 // persisting. back this same StorageValue interface with mmkv/async-storage in a
 // .native fork.

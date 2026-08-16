@@ -667,8 +667,8 @@ export function Header() {
         </Container>
       </ScrollHeader>
 
-      {/* mobile/tablet "On this page" sub-bar (VPLocalNav) — lives in the
-          header tree since _layout is off-limits; sticky below the bar */}
+      {/* mobile/tablet "On this page" sub-bar (VPLocalNav) — rendered from the
+          header so it shares the scroll-hide state; sticky below the bar */}
       <LocalNav navHidden={hidden} />
     </>
   )

@@ -44,9 +44,9 @@ function SidebarRow({ item, onNavigate }: { item: WikiNavItem; onNavigate?: () =
   const href = item.externalUrl ?? item.route
   const active = !external && pathname === item.route.split('#')[0]
   // internal rows must client-navigate like ~/components/Link — a bare href
-  // full-loads the document, refetching every asset per click (the 429
-  // incident, task #19). useLinkTo's onPress leaves modifier/middle clicks
-  // to the browser, so open-in-new-tab still works off the real href.
+  // full-loads the document, refetching every asset per click (which once
+  // rate-limited the host to 429s). useLinkTo's onPress leaves modifier and
+  // middle clicks to the browser, so open-in-new-tab works off the real href.
   const linkProps = useLinkTo({ href: item.route })
 
   return (

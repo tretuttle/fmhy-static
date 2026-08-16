@@ -4,7 +4,7 @@
 // engine lives in useWikiSearch.ts, DOM marking + scroll-to-match in
 // searchHighlight.ts.
 //
-// TODO(native): [P2, task #8] deliberately web-locked (raw DOM markup + search.css +
+// TODO(native): deliberately web-locked (raw DOM markup + search.css +
 // searchHighlight's DOM marking, ~2,550 lines total). the engine in useWikiSearch.ts
 // is fully portable; native needs its own presentation layer built on top of it.
 

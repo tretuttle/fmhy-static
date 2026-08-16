@@ -42,7 +42,7 @@ import type { WikiAlternative, WikiEntry, WikiNote, WikiSubLink } from './types'
 // navigation, and static icon tooltips are the pure-css wk-tip bubble. Only
 // note tooltips (lazy-loaded content, a handful per page) stay as components.
 //
-// TODO(native): [P1, task #7] plain DOM is web-only, same as WikiSectionList's
+// TODO(native): plain DOM is web-only, same as WikiSectionList's
 // raw-div Anchor - native needs a LinkEntryRow.native fork when that lands.
 
 const SUB_LINK_ICONS: Record<string, EntryIcon> = {

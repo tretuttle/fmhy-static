@@ -3,7 +3,7 @@
 // minimal mark.js equivalent) plus the post-navigation scroll-to-match logic
 // from docs/.vitepress/theme/composables/searchScroll.ts.
 //
-// TODO(native): [P2, task #8] pure DOM (TreeWalker/Range/getBoundingClientRect) —
+// TODO(native): pure DOM (TreeWalker/Range/getBoundingClientRect) —
 // part of the web search presentation; not portable, replaced wholesale on native.
 
 const MARK_MERGE_DISTANCE_PX = 20

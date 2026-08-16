@@ -75,7 +75,7 @@ const ContainerProse = ({
 // the browser can skip layout/paint for below-fold sections on the huge SSG
 // pages; hash navigation still forces them rendered
 //
-// TODO(native): [P1, task #7] the raw <div> + content-visibility strategy is
+// TODO(native): the raw <div> + content-visibility strategy is
 // web-only (invariant violation on react-native); native needs a FlatList/FlashList
 // fork of this list with its own below-fold virtualization.
 const Anchor = ({

@@ -2,7 +2,7 @@
 
 An unofficial, auto-updating static mirror of [FMHY](https://fmhy.net) — the largest collection of free stuff on the internet — built with [One](https://onestack.dev) and [Tamagui](https://tamagui.dev), deployed at [fmhy-static.expo.app](https://fmhy-static.expo.app).
 
-Wiki content lives in the repo-root `docs/` folder (a mirror of [fmhy/edit](https://github.com/fmhy/edit)) and is parsed into structured JSON that the app renders.
+Wiki content comes from a real clone of [fmhy/edit](https://github.com/fmhy/edit) maintained at `.fmhy-edit/` (gitignored) by `scripts/sync-fmhy.ts`, and is parsed into structured JSON that the app renders.
 
 ## Features
 
@@ -17,8 +17,9 @@ Wiki content lives in the repo-root `docs/` folder (a mirror of [fmhy/edit](http
 
 ### Performance
 
-- **Aggressive Script Loading** — deferred JS loading after LCP for fast initial paint
-- **Inline Layout CSS** — critical CSS inlined for instant styling
+- **Flattened entry rows** — wiki entries render as plain markup with shared CSS classes (`wk-*` in `app/root.css`) instead of per-element styled components; external links are native anchors, in-app links use one delegated click handler
+- **Post-paint hydration** — `scripts/defer-hydration.ts` rewrites the SSG loader so module scripts (and React hydration) load only after the first frame commits
+- **Font preload** — the Inter latin subset preloads so the first paint is the final paint (no swap repaint, zero CLS)
 - **React Compiler** — automatic memoization for optimal re-renders
 - **Tamagui Optimization** — style extraction and tree-shaking in production
 
@@ -45,7 +46,9 @@ app/                     # routes (generated wiki routes + home/feedback)
   index+ssg.tsx          # homepage
   <category>+ssg.tsx     # one route per wiki category
 
-docs/                    # site docs (auto-linked as claude code skills)
+docs/                    # dev docs (auto-linked as claude code skills)
+
+.fmhy-edit/              # fmhy/edit clone (gitignored, maintained by sync-fmhy.ts)
 
 public/                  # static assets
   og/                    # generated og cards (gitignored, built by prebuild)
@@ -56,8 +59,10 @@ public/                  # static assets
 scripts/
   generate-images.tsx    # prebuild: og cards + favicon/pwa icons
   sitemap-gen.ts         # post-build: sitemap.xml (+ feed.rss when posts exist)
-  wiki/                  # docs/*.md -> src/features/wiki/generated/*.json
-  sync-fmhy.ts           # pull latest wiki content from fmhy/edit
+  defer-hydration.ts     # post-build: load module scripts after first paint
+  parity-check.ts        # gate: our data vs their rendered HTML, same commit
+  wiki/                  # .fmhy-edit/docs/*.md -> src/features/wiki/generated/*.json
+  sync-fmhy.ts           # clone/update fmhy/edit + regenerate the dataset
   generate-skills.ts     # claude code skill generation
 
 src/
@@ -68,9 +73,9 @@ src/
 
 ## Content Pipeline
 
-1. `bun scripts/sync-fmhy.ts` — sync `docs/` from the fmhy/edit mirror
-2. `bun scripts/wiki/generate.ts` — parse markdown into `src/features/wiki/generated/`
-3. `bun run build` — prebuild og/icon generation, `one build`, then sitemap generation
+1. `bun scripts/sync-fmhy.ts` — clone/update fmhy/edit at `.fmhy-edit/` and regenerate the wiki dataset (`--install` also pnpm-installs the clone so CI can run their VitePress build for the parity check)
+2. `bun scripts/parity-check.ts` — every external link in their rendered HTML must exist in our generated data
+3. `bun run build` — prebuild og/icon generation, `one build`, sitemap generation, then hydration deferral
 
 ## Scripts
 

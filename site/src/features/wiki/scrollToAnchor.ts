@@ -8,7 +8,7 @@
 // The cure is to jump, let the newly-visible sections lay out, re-measure,
 // and correct until the target position is stable.
 //
-// TODO(native): [P2, task #9] the `typeof document` guard makes this a safe no-op on
+// TODO(native): the `typeof document` guard makes this a safe no-op on
 // react-native — meaning TOC taps, local-nav links and #hash navigation all go dead
 // there. native needs a scroll-registry equivalent behind this same signature.
 

@@ -29,7 +29,7 @@ export function slugFromPathname(pathname: string): string | undefined {
 // "On this page" bar are in the static HTML at first paint instead of waiting
 // for deferred JS to hydrate and DOM-scan (~2s of empty outline before).
 //
-// TODO(native): [P2, task #12] entries are portable now, but the active-anchor
+// TODO(native): entries are portable now, but the active-anchor
 // tracking below is DOM-implemented — on native the TOC renders with no
 // tracking. reimplement over ScrollView onScroll when the target exists.
 const tocBySlug = fromJsonModule<Record<string, TocEntry[]>>(tocJson)

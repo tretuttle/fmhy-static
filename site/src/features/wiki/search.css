@@ -5,7 +5,7 @@
   themes react), plus the icon masks the upstream vpi-* classes provide via
   unocss, and the post-navigation flash from docs/.vitepress/theme/style.scss.
 
-  TODO(native): [P2, task #8] css only reaches the web build — the native search UI
+  TODO(native): css only reaches the web build — the native search UI
   re-implements this styling in tamagui tokens.
 */
 

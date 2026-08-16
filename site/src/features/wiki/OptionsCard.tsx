@@ -14,6 +14,53 @@ import { useWikiFilters } from './useWikiFilters'
 
 import type { ThemeName } from '~/features/theme/themeSettings'
 
+// a filter toggle re-lays-out the whole page at a different height; left
+// alone the browser clamps a deep reading position to the new bottom (reads
+// as a forced jump). instead, anchor the section currently under the reader:
+// after the re-render, put the same section back at the same viewport spot —
+// or the nearest surviving section above it if the filter removed it.
+const ANCHOR_OFFSET = 80 // header + local-nav clearance
+
+function withScrollAnchor(apply: () => void) {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    apply()
+    return
+  }
+  const ids: string[] = []
+  let anchorId: string | null = null
+  let viewportTop = 0
+  for (const el of document.querySelectorAll<HTMLElement>('[data-toc-level]')) {
+    if (!el.id) continue
+    ids.push(el.id)
+    const top = el.getBoundingClientRect().top
+    if (top <= ANCHOR_OFFSET) {
+      anchorId = el.id
+      viewportTop = top
+    }
+  }
+
+  apply()
+
+  // double rAF: the filtered list has committed and laid out by then
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (!anchorId) return // reading above the first section — stay put
+      const start = ids.indexOf(anchorId)
+      for (let i = start; i >= 0; i--) {
+        const el = document.getElementById(ids[i]!)
+        if (!el) continue
+        const rect = el.getBoundingClientRect()
+        // same viewport spot when this is the section we were in and we are
+        // not deeper into it than it now is; otherwise its start
+        const offset =
+          i === start && rect.height > -viewportTop ? viewportTop : ANCHOR_OFFSET
+        window.scrollTo({ top: rect.top + window.scrollY - offset })
+        return
+      }
+    })
+  })
+}
+
 // "blue-violet" -> "Blue violet"
 function capitalizeAccent(name: string) {
   const spaced = name.replaceAll('-', ' ')
@@ -162,12 +209,12 @@ export function OptionsCard() {
       <ToggleRow
         label="Toggle Starred"
         checked={starredOnly}
-        onCheckedChange={setStarredOnly}
+        onCheckedChange={(on) => withScrollAnchor(() => setStarredOnly(on))}
       />
       <ToggleRow
         label="Toggle Indexes"
         checked={indexesOnly}
-        onCheckedChange={setIndexesOnly}
+        onCheckedChange={(on) => withScrollAnchor(() => setIndexesOnly(on))}
       />
 
       <ThemeSwatchGrid />

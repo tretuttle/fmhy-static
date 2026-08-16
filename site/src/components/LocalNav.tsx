@@ -129,6 +129,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
   }
 
   return (
+    <>
     <YStack
       ref={rootRef}
       display="flex"
@@ -300,28 +301,26 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
           </YStack>
         ) : null}
       </XStack>
+    </YStack>
 
       {/* sidebar drawer (VPSidebar.open parity): backdrop + left panel with
-          the full wiki sidebar, for widths where the rail is hidden */}
+          the full wiki sidebar, for widths where the rail is hidden. it lives
+          OUTSIDE the sticky bar: the bar is z=40 (a stacking context below
+          the z=50 header), so anything inside it — whatever its own z —
+          paints under the header. real css position:fixed via style — the
+          tamagui position prop degrades to absolute (react-native has no
+          fixed), which pinned the drawer to the bar instead of the viewport */}
       {menuOpen ? (
         <>
           <View
-            position="fixed"
-            t={0}
-            l={0}
-            r={0}
-            b={0}
             z={60}
             bg="rgba(0,0,0,0.6)"
             onPress={() => setMenuOpen(false)}
             {...({ 'aria-hidden': true } as object)}
+            style={{ position: 'fixed', inset: 0 }}
           />
           <YStack
             {...({ id: SIDEBAR_DRAWER_ID } as object)}
-            position="fixed"
-            t={0}
-            l={0}
-            b={0}
             z={61}
             width={300}
             maxW="85vw"
@@ -329,7 +328,14 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
             borderRightWidth={1}
             borderRightColor="$color4"
             pt={8}
-            style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
+            }}
             enterStyle={{ x: -300 }}
             transition="200ms"
           >
@@ -337,7 +343,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
           </YStack>
         </>
       ) : null}
-    </YStack>
+    </>
   )
 }
 

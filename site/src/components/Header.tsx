@@ -17,7 +17,6 @@ import {
 import { ArrowUpRightIcon } from '~/icons/phosphor/ArrowUpRightIcon'
 import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
 import { ChatCircleIcon } from '~/icons/phosphor/ChatCircleIcon'
-import { DiscordLogoIcon } from '~/icons/phosphor/DiscordLogoIcon'
 import { GithubLogoIcon } from '~/icons/phosphor/GithubLogoIcon'
 import {
   DiscordSolidIcon,
@@ -25,7 +24,6 @@ import {
   RedditSolidIcon,
 } from '~/icons/social/SolidSocialIcons'
 import { MagnifyingGlassIcon } from '~/icons/phosphor/MagnifyingGlassIcon'
-import { RedditLogoIcon } from '~/icons/phosphor/RedditLogoIcon'
 
 import { ThemeMenu } from '~/features/theme/ThemeMenu'
 import { wikiNav } from '~/features/wiki/data'

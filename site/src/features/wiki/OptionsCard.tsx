@@ -1,8 +1,6 @@
-import { Separator, SizableText, Switch, XStack, YStack } from 'tamagui'
+import { SizableText, Switch, XStack, YStack } from 'tamagui'
 
-import { ArrowsClockwiseIcon } from '~/icons/phosphor/ArrowsClockwiseIcon'
-import { GlobeIcon } from '~/icons/phosphor/GlobeIcon'
-import { StarIcon } from '~/icons/phosphor/StarIcon'
+import { TwemojiIcon, TWEMOJI_CODES } from '~/icons/TwemojiIcon'
 import {
   ACCENT_NAMES,
   ACCENT_SWATCHES,
@@ -14,8 +12,6 @@ import {
 
 import { useWikiFilters } from './useWikiFilters'
 
-import type { ColorTokens } from 'tamagui'
-import type { IconComponent } from '~/icons/types'
 import type { ThemeName } from '~/features/theme/themeSettings'
 
 // "blue-violet" -> "Blue violet"
@@ -24,16 +20,17 @@ function capitalizeAccent(name: string) {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
-// emoji legend mirrors fmhy.net SidebarCard: globe / repeat / star
-const LEGEND: { Icon: IconComponent; label: string; color: ColorTokens }[] = [
-  { Icon: GlobeIcon, label: 'Indexes', color: '$color11' },
-  { Icon: ArrowsClockwiseIcon, label: 'Section Links', color: '$color11' },
-  { Icon: StarIcon, label: 'Recommendations', color: '$gold' },
+// emoji legend mirrors fmhy.net SidebarCard: the colorful twemoji themselves
+// (i-twemoji-globe-with-meridians / repeat-button / star)
+const LEGEND: { code: string; label: string }[] = [
+  { code: TWEMOJI_CODES.globeWithMeridians, label: 'Indexes' },
+  { code: TWEMOJI_CODES.repeatButton, label: 'Section Links' },
+  { code: TWEMOJI_CODES.star, label: 'Recommendations' },
 ]
 
-function Heading({ children }: { children: string }) {
+function Heading({ children, mt }: { children: string; mt?: string }) {
   return (
-    <SizableText size="$2" fontFamily="$body" fontWeight="700" color="$color12">
+    <SizableText size="$2" fontFamily="$body" fontWeight="700" color="$color12" mt={mt as never}>
       {children}
     </SizableText>
   )
@@ -84,7 +81,7 @@ function ThemeSwatchGrid() {
   )
 
   return (
-    <XStack flexWrap="wrap" gap="$2">
+    <XStack flexWrap="wrap" gap="$2.5" maxW={190}>
       {ACCENT_NAMES.map((name) => (
         <XStack
           key={name}
@@ -94,9 +91,10 @@ function ThemeSwatchGrid() {
             setThemeName('default')
           }}
           aria-label={capitalizeAccent(name)}
-          width={24}
-          height={24}
+          width={26}
+          height={26}
           rounded={100}
+          borderWidth={0}
           cursor="pointer"
           hoverStyle={{ opacity: 0.8 }}
           pressStyle={{ opacity: 0.6 }}
@@ -109,13 +107,23 @@ function ThemeSwatchGrid() {
           render="button"
           onPress={() => setThemeName(name)}
           aria-label={capitalizeAccent(name)}
-          width={24}
-          height={24}
+          width={26}
+          height={26}
           rounded={100}
+          borderWidth={0}
           cursor="pointer"
+          overflow="hidden"
           hoverStyle={{ opacity: 0.8 }}
           pressStyle={{ opacity: 0.6 }}
-          style={{ backgroundColor: THEME_SWATCHES[name] }}
+          // catppuccin wears its circle logo, like their ThemeSelector preview
+          style={
+            name === 'catppuccin'
+              ? {
+                  backgroundImage: 'url(/catppuccin.png)',
+                  backgroundSize: 'cover',
+                }
+              : { backgroundColor: THEME_SWATCHES[name] }
+          }
         />
       ))}
     </XStack>
@@ -141,18 +149,16 @@ export function OptionsCard() {
       bg="$color2"
     >
       <Heading>Emoji Legend</Heading>
-      {LEGEND.map(({ Icon, label, color }) => (
+      {LEGEND.map(({ code, label }) => (
         <XStack key={label} items="center" gap="$2.5">
-          <Icon size={18} color={color} />
+          <TwemojiIcon code={code} size={20} />
           <SizableText size="$2" color="$color11">
             {label}
           </SizableText>
         </XStack>
       ))}
 
-      <Separator my="$1" />
-
-      <Heading>Options</Heading>
+      <Heading mt="$2">Options</Heading>
       <ToggleRow
         label="Toggle Starred"
         checked={starredOnly}
@@ -166,7 +172,7 @@ export function OptionsCard() {
 
       <ThemeSwatchGrid />
 
-      <SizableText size="$2" color="$color10">
+      <SizableText size="$2" color="$color11">
         Theme:{' '}
         {themeName === 'default' ? capitalizeAccent(accent) : capitalizeAccent(themeName)}
       </SizableText>

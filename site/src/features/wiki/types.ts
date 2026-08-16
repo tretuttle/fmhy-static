@@ -47,6 +47,11 @@ export type WikiEntry = {
   code: string[]
   // in-app route ("/video#anchor") when this is a resolvable crossref, else null
   crossrefRoute: string | null
+  // the entry body verbatim (marker stripped, internal urls resolved) — the
+  // renderer walks this in SOURCE ORDER like upstream's in-place transformer,
+  // so joins/qualifiers/sub-link order match fmhy.net exactly; the structured
+  // fields above stay for search, filters and the parity gate
+  raw: string
 }
 
 // ordered guide-profile prose (beginners-guide): '> ' questions stay real

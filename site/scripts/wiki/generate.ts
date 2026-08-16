@@ -268,6 +268,15 @@ for (const page of pages.values()) {
       if (entry.marker === 'starred') starredEntries++
       if (entry.marker === 'index') indexEntries++
       if (entry.nsfw !== false) nsfwEntries++
+      // raw keeps source order for the renderer — swap reddit-wiki urls for
+      // their resolved in-app routes so internal links navigate in-app
+      entry.raw = entry.raw.replace(
+        /\((https?:\/\/(?:www\.)?reddit\.com\/r\/FREEMEDIAHECKYEAH\/wiki\/[^)]+)\)/g,
+        (full, url) => {
+          const route = resolveRedditUrl(url)
+          return route ? `(${route})` : full
+        },
+      )
       if (entry.url) entry.crossrefRoute = resolveRedditUrl(entry.url)
       for (const alt of entry.alternatives) alt.route = resolveRedditUrl(alt.url)
       for (const link of entry.links) {

@@ -242,6 +242,7 @@ export function parseEntryBody(body: string): ParsedEntry | null {
     marker = m[1] === '🌐' ? 'index' : m[1] === '↪' ? 'crossref' : 'starred'
     s = s.slice(m[0].length)
   }
+  const raw = s
 
   const { head, tail } = splitDescription(s)
 
@@ -408,6 +409,7 @@ export function parseEntryBody(body: string): ParsedEntry | null {
     nsfw,
     links,
     code,
+    raw,
   }
 }
 

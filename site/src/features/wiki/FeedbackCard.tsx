@@ -8,8 +8,12 @@ import type { Href } from 'one'
 // fmhy.net's subtle "Got feedback?" card, shown under both wiki category
 // page titles (WikiCategoryContent) and prose page titles (WikiProseContent)
 export const FeedbackCard = () => (
+  // stacks on phones like fmhy.net's card (icon, text, then the button on its
+  // own row); becomes the one-line row from $sm up
   <XStack
-    items="center"
+    flexDirection="column"
+    items="flex-start"
+    $sm={{ flexDirection: 'row', items: 'center' }}
     gap="$3"
     mt="$2"
     p="$3"
@@ -28,7 +32,9 @@ export const FeedbackCard = () => (
     >
       <EnvelopeIcon size={18} color="$color1" />
     </YStack>
-    <YStack flex={1} gap="$0.5">
+    {/* flex only in the row layout — in the stacked column it zeroes the
+        text block's height basis and the siblings overlap */}
+    <YStack gap="$0.5" $sm={{ flex: 1 }}>
       <SizableText size="$4" fontWeight="600" color="$color12">
         Got feedback?
       </SizableText>
@@ -41,7 +47,8 @@ export const FeedbackCard = () => (
         items="center"
         px="$3"
         py="$2"
-        rounded="$4"
+        // pill button like fmhy.net's
+        rounded={100}
         borderWidth={1}
         borderColor="$color6"
         bg="$color3"

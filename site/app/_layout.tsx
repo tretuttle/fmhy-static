@@ -266,7 +266,8 @@ function Shell() {
         minW={0}
         maxW={900}
         mx="auto"
-        px="$2"
+        // VPDoc mobile padding is 24px — anything tighter reads edge-to-edge
+        px={24}
         $md={{ px: '$6' }}
       >
         <Slot />

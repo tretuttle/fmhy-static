@@ -18,6 +18,11 @@ const Circle = styled(View, {
   justify: 'center',
   rounded: 100,
   cursor: 'pointer',
+  // render="button" keeps the UA's default button chrome (buttonface bg +
+  // outset border) — reset it so the circle is bare like fmhy.net's icons
+  bg: 'transparent',
+  borderWidth: 0,
+  p: 0,
   hoverStyle: { bg: '$color3' },
   pressStyle: { bg: '$color2' },
   focusVisibleStyle: {

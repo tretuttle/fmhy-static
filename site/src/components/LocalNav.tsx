@@ -163,8 +163,9 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
         pr={20}
         pt={12}
         pb={11}
-        gap={16}
         items="center"
+        // VPLocalNav: menu button left, outline dropdown right
+        justify="space-between"
         $md={{ pl: 36, pr: 36 }}
       >
         {/* VPLocalNav menu button: toggles the sidebar as a left drawer at
@@ -183,14 +184,16 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
           bg="transparent"
           borderWidth={0}
           cursor="pointer"
-          group
         >
+          {/* no tamagui `group` here: t_group_true is a container-type
+              inline-size container, whose size containment collapses the
+              button's intrinsic width to its padding (12px) */}
           <SizableText
             fontSize={12}
             lineHeight={24}
             fontWeight="500"
             color="$color11"
-            $group-hover={{ color: '$color12' }}
+            hoverStyle={{ color: '$color12' }}
             style={{ transition: 'color 0.25s', whiteSpace: 'nowrap' }}
             shrink={0}
           >
@@ -208,14 +211,13 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
           bg="transparent"
           borderWidth={0}
           cursor="pointer"
-          group
         >
           <SizableText
             fontSize={12}
             lineHeight={24}
             fontWeight="500"
             color={open ? '$color12' : '$color11'}
-            $group-hover={{ color: '$color12' }}
+            hoverStyle={{ color: '$color12' }}
             // the button sizes to min-content in its column parent — without
             // nowrap the label wraps per-word into a ~200px-tall bar
             style={{ transition: 'color 0.25s', whiteSpace: 'nowrap' }}

@@ -47,17 +47,19 @@ export const ACCENT_SWATCHES: Record<AccentName, string> = {
 // full palette themes from fmhy.net (docs/.vitepress/theme/themes/configs) —
 // each replaces background/surface/text/callout/brand colors together, not
 // just the accent scale
-export type ThemeName = 'default' | 'catppuccin' | 'monochrome'
+export type ThemeName = 'default' | 'catppuccin' | 'monochrome' | 'monolith'
 
 export const THEME_NAMES: readonly ThemeName[] = [
   'default',
   'catppuccin',
   'monochrome',
+  'monolith',
 ] as const
 
 export const THEME_SWATCHES: Record<Exclude<ThemeName, 'default'>, string> = {
   catppuccin: '#9345ed',
   monochrome: '#808080',
+  monolith: '#f42a8b',
 }
 
 export const amoledStorage = createStorageValue<boolean>('theme.amoled')

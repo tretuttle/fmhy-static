@@ -540,6 +540,81 @@ html.theme-monochrome.t_light ::selection {
   background: #cccccc;
 }
 
+/* monolith (configs/monolith.ts) — the "sharp" theme: JetBrains Mono for
+   everything, zero border radius, hot-pink/blue brand on a near-black
+   blue-tinted ground. */
+html.theme-monolith.t_dark {
+  --background: #06070b;
+  --backgroundHover: #0a0b12;
+  --backgroundPress: #0a0b12;
+  --backgroundFocus: #0a0b12;
+  --color1: #06070b;
+  --color2: #0a0b12;
+  --color3: #1a1b25;
+  --color9: #467085;
+  --color10: #467085;
+  --color11: #a8c5d6;
+  --color12: #d2f4ff;
+  --tipBg: #0d2818;
+  --tipBorder: #1b8a4e;
+  --tipText: #4ade80;
+  --warnBg: #2d1f06;
+  --warnBorder: #d97706;
+  --warnText: #fbbf24;
+  --accent9: #f42a8b;
+  --accent10: #d81b70;
+  --accent11: #f42a8b;
+  --accent12: #46c7ff;
+  --accent1: #1a1b25;
+  --accent2: #242533;
+}
+html.theme-monolith.t_dark ::selection {
+  background: #005eff;
+}
+html.theme-monolith.t_light {
+  --background: #f5fbff;
+  --backgroundHover: #e8f4fd;
+  --backgroundPress: #e8f4fd;
+  --backgroundFocus: #e8f4fd;
+  --color1: #f5fbff;
+  --color2: #e8f4fd;
+  --color3: #e0eaf5;
+  --color9: #6b7b9a;
+  --color10: #6b7b9a;
+  --color11: #3a4560;
+  --color12: #0a0e1a;
+  --tipBg: #d1fae5;
+  --tipBorder: #059669;
+  --tipText: #065f46;
+  --warnBg: #fef3c7;
+  --warnBorder: #d97706;
+  --warnText: #92400e;
+  --accent9: #d81b70;
+  --accent10: #c2185b;
+  --accent11: #d81b70;
+  --accent12: #0047b8;
+  --accent1: #e8f4fd;
+  --accent2: #d0e8f5;
+}
+html.theme-monolith.t_light ::selection {
+  background: #46c7ff;
+}
+/* monolith's signature traits beyond the palette: mono type + square corners
+   (their config sets fonts and borderRadius: 0; their style.scss squares the
+   scrollbars and selection the same way) */
+html.theme-monolith .font_body,
+html.theme-monolith .font_heading {
+  --f-family: 'JetBrains Mono', monospace;
+}
+html.theme-monolith *,
+html.theme-monolith *::before,
+html.theme-monolith *::after {
+  border-radius: 0 !important;
+}
+html.theme-monolith ::-webkit-scrollbar-thumb {
+  border-radius: 0;
+}
+
 /*
   theme-switch radial reveal (fmhy.net themeTransition.ts + Layout.vue rules).
   the JS in src/features/theme/themeTransition.ts animates a circle() clip-path

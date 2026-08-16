@@ -227,11 +227,16 @@ function Shell() {
   }
 
   return (
+    // the whole 3-column block centers inside vitepress's layout max width
+    // (--vp-layout-max-width: 1440px) — beyond that the margins grow instead
+    // of the rails pinning to the viewport edges
     <XStack
       flexGrow={1}
       flexShrink={0}
       flexBasis="auto"
       width="100%"
+      maxW={1440}
+      mx="auto"
       pt={HEADER_H}
       minH={`calc(100dvh - ${HEADER_H}px)`}
       items="flex-start"

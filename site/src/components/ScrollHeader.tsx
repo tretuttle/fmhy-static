@@ -123,7 +123,9 @@ export const ScrollHeader = ({
           'transform 0.25s ease-in-out, background-color 0.5s, border-bottom-color 0.5s',
       }}
     >
-      <XStack width="100%" maxW={1200} items="center">
+      {/* 1440 = the shared layout max width (Shell / Container) so the header
+          columns align with the sidebar and aside at wide viewports */}
+      <XStack width="100%" maxW={1440} items="center">
         {children}
       </XStack>
     </XStack>

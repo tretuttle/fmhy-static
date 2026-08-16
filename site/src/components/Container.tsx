@@ -19,6 +19,8 @@ export const Container = styled(View, {
     maxW: 1120,
   },
   $xl: {
-    maxW: 1200,
+    // matches the wiki shell's 1440 layout max width (_layout Shell) so the
+    // header/footer columns line up with the sidebar/aside at wide viewports
+    maxW: 1440,
   },
 })

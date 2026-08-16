@@ -113,8 +113,6 @@ export const ScrollHeader = ({
       items="center"
       justify="center"
       bg={transparent ? 'transparent' : '$background'}
-      borderBottomWidth={1}
-      borderBottomColor={transparent ? 'transparent' : '$color4'}
       $platform-web={{ position: 'fixed', maxW: '100vw' }}
       style={{
         transform: hidden ? 'translateY(-100%)' : 'translateY(0)',
@@ -128,6 +126,9 @@ export const ScrollHeader = ({
       <XStack width="100%" maxW={1440} items="center">
         {children}
       </XStack>
+      {/* divider element instead of a border: from $xl it starts after the
+          sidebar column (root.css .hdr-divider), like VPNavBar.has-sidebar */}
+      <div className="hdr-divider" style={{ opacity: transparent ? 0 : 1 }} />
     </XStack>
   )
 }

@@ -9,7 +9,7 @@ import {
   DiscordLogoEntrySvg,
   GithubLogoEntrySvg,
   GitlabLogoEntrySvg,
-  InfoEntrySvg,
+  InfoFilledEntrySvg,
   MastodonEntrySvg,
   RedditLogoEntrySvg,
   SourceCodeEntrySvg,
@@ -123,7 +123,7 @@ const NoteSubLink = ({ noteId, label }: { noteId: string; label: string }) => {
           style={{ verticalAlign: '-0.25em' }}
           aria-label={label}
         >
-          <InfoEntrySvg />
+          <InfoFilledEntrySvg />
         </Text>
       </Tooltip.Trigger>
 

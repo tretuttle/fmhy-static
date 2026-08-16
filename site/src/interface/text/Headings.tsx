@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { SizableText, XStack, isWeb, styled, type FontSizeTokens } from 'tamagui'
 
+import { EnvelopeIcon } from '~/icons/phosphor/EnvelopeIcon'
+
 import type { ReactNode } from 'react'
 
 export const H1 = styled(SizableText, {
@@ -69,10 +71,14 @@ export const SepHeading = ({
   children,
   size = '$4',
   anchorId,
+  feedbackHref,
 }: {
   children: ReactNode
   size?: FontSizeTokens
   anchorId?: string
+  // fmhy.net renders a small envelope chip beside every h2 that opens the
+  // feedback flow for that section
+  feedbackHref?: string
 }) => {
   const [hovered, setHovered] = useState(false)
 
@@ -132,6 +138,20 @@ export const SepHeading = ({
           </SizableText>
         )}
       </XStack>
+      {!!feedbackHref && (
+        <a
+          className="wk-h2-feedback"
+          href={feedbackHref}
+          data-spa=""
+          aria-label={
+            typeof children === 'string'
+              ? `Share feedback about ${children}`
+              : 'Share feedback about this section'
+          }
+        >
+          <EnvelopeIcon size={16} color="$accent11" />
+        </a>
+      )}
     </XStack>
   )
 }

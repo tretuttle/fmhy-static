@@ -19,6 +19,11 @@ import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
 import { ChatCircleIcon } from '~/icons/phosphor/ChatCircleIcon'
 import { DiscordLogoIcon } from '~/icons/phosphor/DiscordLogoIcon'
 import { GithubLogoIcon } from '~/icons/phosphor/GithubLogoIcon'
+import {
+  DiscordSolidIcon,
+  GithubSolidIcon,
+  RedditSolidIcon,
+} from '~/icons/social/SolidSocialIcons'
 import { MagnifyingGlassIcon } from '~/icons/phosphor/MagnifyingGlassIcon'
 import { RedditLogoIcon } from '~/icons/phosphor/RedditLogoIcon'
 
@@ -107,10 +112,11 @@ type SocialLink = {
   Icon: typeof GithubLogoIcon
 }
 
+// solid marks like fmhy.net's VPSocialLinks (simple-icons, filled)
 const SOCIAL_LINKS: SocialLink[] = [
-  { label: 'GitHub', href: GITHUB_URL, Icon: GithubLogoIcon },
-  { label: 'Discord', href: DISCORD_INVITE_URL, Icon: DiscordLogoIcon },
-  { label: 'Reddit', href: REDDIT_URL, Icon: RedditLogoIcon },
+  { label: 'GitHub', href: GITHUB_URL, Icon: GithubSolidIcon as never },
+  { label: 'Discord', href: DISCORD_INVITE_URL, Icon: DiscordSolidIcon as never },
+  { label: 'Reddit', href: REDDIT_URL, Icon: RedditSolidIcon as never },
 ]
 
 const Logo = () => (

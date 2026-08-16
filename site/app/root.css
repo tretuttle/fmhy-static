@@ -667,6 +667,24 @@ html.theme-view-transition * {
   text-decoration-color: var(--accent11);
 }
 
+/* header bottom divider: full width on small screens; from $xl it starts
+   after the sidebar column (vitepress VPNavBar.has-sidebar .divider), letting
+   the sidebar column run visually unbroken to the top of the page */
+.hdr-divider {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--color4);
+  transition: background-color 0.5s, opacity 0.5s;
+}
+@media (min-width: 1024px) {
+  .hdr-divider {
+    left: calc(max((100% - 1440px) / 2, 0px) + 272px);
+  }
+}
+
 /* ---- sticky rails (sidebar + "On this page" aside) ----
    upstream styles .VPSidebar's scrollbar down to 4px (style.scss "Custom
    scrollbar"); ours are the same independent scroll regions, so without this
@@ -775,6 +793,24 @@ html.theme-view-transition * {
   padding: 0 4px;
   border-radius: var(--c-radius-2);
 }
+/* per-section feedback chip beside every h2 (fmhy.net parity) */
+.wk-h2-feedback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 12px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color5);
+  border-radius: 8px;
+  background: var(--color2);
+  transition: background-color 0.25s, border-color 0.25s;
+}
+.wk-h2-feedback:hover {
+  background: var(--color3);
+  border-color: var(--color7);
+}
+
 /* pure-css tooltip for the static icon labels (Discord/Windows/…), styled like
    the global tamagui tooltip: mono 13px on the surface color, 1px color4
    border, 200ms open delay. renders in place, so paint containment from the

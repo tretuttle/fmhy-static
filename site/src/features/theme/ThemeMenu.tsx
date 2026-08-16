@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { Popover, XStack, YStack } from 'tamagui'
 
 import { CheckIcon } from '~/icons/phosphor/CheckIcon'
-import { MoonStarsIcon } from '~/icons/phosphor/MoonStarsIcon'
+import { MoonSolidIcon } from '~/icons/social/SolidSocialIcons'
 import { Text } from '~/interface/text/Text'
 
 import { AMOLED_CLASS } from './themePrePaint'
@@ -151,7 +151,7 @@ export function ThemeMenu() {
           hoverStyle={{ bg: '$color3' }}
           pressStyle={{ bg: '$color2' }}
         >
-          <MoonStarsIcon size={18} color="$color12" />
+          <MoonSolidIcon size={18} />
         </XStack>
       </Popover.Trigger>
 

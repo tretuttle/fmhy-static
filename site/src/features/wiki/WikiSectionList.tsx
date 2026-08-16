@@ -208,7 +208,7 @@ const SectionBlock = ({
   return (
     <Anchor id={section.id} tocLevel={0} tocTitle={section.title}>
       <YStack>
-        <SepHeading size="$6" anchorId={section.id}>
+        <SepHeading size="$6" anchorId={section.id} feedbackHref="/feedback">
           {section.title}
         </SepHeading>
         <ContainerProse node={section} />

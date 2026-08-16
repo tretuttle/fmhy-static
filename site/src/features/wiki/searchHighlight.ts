@@ -223,7 +223,7 @@ export function centerMarkInExcerpt(
 // divs (WikiSectionList's Anchor), the navbar is the fixed 56px header.
 // ---------------------------------------------------------------------------
 
-const HEADER_HEIGHT = 56
+const HEADER_HEIGHT = 64
 const HIGHLIGHT_CLASS = 'vp-search-highlight-target'
 // freezes the (mobile) hide-on-scroll header + local-nav while we jump
 // (upstream html.vp-search-scrolling, style.scss)

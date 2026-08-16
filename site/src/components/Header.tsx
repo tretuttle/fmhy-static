@@ -319,14 +319,15 @@ const HeaderSearchBox = () => {
       render="button"
       onPress={openSearch}
       aria-label="Search"
-      width={240}
-      maxW="100%"
-      px="$3"
-      py="$1.5"
+      // DocSearch-Button: compact 40px pill, radius 8, bg-alt (not a wide
+      // input box) — width hugs its content like fmhy.net's
+      height={40}
+      pl={12}
+      pr={10}
       gap="$2"
-      rounded="$4"
-      borderWidth={0.5}
-      borderColor="$color5"
+      rounded={8}
+      borderWidth={1}
+      borderColor="transparent"
       bg="$color2"
       items="center"
       cursor="pointer"
@@ -334,7 +335,7 @@ const HeaderSearchBox = () => {
       pressStyle={{ bg: '$color4' }}
     >
       <MagnifyingGlassIcon size={15} color="$color8" />
-      <SizableText flex={1} text="left" size="$3" color="$color9">
+      <SizableText text="left" size="$3" color="$color9">
         Search
       </SizableText>
       {/* bordered kbd-style badge, mirroring fmhy.net's boxed "Ctrl K" hint */}
@@ -622,9 +623,13 @@ export function Header() {
       <ScrollHeader hidden={hidden}>
         <Container py="$2">
           <XStack testID="site-header" width="100%" items="center" gap="$3">
-            <Logo />
+            {/* VPNavBar.has-sidebar: the title block spans the sidebar column
+                (272px) so the search button starts at the content column */}
+            <XStack $xl={{ width: 272, shrink: 0 }} items="center">
+              <Logo />
+            </XStack>
 
-            {/* wide only: full search box beside the logo */}
+            {/* wide only: search button at the content column start */}
             <XStack display="none" $xl={{ display: 'flex' }}>
               <HeaderSearchBox />
             </XStack>

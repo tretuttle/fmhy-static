@@ -10,8 +10,8 @@ import type { WikiPage } from './types'
 
 export function WikiCategoryContent({ page }: { page: WikiPage }) {
   return (
-    <YStack pb="$10" gap="$2">
-      <YStack gap="$2" pt="$4" pb="$2">
+    <YStack pb="$10">
+      <YStack gap="$2">
         {/* .vp-doc h1: 32px/40px 600, tight tracking — fmhy.net underlines and
             accents CATEGORY page H1s (e.g. "Adblocking / Privacy") but leaves
             PROSE page H1s (e.g. "Changelog Sites" under /posts) plain — see

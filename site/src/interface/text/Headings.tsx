@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Separator, SizableText, XStack, isWeb, styled, type FontSizeTokens } from 'tamagui'
+import { SizableText, XStack, isWeb, styled, type FontSizeTokens } from 'tamagui'
 
 import type { ReactNode } from 'react'
 
@@ -76,17 +76,31 @@ export const SepHeading = ({
 }) => {
   const [hovered, setHovered] = useState(false)
 
+  // vitepress .vp-doc h2: 48px top margin, full-width top divider, 24px top
+  // padding, 24px/32px; h3: 32px top margin, 20px/28px. size "$6" callers are
+  // the section (h2) level, smaller sizes the subsection (h3) level.
+  const isH2 = size === '$6'
+
   return (
     <XStack
-      mt="$6"
-      mb="$4"
+      mt={isH2 ? 48 : 32}
+      mb={isH2 ? 16 : 0}
+      pt={isH2 ? 24 : 0}
+      borderTopWidth={isH2 ? 1 : 0}
+      borderTopColor="$color4"
       items="center"
-      gap="$6"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <XStack items="center" gap="$2">
-        <H3 size={size} color="$color10">
+        <H3
+          size={size}
+          color="$color12"
+          fontWeight="600"
+          fontSize={isH2 ? 24 : 20}
+          lineHeight={isH2 ? 32 : 28}
+          letterSpacing={isH2 ? -0.48 : -0.2}
+        >
           {children}
         </H3>
         {!!anchorId && (
@@ -118,7 +132,6 @@ export const SepHeading = ({
           </SizableText>
         )}
       </XStack>
-      <Separator opacity={0.5} />
     </XStack>
   )
 }

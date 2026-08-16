@@ -10,7 +10,7 @@ export type EntryIcon = (props: { size?: number }) => React.JSX.Element
 
 const icon =
   (viewBox: string, d: string, evenodd = false): EntryIcon =>
-  ({ size = 14 }) => (
+  ({ size = 19 }) => (
     <svg width={size} height={size} viewBox={viewBox} fill="none" aria-hidden="true">
       <path
         d={d}

@@ -630,15 +630,23 @@ html.theme-view-transition * {
    for the old markup: Paragraph size $5 / lineHeight 26, the .vp-doc link
    mechanic, the focus-visible ring from Link.tsx. */
 .wk-entry {
-  margin: 0;
-  padding: var(--c-space-0--5) 0;
+  /* vitepress list geometry: every row is a disc <li> (ul padding-left
+     1.25rem, list-style disc), p/li line-height 28px, li+li gap 8px, and the
+     list block itself sits 16px off its neighbors */
+  display: list-item;
+  list-style: disc;
+  margin: 16px 0 0 20px;
+  padding: 0;
   font-family: var(--f-family);
   font-size: var(--f-size-5);
   font-weight: 400;
   letter-spacing: 0;
-  line-height: 26px;
+  line-height: 28px;
   color: var(--color11);
   overflow-wrap: break-word;
+}
+.wk-entry + .wk-entry {
+  margin-top: 8px;
 }
 .wk-entry a {
   color: var(--accent11);
@@ -674,16 +682,13 @@ html.theme-view-transition * {
   font-weight: 400;
   vertical-align: super;
 }
-/* inline icon box riding the text baseline (old InlineIcon trick); icons fill
-   with currentColor so the wrapper's text color themes them */
+/* inline icon box riding the text line (upstream uno icons render 1.2em with
+   vertical-align middle); icons fill with currentColor so the wrapper's text
+   color themes them */
 .wk-icon {
   display: inline-flex;
-  vertical-align: -0.15em;
+  vertical-align: -0.25em;
   text-decoration-line: none;
-}
-.wk-bullet {
-  font-size: var(--f-size-2);
-  color: var(--color9);
 }
 .wk-warn {
   color: var(--warnText);

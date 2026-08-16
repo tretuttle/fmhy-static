@@ -262,7 +262,7 @@ export function WikiSectionList({ page }: { page: WikiPage }) {
     // raw div, same reasoning as Anchor: keep the delegation target a plain
     // DOM node with a real MouseEvent (button/metaKey), untouched by tamagui
     <div onClick={onEntryLinkClick}>
-      <YStack gap="$2">
+      <YStack>
         {page.sections.map((section) => (
           <SectionBlock
             key={section.id}

@@ -147,7 +147,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
       bg="$background"
       // .VPLocalNav.has-sidebar: the bar spans full width but its content is
       // padded past the sidebar column (260px in _layout, shown from $md)
-      $md={{ pl: 260 }}
+      $md={{ pl: 272 }}
       style={{
         position: 'sticky',
         top: navHidden ? 0 : HEADER_HEIGHT,
@@ -360,7 +360,7 @@ function OutlineLink({
       lineHeight={32}
       fontSize={14}
       fontWeight={active ? '600' : '400'}
-      pl={entry.depth === 1 ? 16 : 0}
+      pl={entry.depth === 1 ? 13 : 0}
       color={active ? '$accent10' : '$color11'}
       hoverStyle={{ color: active ? '$accent10' : '$color12' }}
       cursor="pointer"

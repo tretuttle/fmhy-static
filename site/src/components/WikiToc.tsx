@@ -145,7 +145,7 @@ function TocRow({
       lineHeight={32}
       fontSize={14}
       fontWeight="400"
-      pl={entry.depth === 1 ? 16 : 0}
+      pl={entry.depth === 1 ? 13 : 0}
       color={active ? '$color12' : '$color11'}
       hoverStyle={{ color: '$color12' }}
       textDecorationLine="none"
@@ -206,17 +206,19 @@ export function WikiToc() {
     <YStack
       render="nav"
       {...({ 'aria-labelledby': 'doc-outline-aria-label' } as object)}
-      width={220}
+      // vitepress aside: max-width 256, padding-left 32, container padded
+      // nav-height + 48 from the top
+      width={256}
       shrink={0}
       display="none"
       $xl={{
         display: 'flex',
         position: 'sticky',
         t: 64,
-        height: 'calc(100vh - 80px)',
+        height: 'calc(100vh - 64px)',
       }}
-      pt="$6"
-      pl="$4"
+      pt={48}
+      pl={32}
       // wk-rail (root.css): overflow-y auto + hidden x + upstream's thin 4px
       // scrollbar — overflow="scroll" forced permanent h+v bars on windows
       className="wk-rail"

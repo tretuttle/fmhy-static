@@ -17,7 +17,7 @@ const TOP_ITEMS: WikiNavItem[] = wikiNav.topLinks
 // row frame mirrors fmhy-app SidebarRowFrame (height 36, rounded, hover/press, active bg)
 const SidebarRowFrame = styled(XStack, {
   cursor: 'pointer',
-  height: 36,
+  height: 32,
   px: '$3',
   rounded: '$3',
   items: 'center',

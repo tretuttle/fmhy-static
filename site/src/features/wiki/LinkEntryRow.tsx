@@ -183,7 +183,7 @@ const NoteSubLink = ({
           style={{ verticalAlign: '-0.15em' }}
           aria-label={label}
         >
-          <TriggerIcon size={14} />
+          <TriggerIcon />
         </Text>
       </Tooltip.Trigger>
 
@@ -423,20 +423,20 @@ export const LinkEntryRow = memo(
     }
 
     return (
+      // display: list-item — the disc marker every row wears comes from css
+      // (vitepress renders these as real <li>s); marker emoji follow the disc
       <p className="wk-entry">
         {showMarker ? (
-          <span className={isWarningOnly ? (unsafe ? 'wk-icon wk-danger' : 'wk-icon wk-warn') : 'wk-icon'}>
-            {isWarningOnly ? (
-              <WarningCircleEntrySvg size={14} />
-            ) : markerCode ? (
-              <TwemojiIcon code={markerCode} size={14} />
-            ) : null}
-          </span>
-        ) : (
-          // no leading marker icon — a muted bullet keeps text alignment
-          // identical to icon rows (fmhy.net's plain list-item dot)
-          <span className="wk-icon wk-bullet">•</span>
-        )}{' '}
+          <>
+            <span className={isWarningOnly ? (unsafe ? 'wk-icon wk-danger' : 'wk-icon wk-warn') : 'wk-icon'}>
+              {isWarningOnly ? (
+                <WarningCircleEntrySvg />
+              ) : markerCode ? (
+                <TwemojiIcon code={markerCode} size={19} />
+              ) : null}
+            </span>{' '}
+          </>
+        ) : null}
         {unsafe ? (
           // never a clickable recommendation — bold plain text only
           <strong className="wk-name-text wk-bold">{title}</strong>

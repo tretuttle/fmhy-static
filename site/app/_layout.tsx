@@ -27,7 +27,7 @@ import { WikiSearchModal } from '~/features/wiki/WikiSearchModal'
 import { TamaguiRootProvider } from '~/tamagui/TamaguiRootProvider'
 
 // fixed header height; content clears it and the rails stick beneath it
-const HEADER_H = 56
+const HEADER_H = 64
 
 // skip-link + route-change focus target — the <main> content wrapper in Shell
 const MAIN_CONTENT_ID = 'main-content'
@@ -245,7 +245,7 @@ function Shell() {
           it scrolls independently of the page, so the OptionsCard at the
           bottom is reached by scrolling the rail itself */}
       <View
-        width={260}
+        width={272}
         shrink={0}
         self="flex-start"
         display="none"
@@ -269,11 +269,14 @@ function Shell() {
         tabIndex={-1}
         flex={1}
         minW={0}
-        maxW={900}
+        // VPDoc.has-aside caps the text column at 688px; padding is
+        // 32px 24px 96px on mobile and 48px 32px from ~960px up
+        maxW={752}
         mx="auto"
-        // VPDoc mobile padding is 24px — anything tighter reads edge-to-edge
+        pt={32}
         px={24}
-        $md={{ px: '$6' }}
+        pb={96}
+        $lg={{ pt: 48, px: 32 }}
       >
         <Slot />
       </View>

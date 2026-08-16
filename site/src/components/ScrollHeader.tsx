@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 
 // fixed header height — must match HEADER_H in app/_layout.tsx, which pads the
 // page content to clear this bar (fmhy.net: --vp-nav-height, 64px there)
-export const HEADER_HEIGHT = 56
+export const HEADER_HEIGHT = 64
 
 // fmhy.net's VPNav.vue refuses to hide the bar while the mobile "On this page"
 // dropdown is open (it checks for `.VPLocalNavOutlineDropdown .items` in the

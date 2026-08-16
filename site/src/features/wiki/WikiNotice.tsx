@@ -58,8 +58,10 @@ export function WikiNotice({ notice }: { notice: WikiNoticeType }) {
   return (
     <YStack
       gap="$1.5"
-      p="$3.5"
-      my="$2"
+      pt={16}
+      px={16}
+      pb={8}
+      my={0}
       rounded="$5"
       borderWidth={1}
       bg={style.bg}
@@ -67,11 +69,11 @@ export function WikiNotice({ notice }: { notice: WikiNoticeType }) {
     >
       <XStack gap="$2" items="center">
         <style.Icon size={16} color={style.text} />
-        <Text size="$3" fontWeight="600" color={style.text}>
+        <Text fontSize={14} lineHeight={24} fontWeight="600" color={style.text}>
           {style.label}
         </Text>
       </XStack>
-      <Text size="$3" lineHeight={20} color={style.text}>
+      <Text fontSize={14} lineHeight={24} color={style.text}>
         <InlineMarkdown markdown={notice.markdown} linkColor={style.text} />
       </Text>
     </YStack>

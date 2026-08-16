@@ -3,7 +3,11 @@ import { flushSync } from 'react-dom'
 import { Popover, XStack, YStack } from 'tamagui'
 
 import { CheckIcon } from '~/icons/phosphor/CheckIcon'
-import { MoonSolidIcon } from '~/icons/social/SolidSocialIcons'
+import {
+  MoonDuotoneIcon,
+  MoonStarsDuotoneIcon,
+  SunDuotoneIcon,
+} from '~/icons/social/ThemeDuotoneIcons'
 import { Text } from '~/interface/text/Text'
 
 import { AMOLED_CLASS } from './themePrePaint'
@@ -16,18 +20,27 @@ import { pointFromPressEvent, revealThemeChange } from './themeTransition'
 // the sidebar OptionsCard, see themeSettings.ts).
 type Row = 'light' | 'dark' | 'amoled'
 
-const ROWS: { id: Row; label: string }[] = [
-  { id: 'light', label: 'Light' },
-  { id: 'dark', label: 'Dark' },
-  { id: 'amoled', label: 'AMOLED' },
+// icons mirror their ThemeDropdown: i-ph-sun/moon/moon-stars-duotone
+const ROWS: { id: Row; label: string; Icon: typeof SunDuotoneIcon }[] = [
+  { id: 'light', label: 'Light', Icon: SunDuotoneIcon },
+  { id: 'dark', label: 'Dark', Icon: MoonDuotoneIcon },
+  { id: 'amoled', label: 'AMOLED', Icon: MoonStarsDuotoneIcon },
 ]
+
+const ROW_ICONS: Record<Row, typeof SunDuotoneIcon> = {
+  light: SunDuotoneIcon,
+  dark: MoonDuotoneIcon,
+  amoled: MoonStarsDuotoneIcon,
+}
 
 function MenuRow({
   label,
+  Icon,
   active,
   onPress,
 }: {
   label: string
+  Icon: typeof SunDuotoneIcon
   active: boolean
   onPress: (event?: unknown) => void
 }) {
@@ -43,12 +56,20 @@ function MenuRow({
       py="$2.5"
       cursor="pointer"
       bg="transparent"
+      // reset the UA button chrome — without this every row wears the
+      // browser's default border (same trap as CircleButton)
+      borderWidth={0}
       hoverStyle={{ bg: '$color3' }}
       pressStyle={{ bg: '$color4' }}
     >
-      <Text size="$3" color={active ? '$accent11' : '$color12'} fontWeight={active ? '600' : '400'}>
-        {label}
-      </Text>
+      <XStack items="center" gap="$2.5">
+        <Text render="span" display="inline-flex" color={active ? '$accent11' : '$color11'}>
+          <Icon size={18} />
+        </Text>
+        <Text size="$3" color={active ? '$accent11' : '$color12'} fontWeight={active ? '600' : '400'}>
+          {label}
+        </Text>
+      </XStack>
       {active && <CheckIcon size={14} color="$accent11" />}
     </XStack>
   )
@@ -121,10 +142,11 @@ export function ThemeMenuContents() {
 
   return (
     <YStack width={200} py="$1.5">
-      {ROWS.map(({ id, label }) => (
+      {ROWS.map(({ id, label, Icon }) => (
         <MenuRow
           key={id}
           label={label}
+          Icon={Icon}
           active={activeRow === id}
           onPress={(event) => onSelectRow(id, event)}
         />
@@ -134,6 +156,10 @@ export function ThemeMenuContents() {
 }
 
 export function ThemeMenu() {
+  const userScheme = useUserScheme()
+  const [amoled] = useAmoled()
+  const TriggerIcon =
+    ROW_ICONS[amoled ? 'amoled' : userScheme.value === 'dark' ? 'dark' : 'light']
   return (
     <Popover placement="bottom-end" allowFlip>
       <Popover.Trigger asChild>
@@ -151,7 +177,7 @@ export function ThemeMenu() {
           hoverStyle={{ bg: '$color3' }}
           pressStyle={{ bg: '$color2' }}
         >
-          <MoonSolidIcon size={18} />
+          <TriggerIcon size={18} />
         </XStack>
       </Popover.Trigger>
 

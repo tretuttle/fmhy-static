@@ -43,6 +43,23 @@ export default {
   // constructed URL at runtime — every SPA navigation then 404s and renders
   // blank (verified in production, 2026-07-03). If chunk consolidation is
   // revisited, loader chunks must be excluded and SPA nav click-tested.
+  //
+  // manualChunks below is the safe version of that consolidation: it groups
+  // MODULES (our icon components — previously ~15 one-icon chunks fanned out
+  // as a modulepreload waterfall on every page) into one shared chunk, and
+  // never touches entry chunks, so the per-route loader files keep their
+  // constructed URLs. Verified against dist: *_vxrn_loader.js files intact,
+  // SPA nav click-tested.
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('/src/icons/')) return 'icons'
+          return undefined
+        },
+      },
+    },
+  },
 
   plugins: [
     tamaguiPlugin({

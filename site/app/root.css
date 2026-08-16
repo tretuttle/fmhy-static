@@ -442,9 +442,9 @@ html.theme-catppuccin.t_dark {
   --warnBg: #451a03;
   --warnBorder: #92400e;
   --warnText: #fef08a;
-  --accent9: #9345ed;
+  --accent9: #c5a5f6;
   --accent10: #7c3aed;
-  --accent11: #a78bfa;
+  --accent11: #cba6f6;
   --accent12: #ddd6fe;
   --accent1: #2e1065;
   --accent2: #4c1d95;
@@ -484,13 +484,13 @@ html.theme-catppuccin.t_light ::selection {
 /* monochrome (configs/monochrome.ts) — real grayscale-family literal colors,
    not a CSS filter over the existing colored palette. */
 html.theme-monochrome.t_dark {
-  --background: #000000;
-  --backgroundHover: #0a0a0a;
-  --backgroundPress: #0a0a0a;
-  --backgroundFocus: #0a0a0a;
-  --color1: #000000;
-  --color2: #0a0a0a;
-  --color3: #0a0a0a;
+  --background: #1a1a1a;
+  --backgroundHover: #262626;
+  --backgroundPress: #262626;
+  --backgroundFocus: #262626;
+  --color1: #1a1a1a;
+  --color2: #171717;
+  --color3: #262626;
   --color9: #808080;
   --color10: #808080;
   --color11: #cccccc;
@@ -518,7 +518,7 @@ html.theme-monochrome.t_light {
   --backgroundFocus: #f5f5f5;
   --color1: #ffffff;
   --color2: #f5f5f5;
-  --color3: #f5f5f5;
+  --color3: #e0e0e0;
   --color9: #808080;
   --color10: #808080;
   --color11: #333333;

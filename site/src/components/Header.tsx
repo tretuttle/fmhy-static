@@ -116,16 +116,10 @@ const SOCIAL_LINKS: SocialLink[] = [
 const Logo = () => (
   <Link href="/" aria-label="Home">
     <XStack items="center" gap="$2">
-      {/* badged mark, mirroring fmhy.net's rounded logo tile */}
-      <YStack
-        width={28}
-        height={28}
-        rounded={8}
-        overflow="hidden"
-        items="center"
-        justify="center"
-        bg="$color3"
-      >
+      {/* bare mark like fmhy.net's VPNavBarTitle img — the ico carries its own
+          rounded black plate, so any tile background shows as a halo on themes
+          whose surface isn't that exact black */}
+      <YStack width={28} height={28} items="center" justify="center">
         <Image src={LOGO_SRC} width={28} height={28} alt="FMHY Logo" />
       </YStack>
       <SizableText

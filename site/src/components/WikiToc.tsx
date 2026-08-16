@@ -217,7 +217,9 @@ export function WikiToc() {
       }}
       pt="$6"
       pl="$4"
-      overflow="scroll"
+      // wk-rail (root.css): overflow-y auto + hidden x + upstream's thin 4px
+      // scrollbar — overflow="scroll" forced permanent h+v bars on windows
+      className="wk-rail"
     >
       {/* VPDocAsideOutline .content: relative rail with a 1px divider the
           marker slides along */}

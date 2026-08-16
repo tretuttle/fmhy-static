@@ -592,6 +592,37 @@ html.theme-view-transition * {
   text-decoration-color: var(--accent11);
 }
 
+/* ---- sticky rails (sidebar + "On this page" aside) ----
+   upstream styles .VPSidebar's scrollbar down to 4px (style.scss "Custom
+   scrollbar"); ours are the same independent scroll regions, so without this
+   every rail wears the full-size windows scrollbar with buttons, stacked next
+   to the document's own. overflow-y auto + x hidden also kills the permanent
+   horizontal bar the old overflow="scroll" forced on the aside. */
+.wk-rail {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.wk-rail::-webkit-scrollbar {
+  inline-size: 4px;
+  block-size: 4px;
+}
+.wk-rail::-webkit-scrollbar-thumb {
+  background: var(--color4);
+  border-radius: 14px;
+}
+.wk-rail::-webkit-scrollbar-thumb:hover {
+  background: var(--color5);
+}
+.wk-rail::-webkit-scrollbar-track {
+  background: transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+  .wk-rail {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color4) transparent;
+  }
+}
+
 /* ---- flattened wiki entry rows (LinkEntryRow.tsx) ----
    the ~900-entry pages render rows as plain markup with these classes instead
    of per-element tamagui (which cost ~260 chars of atomic classes per element

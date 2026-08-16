@@ -236,6 +236,7 @@ function Shell() {
           t: HEADER_H,
           height: `calc(100dvh - ${HEADER_H}px)`,
         }}
+        className="wk-rail"
         style={{ overflowY: 'auto', overscrollBehavior: 'contain' }}
       >
         <WikiSidebar />

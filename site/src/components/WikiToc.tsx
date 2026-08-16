@@ -218,7 +218,6 @@ export function WikiToc() {
         height: 'calc(100vh - 64px)',
       }}
       pt={48}
-      pl={32}
       // wk-rail (root.css): overflow-y auto + hidden x + upstream's thin 4px
       // scrollbar — overflow="scroll" forced permanent h+v bars on windows
       className="wk-rail"

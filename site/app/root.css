@@ -710,7 +710,7 @@ html.theme-view-transition * {
      <p> gets 28px), li+li gap 8px, list block 16px off its neighbors */
   display: list-item;
   list-style: disc;
-  margin: 16px 0 0 20px;
+  margin: 22px 0 0 20px;
   padding: 0;
   font-family: var(--f-family);
   font-size: var(--f-size-5);

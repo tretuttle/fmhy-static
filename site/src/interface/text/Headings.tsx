@@ -83,8 +83,8 @@ export const SepHeading = ({
 
   return (
     <XStack
-      mt={isH2 ? 48 : 32}
-      mb={isH2 ? 16 : 0}
+      mt={isH2 ? 41 : 25}
+      mb={isH2 ? 23 : 0}
       pt={isH2 ? 24 : 0}
       borderTopWidth={isH2 ? 1 : 0}
       borderTopColor="$color4"

@@ -165,7 +165,7 @@ export function WikiSidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
       px="$3"
       py="$2"
       pb="$8"
-      gap="$4"
+      gap={20}
       select="none"
     >
       <YStack gap="$0.5" pt="$2">

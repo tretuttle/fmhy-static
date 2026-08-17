@@ -1,4 +1,4 @@
-import Svg, { Path } from 'react-native-svg'
+import Svg, { Path } from '~/icons/svg'
 import { SizableText, styled, XStack, YStack, isWeb, useTheme } from 'tamagui'
 
 import { Link } from '~/components/Link'

@@ -23,12 +23,11 @@ export default {
     __GIT_REV__: JSON.stringify(getGitRev()),
   },
 
-  resolve: {
-    alias: {
-      'react-native-svg': '@tamagui/react-native-svg',
-    },
-  },
-
+  // NO react-native-svg alias here: app code imports ~/icons/svg (web →
+  // @tamagui/react-native-svg shim, native → real react-native-svg via the
+  // .native.ts extension). The old global alias rewrote the shim's own
+  // `export * from 'react-native-svg'` back onto itself, so the native
+  // bundle saw zero svg exports.
   server: {
     port: 8081,
   },
@@ -50,18 +49,25 @@ export default {
   // never touches entry chunks, so the per-route loader files keep their
   // constructed URLs. Verified against dist: *_vxrn_loader.js files intact,
   // SPA nav click-tested.
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id: string) {
-          if (id.includes('/src/icons/')) return 'icons'
-          return undefined
-        },
+  plugins: [
+    // web-only icons chunk. As a static build.rollupOptions.output it would
+    // also reach the native bundle, whose preserveModules output rejects
+    // manualChunks outright — so it's applied via outputOptions and skipped
+    // whenever preserveModules is set.
+    {
+      name: 'icons-chunk-web-only',
+      outputOptions(options) {
+        if (options.preserveModules) return null
+        return {
+          ...options,
+          manualChunks(id: string) {
+            if (id.includes('/src/icons/')) return 'icons'
+            return undefined
+          },
+        }
       },
     },
-  },
 
-  plugins: [
     tamaguiPlugin({
       optimize: process.env.NODE_ENV === 'production',
       // caused hydration mis-matches

@@ -1,4 +1,4 @@
-import Svg, { Path } from 'react-native-svg'
+import Svg, { Path } from '~/icons/svg'
 
 import { useIconProps } from '~/icons/useIconProps'
 

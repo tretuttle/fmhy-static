@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "one dev",
     "prebuild": "bun scripts/generate-images.tsx",
-    "build": "one build && bun scripts/sitemap-gen.ts && bun scripts/defer-hydration.ts && bun scripts/generate-sw.ts",
+    "build": "one build && bun scripts/sitemap-gen.ts && bun scripts/defer-hydration.ts && bun scripts/strip-loader-data.ts && bun scripts/generate-sw.ts",
     "images": "bun scripts/generate-images.tsx",
     "serve": "one serve",
     "format": "oxfmt",

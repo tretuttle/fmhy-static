@@ -43,7 +43,7 @@ export function scrollToAnchor(id: string, { updateHash = true } = {}): boolean 
   const MAX_ATTEMPTS = 40
 
   const step = () => {
-    if (superseded()) return
+    if (!el.isConnected || superseded()) return
     // lands on the shared measured inset (header + mobile local-nav + 16px)
     // via the anchor's scroll-margin-top — see scrollOffset.ts
     const target = getAnchorScrollTop(el)

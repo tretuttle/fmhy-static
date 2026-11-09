@@ -8,10 +8,8 @@ export const state = (v) => {
   if (v.open) {
     if (settled(v)) return v.focus === "input" ? "Open, cursor in the box" : "Open, cursor NOT in the box";
     if (!v.mounted) return "Opening: box not built yet";
-    // what the DOM shows right now: before the open commit it is `visible`;
-    // after it, focus only landed if the box was on screen
-    const onScreen = v.openSeen ? v.focus === "input" : v.visible;
-    return onScreen ? "Opening: box still on screen (fading out)" : "Opening: box still hidden";
+    if (v.openSeen) return "Opening: box on screen, cursor in the box";
+    return v.visible ? "Opening: box still on screen (fading out)" : "Opening: box still hidden";
   }
   if (v.timer === "armed" || v.openSeen || v.due) return "Fading out";
   return "Closed";
@@ -34,12 +32,10 @@ export const step = (action, from, to) => {
       if (from.open && from.openSeen !== from.open) {
         // the commit that runs the [open] effects
         if (!from.hasOpenedOnce) return "React schedules building the box";
-        return from.visible
-          ? "focus() runs with the box on screen: the input gets focus"
-          : "focus() runs while the box is still hidden: nothing happens";
+        return "the box shows and focus() puts the cursor in the input";
       }
       if (from.open && !from.mounted) return "the box is built and the input gets focus";
-      if (from.open) return to.focus === "input" ? "the box finishes showing" : "the box appears, focus is not retried";
+      if (from.open) return "the box finishes showing";
       return "focus returns to the page, fade-out starts";
     default: return action;
   }

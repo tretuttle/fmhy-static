@@ -9,7 +9,8 @@
 (*   SearchBox        - the [open, focusSearchInput] effect: focus +      *)
 (*                      select the input; its cleanup restores the focus  *)
 (*                      that was there before (previouslyFocused)         *)
-(*                      style={{ display: visible ? 'flex' : 'none' }}    *)
+(*                      style={{ display: open || visible ? 'flex' :     *)
+(*                      'none' }}                                         *)
 (* site/src/features/wiki/searchModal.ts - openSearch / closeSearch        *)
 (*   emit on a useSyncExternalStore emitter (site/src/lib/emitter.ts).     *)
 (*                                                                         *)
@@ -71,18 +72,18 @@ YouClose ==
   /\ open' = FALSE
   /\ UNCHANGED <<openSeen, hasOpenedOnce, mounted, visible, leaving, timer, focus, locked, due>>
 
-\* One React commit. The DOM shows display = `visible` as rendered NOW, i.e.
-\* before the effects below update it.
+\* One React commit. The DOM shows display = `open \/ visible` as rendered
+\* NOW, i.e. before the effects below update `visible`.
 Commit ==
   /\ ~Settled
   /\ LET openChanged == open # openSeen
          mountNow    == hasOpenedOnce /\ ~mounted
          \* SearchBox [open] effect: runs on mount when open, or when open changed
          childRuns   == (mounted /\ openChanged) \/ (mountNow /\ open)
-         \* open: focusSearchInput() - a no-op while the shell is display:none
+         \* open: focusSearchInput() - this commit rendered display:flex
          \* close: cleanup restores previouslyFocused
          focus1      == IF ~childRuns THEN focus
-                        ELSE IF open THEN (IF visible THEN "input" ELSE focus)
+                        ELSE IF open THEN "input"
                         ELSE "page"
          \* open: overflow = 'hidden'; close: cleanup restores the saved values
          locked1     == IF ~childRuns THEN locked ELSE open

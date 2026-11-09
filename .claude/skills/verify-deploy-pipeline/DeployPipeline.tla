@@ -7,7 +7,7 @@
 (*                                                                         *)
 (* Commits are numbered: upstream fmhy/edit main is 0, 1, 2, ... and this   *)
 (* repo's site code on main is 0, 1, ... A higher number is newer.          *)
-(* Empty (-1) is the empty string a step writes when `git ls-remote` fails. *)
+(* Empty (-1) is an empty sha. NoneRead (-2) is the string "none".          *)
 (***************************************************************************)
 EXTENDS Integers
 
@@ -18,6 +18,7 @@ CONSTANTS
   CanDisable  \* whether someone (or GitHub's inactivity rule) can disable the workflow
 
 Empty == -1
+NoneRead == -2
 
 \* Steps of the `deploy` job, in workflow order. "sync" also stands for the
 \* setup steps before it (checkout, setup-node, setup-bun, corepack, bun
@@ -140,19 +141,32 @@ StartWaitingRun ==
   /\ UNCHANGED Bookkeeping
 
 -----------------------------------------------------------------------------
-(* Job `check`, step "Compare upstream HEAD to last deployed sha" (bash -e,  *)
-(* no pipefail). `sha=$(git ls-remote ... | cut -f1)`: a failed ls-remote    *)
-(* leaves sha="" because the pipeline's status is cut's. `last=$(gh api ...  *)
+Finish(outcome, step) ==
+  /\ phase' = "idle"
+  /\ run' = NoRun
+  /\ lastRun' = outcome
+  /\ stoppedAt' = step
+  \* every step is a plain `run:`; none writes ::error:: or $GITHUB_STEP_SUMMARY,
+  \* so the only annotation a failed step leaves is GitHub's generic one
+  /\ note' = IF outcome = "red" THEN "exit code 1" ELSE "none"
+  /\ lastDeployed' = run.deployed
+
+-----------------------------------------------------------------------------
+(* Job `check`, step "Compare upstream HEAD to last deployed sha"            *)
+(* (`set -euo pipefail`). `sha=$(git ls-remote ... | cut -f1)`: a failed     *)
+(* ls-remote fails the step, and so does any sha that is not 40 hex digits,  *)
+(* so job `check` goes red and job `deploy` never runs. `last=$(gh api ...   *)
 (* | base64 -d | tr -d '[:space:]' || echo "none")`: a failed gh api gives   *)
-(* last="" for the same reason; `|| echo none` never runs. An empty record   *)
-(* file also reads as "". changed = dispatch || sha != last.                 *)
+(* last="none". changed = dispatch || sha != last.                           *)
 
 CheckGate ==
   /\ phase = "check"
   /\ \E lsOk \in Outcome("lsremote"), apiOk \in Outcome("ghapi"):
-       LET sha  == IF lsOk THEN upHead ELSE Empty
-           last == IF apiOk THEN record ELSE Empty
-       IN IF run.event = "dispatch" \/ sha # last
+       LET sha  == upHead
+           last == IF apiOk THEN record ELSE NoneRead
+       IN IF ~lsOk
+            THEN Finish("red", "check")
+            ELSE IF run.event = "dispatch" \/ sha # last
             THEN /\ phase' = "sync"
                  /\ run' = [run EXCEPT !.sha = sha]
                  /\ UNCHANGED <<lastRun, stoppedAt, note>>
@@ -219,16 +233,6 @@ EasDeploy ==
   /\ UNCHANGED <<upHead, siteHead, record, enabled, pending, lastRun, stoppedAt, note,
                  recordBuilt, recordByDeploy, lastDeployed>>
 
-Finish(outcome, step) ==
-  /\ phase' = "idle"
-  /\ run' = NoRun
-  /\ lastRun' = outcome
-  /\ stoppedAt' = step
-  \* every step is a plain `run:`; none writes ::error:: or $GITHUB_STEP_SUMMARY,
-  \* so the only annotation a failed step leaves is GitHub's generic one
-  /\ note' = IF outcome = "red" THEN "exit code 1" ELSE "none"
-  /\ lastDeployed' = run.deployed
-
 \* "Record deployed upstream sha": writes needs.check.outputs.sha into the file
 \* of THIS run's checkout (GITHUB_SHA); `git diff --quiet` against that copy;
 \* else commit and `git push || (git pull --rebase --autostash && git push)`.
@@ -282,6 +286,9 @@ ChangesGoLive == AtRest => (live.up = upHead /\ live.site = siteHead)
 
 \* R2: the record names the upstream commit that the run which wrote it deployed.
 RecordIsTrue == record = recordBuilt
+
+\* R10: the record always names a commit, never an empty sha.
+RecordNamesACommit == record # Empty
 
 \* R3: a scheduled run only deploys when what it ships differs from what is
 \* live. (EasDeploy sets the flag and always moves to "record", so this

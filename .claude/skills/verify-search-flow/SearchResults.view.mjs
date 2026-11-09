@@ -1,5 +1,5 @@
 // /statechart view for SearchResults.tla - a flat chart of what the reader sees
-// in the box. The index (loading / loaded / failed) and the network show up
+// in the box. The index (not loaded / loading / loaded) and the network show up
 // only through the arrow labels and the two failure states.
 const tag = (v) => (v.query === "A" ? (v.fuzzy ? "A~" : "A=") : "none");
 
@@ -14,12 +14,13 @@ export const state = (v) => {
     if (v.lastSearch === "replayed") return "“No results”: old failure replayed online";
     return "“No results”: index failed offline";
   }
+  if (v.searchFailed) return v.lastSearch === "replayed" ? "Search could not load: old failure replayed online" : "Search could not load";
   return "Blank list, no spinner";
 };
 
 export const group = (v) => {
   const s = state(v);
-  if (s === "Results for your query" || s === "No results") return "answer";
+  if (s === "Results for your query" || s === "No results" || s === "Search could not load") return "answer";
   if (s === "Spinner (searching)" || s === "Empty box") return "working";
   if (s === "Blank list, no spinner") return "pending";   // a search is pending; breaks no rule
   return "wrong";
@@ -38,8 +39,8 @@ export const step = (action, from, to) => {
     case "YouToggleFuzzy":
       return to.query === "" ? null : "you type, or switch fuzzy/exact";
     case "DebounceFires":
-      if (to.deb === "awaiting") return "350 ms pass, the search waits for the index";
-      return from.engine === "failed" ? "350 ms pass, the search gets the cached load failure" : "350 ms pass, the search runs";
+      if (to.deb !== "awaiting") return "350 ms pass, the search runs";
+      return from.engine === "idle" ? "350 ms pass, the search loads the index again" : "350 ms pass, the search waits for the index";
     case "EngineLoads": return "the index loads";
     case "EngineFails": return "the index load fails (offline)";
     case "Stage2Lands": return "the result list is built";

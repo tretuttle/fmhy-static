@@ -46,8 +46,6 @@ done
 # Open findings: TLC must report exactly this invariant violated.
 for triple in \
   "SearchModalOpen.tla SearchModalOpen.focus.cfg FocusInBoxWhenOpen" \
-  "SearchResults.tla SearchResults.noresults.cfg FailureNotShownAsNoResults" \
-  "SearchResults.tla SearchResults.retry.cfg RetryAfterFailure" \
   "SearchResults.tla SearchResults.stale.cfg ResultsMatchQuery"; do
   set -- $triple
   if run "$1" "$2"; then

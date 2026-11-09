@@ -302,16 +302,58 @@ html {
    moment any theme was selected. */
 
 /*
+  fmhy brand tokens — upstream's --vp-c-brand-1 / --vp-c-brand-2 /
+  --vp-c-selection-bg / --vp-c-bg-elv, kept as literal values per accent x
+  mode x preset because the tamagui accent ramp doesn't line up with their
+  scale (our light accent11 is a darker swarm than their brand-1). baseline =
+  generated color-swarm theme (configs/colors.ts): light 500/600, selection
+  200; dark 400/500, selection 800. accent/preset blocks below override them.
+  accent-subtle / -muted are their style.scss hover/active tints (7% / 13%
+  brand-1 over the page background).
+*/
+:root {
+  --fmhy-brand-1: hsl(211, 63%, 61%);
+  --fmhy-brand-2: hsl(215, 57%, 53%);
+  --fmhy-selection-bg: hsl(208, 66%, 87%);
+  --fmhy-bg-elv: rgba(255, 255, 255, 0.8);
+  --fmhy-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --fmhy-hero-name-color: transparent;
+  --fmhy-hero-name-bg: linear-gradient(120deg, #c4b5fd 30%, #7bc5e4);
+  --fmhy-default-soft: rgba(142, 150, 170, 0.14);
+  --fmhy-accent-subtle: color-mix(in srgb, var(--fmhy-brand-1) 7%, var(--background));
+  --fmhy-accent-muted: color-mix(in srgb, var(--fmhy-brand-1) 13%, var(--background));
+}
+html.t_dark {
+  --fmhy-brand-1: hsl(207, 65%, 68%);
+  --fmhy-brand-2: hsl(211, 63%, 61%);
+  --fmhy-selection-bg: hsl(220, 48%, 40%);
+  --fmhy-bg-elv: #1a1a1acc;
+  --fmhy-shadow-3: 0 12px 32px #0000004d, 0 2px 6px #00000029;
+  --fmhy-default-soft: rgba(101, 117, 133, 0.16);
+}
+
+/* selection follows the active accent/preset (upstream style.scss ::selection).
+   html.t_* outranks tamagui's generated `.t_dark ::selection` grey. */
+html.t_light ::selection,
+html.t_dark ::selection {
+  background: var(--fmhy-selection-bg);
+}
+
+/*
   accent presets — the 7 named palettes from fmhy.net (utils/colors.ts).
   swarm is the shipped baseline (no class). each block below maps the palette
   scale onto the tamagui accent vars. base selector = dark mode:
     accent9→500  accent10→600  accent11→400 (link/brand)  accent12→200  accent1→950  accent2→900
   .t_light override = light mode:
     accent9→500  accent10→600  accent11→500 (link/brand)  accent12→800  accent1→50   accent2→100
+  plus the --fmhy-brand-1/-2/selection tokens (see the baseline block above).
 */
 
 /* turquoise */
 html.accent-turquoise.t_dark {
+  --fmhy-brand-1: hsl(188, 78%, 60%);
+  --fmhy-brand-2: hsl(188, 86%, 43%);
+  --fmhy-selection-bg: hsl(194, 64%, 27%);
   --accent9: hsl(188, 86%, 43%);
   --accent10: hsl(191, 84%, 36%);
   --accent11: hsl(188, 78%, 60%);
@@ -320,6 +362,9 @@ html.accent-turquoise.t_dark {
   --accent2: hsl(197, 59%, 24%);
 }
 html.accent-turquoise.t_light {
+  --fmhy-brand-1: hsl(188, 86%, 43%);
+  --fmhy-brand-2: hsl(191, 84%, 36%);
+  --fmhy-selection-bg: hsl(185, 85%, 82%);
   --accent9: hsl(188, 86%, 43%);
   --accent10: hsl(191, 84%, 36%);
   --accent11: hsl(188, 86%, 43%);
@@ -330,6 +375,9 @@ html.accent-turquoise.t_light {
 
 /* carnation */
 html.accent-carnation.t_dark {
+  --fmhy-brand-1: hsl(0, 91%, 71%);
+  --fmhy-brand-2: hsl(0, 84%, 60%);
+  --fmhy-selection-bg: hsl(0, 70%, 35%);
   --accent9: hsl(0, 84%, 60%);
   --accent10: hsl(0, 72%, 51%);
   --accent11: hsl(0, 91%, 71%);
@@ -338,6 +386,9 @@ html.accent-carnation.t_dark {
   --accent2: hsl(0, 63%, 31%);
 }
 html.accent-carnation.t_light {
+  --fmhy-brand-1: hsl(0, 84%, 60%);
+  --fmhy-brand-2: hsl(0, 72%, 51%);
+  --fmhy-selection-bg: hsl(0, 96%, 89%);
   --accent9: hsl(0, 84%, 60%);
   --accent10: hsl(0, 72%, 51%);
   --accent11: hsl(0, 84%, 60%);
@@ -348,6 +399,9 @@ html.accent-carnation.t_light {
 
 /* cerise */
 html.accent-cerise.t_dark {
+  --fmhy-brand-1: hsl(348, 82%, 71%);
+  --fmhy-brand-2: hsl(346, 77%, 57%);
+  --fmhy-selection-bg: hsl(340, 68%, 35%);
   --accent9: hsl(346, 77%, 57%);
   --accent10: hsl(343, 67%, 50%);
   --accent11: hsl(348, 82%, 71%);
@@ -356,6 +410,9 @@ html.accent-cerise.t_dark {
   --accent2: hsl(338, 65%, 30%);
 }
 html.accent-cerise.t_light {
+  --fmhy-brand-1: hsl(346, 77%, 57%);
+  --fmhy-brand-2: hsl(343, 67%, 50%);
+  --fmhy-selection-bg: hsl(347, 84%, 90%);
   --accent9: hsl(346, 77%, 57%);
   --accent10: hsl(343, 67%, 50%);
   --accent11: hsl(346, 77%, 57%);
@@ -366,6 +423,9 @@ html.accent-cerise.t_light {
 
 /* meadow */
 html.accent-meadow.t_dark {
+  --fmhy-brand-1: hsl(156, 59%, 52%);
+  --fmhy-brand-2: hsl(158, 77%, 42%);
+  --fmhy-selection-bg: hsl(161, 80%, 20%);
   --accent9: hsl(158, 77%, 42%);
   --accent10: hsl(159, 86%, 30%);
   --accent11: hsl(156, 59%, 52%);
@@ -374,6 +434,9 @@ html.accent-meadow.t_dark {
   --accent2: hsl(162, 79%, 16%);
 }
 html.accent-meadow.t_light {
+  --fmhy-brand-1: hsl(158, 77%, 42%);
+  --fmhy-brand-2: hsl(159, 86%, 30%);
+  --fmhy-selection-bg: hsl(150, 70%, 80%);
   --accent9: hsl(158, 77%, 42%);
   --accent10: hsl(159, 86%, 30%);
   --accent11: hsl(158, 77%, 42%);
@@ -384,6 +447,9 @@ html.accent-meadow.t_light {
 
 /* merlin */
 html.accent-merlin.t_dark {
+  --fmhy-brand-1: hsl(45, 96%, 53%);
+  --fmhy-brand-2: hsl(45, 93%, 47%);
+  --fmhy-selection-bg: hsl(45, 81%, 29%);
   --accent9: hsl(45, 93%, 47%);
   --accent10: hsl(45, 96%, 40%);
   --accent11: hsl(45, 96%, 53%);
@@ -392,6 +458,9 @@ html.accent-merlin.t_dark {
   --accent2: hsl(45, 73%, 26%);
 }
 html.accent-merlin.t_light {
+  --fmhy-brand-1: hsl(45, 93%, 47%);
+  --fmhy-brand-2: hsl(45, 96%, 40%);
+  --fmhy-selection-bg: hsl(46, 98%, 77%);
   --accent9: hsl(45, 93%, 47%);
   --accent10: hsl(45, 96%, 40%);
   --accent11: hsl(45, 93%, 47%);
@@ -402,6 +471,9 @@ html.accent-merlin.t_light {
 
 /* blue-violet */
 html.accent-blue-violet.t_dark {
+  --fmhy-brand-1: hsl(237, 98%, 74%);
+  --fmhy-brand-2: hsl(242, 91%, 64%);
+  --fmhy-selection-bg: hsl(246, 59%, 41%);
   --accent9: hsl(242, 91%, 64%);
   --accent10: hsl(246, 82%, 59%);
   --accent11: hsl(237, 98%, 74%);
@@ -410,6 +482,9 @@ html.accent-blue-violet.t_dark {
   --accent2: hsl(245, 52%, 34%);
 }
 html.accent-blue-violet.t_light {
+  --fmhy-brand-1: hsl(242, 91%, 64%);
+  --fmhy-brand-2: hsl(246, 82%, 59%);
+  --fmhy-selection-bg: hsl(231, 100%, 88%);
   --accent9: hsl(242, 91%, 64%);
   --accent10: hsl(246, 82%, 59%);
   --accent11: hsl(242, 91%, 64%);
@@ -448,9 +523,10 @@ html.theme-catppuccin.t_dark {
   --accent12: #ddd6fe;
   --accent1: #2e1065;
   --accent2: #4c1d95;
-}
-html.theme-catppuccin.t_dark ::selection {
-  background: #0f2c47;
+  --fmhy-brand-1: #cba6f6;
+  --fmhy-brand-2: #7c3aed;
+  --fmhy-selection-bg: #0f2c47;
+  --fmhy-bg-elv: #1e1e29;
 }
 html.theme-catppuccin.t_light {
   --background: #f8fafc;
@@ -476,9 +552,77 @@ html.theme-catppuccin.t_light {
   --accent12: #5b21b6;
   --accent1: #f5f3ff;
   --accent2: #ede9fe;
+  --fmhy-brand-1: #9345ed;
+  --fmhy-brand-2: #7c3aed;
+  --fmhy-selection-bg: #5586a6;
+  --fmhy-bg-elv: #eef2f5;
+  --fmhy-hero-name-bg: #c5a5f6;
 }
-html.theme-catppuccin.t_light ::selection {
-  background: #5586a6;
+
+/* halloween (configs/halloween.ts) — warm stone neutrals with an orange
+   brand and violet secondary. a year-round preset, and the default theme for
+   anyone without a saved pick during October (see resolveStoredThemeName). */
+html.theme-halloween.t_dark {
+  --background: #17141a;
+  --backgroundHover: #221d26;
+  --backgroundPress: #221d26;
+  --backgroundFocus: #221d26;
+  --color1: #17141a;
+  --color2: #110f14;
+  --color3: #221d26;
+  --color9: #a8a29e;
+  --color10: #a8a29e;
+  --color11: #d6d3d1;
+  --color12: #f8f7ff;
+  --tipBg: #052e16;
+  --tipBorder: #4d7c0f;
+  --tipText: #bbf7d0;
+  --warnBg: #451a03;
+  --warnBorder: #b45309;
+  --warnText: #fcd34d;
+  --dangerText: #fecaca;
+  --accent9: #ea580c;
+  --accent10: #f97316;
+  --accent11: #fb923c;
+  --accent12: #fdba74;
+  --accent1: #431407;
+  --accent2: #7c2d12;
+  --fmhy-brand-1: #fb923c;
+  --fmhy-brand-2: #fdba74;
+  --fmhy-selection-bg: #7c2d12;
+  --fmhy-bg-elv: rgba(17, 15, 20, 0.8);
+  --fmhy-hero-name-bg: linear-gradient(120deg, #fdba74 30%, #a78bfa);
+}
+html.theme-halloween.t_light {
+  --background: #faf7f4;
+  --backgroundHover: #f2ece6;
+  --backgroundPress: #f2ece6;
+  --backgroundFocus: #f2ece6;
+  --color1: #faf7f4;
+  --color2: #f2ece6;
+  --color3: #ebe3db;
+  --color9: #78716c;
+  --color10: #78716c;
+  --color11: #44403c;
+  --color12: #1c1917;
+  --tipBg: #dcfce7;
+  --tipBorder: #4d7c0f;
+  --tipText: #3f6212;
+  --warnBg: #fef3c7;
+  --warnBorder: #b45309;
+  --warnText: #92400e;
+  --dangerText: #991b1b;
+  --accent9: #ea580c;
+  --accent10: #c2410c;
+  --accent11: #c2410c;
+  --accent12: #7c2d12;
+  --accent1: #fff7ed;
+  --accent2: #ffedd5;
+  --fmhy-brand-1: #c2410c;
+  --fmhy-brand-2: #9a3412;
+  --fmhy-selection-bg: #fed7aa;
+  --fmhy-bg-elv: rgba(255, 255, 255, 0.8);
+  --fmhy-hero-name-bg: linear-gradient(120deg, #ea580c 30%, #7c3aed);
 }
 
 /* monochrome (configs/monochrome.ts) — real grayscale-family literal colors,
@@ -491,8 +635,8 @@ html.theme-monochrome.t_dark {
   --color1: #1a1a1a;
   --color2: #171717;
   --color3: #262626;
-  --color9: #808080;
-  --color10: #808080;
+  --color9: #8a8a8a;
+  --color10: #8a8a8a;
   --color11: #cccccc;
   --color12: #ffffff;
   --tipBg: #1a1a1a;
@@ -507,9 +651,12 @@ html.theme-monochrome.t_dark {
   --accent12: #cccccc;
   --accent1: #0a0a0a;
   --accent2: #1a1a1a;
-}
-html.theme-monochrome.t_dark ::selection {
-  background: #333333;
+  --fmhy-brand-1: #ffffff;
+  --fmhy-brand-2: #e0e0e0;
+  --fmhy-selection-bg: #333333;
+  --fmhy-bg-elv: #242424;
+  --fmhy-hero-name-color: #ffffff;
+  --fmhy-hero-name-bg: #000000;
 }
 html.theme-monochrome.t_light {
   --background: #ffffff;
@@ -519,8 +666,8 @@ html.theme-monochrome.t_light {
   --color1: #ffffff;
   --color2: #f5f5f5;
   --color3: #e0e0e0;
-  --color9: #808080;
-  --color10: #808080;
+  --color9: #737373;
+  --color10: #737373;
   --color11: #333333;
   --color12: #000000;
   --tipBg: #f5f5f5;
@@ -535,9 +682,12 @@ html.theme-monochrome.t_light {
   --accent12: #333333;
   --accent1: #f5f5f5;
   --accent2: #e0e0e0;
-}
-html.theme-monochrome.t_light ::selection {
-  background: #cccccc;
+  --fmhy-brand-1: #000000;
+  --fmhy-brand-2: #1a1a1a;
+  --fmhy-selection-bg: #cccccc;
+  --fmhy-bg-elv: #ffffff;
+  --fmhy-hero-name-color: #000000;
+  --fmhy-hero-name-bg: #ffffff;
 }
 
 /* monolith (configs/monolith.ts) — the "sharp" theme: JetBrains Mono for
@@ -551,8 +701,8 @@ html.theme-monolith.t_dark {
   --color1: #06070b;
   --color2: #0a0b12;
   --color3: #1a1b25;
-  --color9: #467085;
-  --color10: #467085;
+  --color9: #7596a8;
+  --color10: #7596a8;
   --color11: #a8c5d6;
   --color12: #d2f4ff;
   --tipBg: #0d2818;
@@ -561,15 +711,17 @@ html.theme-monolith.t_dark {
   --warnBg: #2d1f06;
   --warnBorder: #d97706;
   --warnText: #fbbf24;
-  --accent9: #f42a8b;
+  --accent9: #d81b70;
   --accent10: #d81b70;
   --accent11: #f42a8b;
   --accent12: #46c7ff;
   --accent1: #1a1b25;
   --accent2: #242533;
-}
-html.theme-monolith.t_dark ::selection {
-  background: #005eff;
+  --fmhy-brand-1: #f42a8b;
+  --fmhy-brand-2: #3a0ca3;
+  --fmhy-selection-bg: #005eff;
+  --fmhy-bg-elv: #0e101a;
+  --fmhy-hero-name-bg: linear-gradient(120deg, #ffd700 20%, #4caf50 50%, #2196f3 80%);
 }
 html.theme-monolith.t_light {
   --background: #f5fbff;
@@ -579,8 +731,8 @@ html.theme-monolith.t_light {
   --color1: #f5fbff;
   --color2: #e8f4fd;
   --color3: #e0eaf5;
-  --color9: #6b7b9a;
-  --color10: #6b7b9a;
+  --color9: #53627b;
+  --color10: #53627b;
   --color11: #3a4560;
   --color12: #0a0e1a;
   --tipBg: #d1fae5;
@@ -595,9 +747,11 @@ html.theme-monolith.t_light {
   --accent12: #0047b8;
   --accent1: #e8f4fd;
   --accent2: #d0e8f5;
-}
-html.theme-monolith.t_light ::selection {
-  background: #46c7ff;
+  --fmhy-brand-1: #d81b70;
+  --fmhy-brand-2: #2d0b80;
+  --fmhy-selection-bg: #46c7ff;
+  --fmhy-bg-elv: #e8f4fd;
+  --fmhy-hero-name-bg: linear-gradient(120deg, #ffd700 20%, #4caf50 50%, #2196f3 80%);
 }
 /* monolith's signature traits beyond the palette: mono type + square corners
    (their config sets fonts and borderRadius: 0; their style.scss squares the
@@ -661,10 +815,12 @@ html.theme-view-transition * {
   text-decoration-line: underline;
   text-decoration-color: transparent;
   text-underline-offset: 4px;
-  transition: text-decoration-color 0.25s;
+  transition: text-decoration-color 0.25s, color 0.25s;
 }
+/* hover shifts to brand-2 (upstream style.scss .vp-doc a:hover) */
 .vp-link-reveal:hover {
-  text-decoration-color: var(--accent11);
+  color: var(--fmhy-brand-2);
+  text-decoration-color: var(--fmhy-brand-2);
 }
 
 /* header bottom divider: full width on small screens; from $xl it starts
@@ -699,12 +855,13 @@ html.theme-view-transition * {
   inline-size: 4px;
   block-size: 4px;
 }
+/* thumb: divider color, text-3 on hover (upstream .VPSidebar scrollbar) */
 .wk-rail::-webkit-scrollbar-thumb {
   background: var(--color4);
   border-radius: 14px;
 }
 .wk-rail::-webkit-scrollbar-thumb:hover {
-  background: var(--color5);
+  background: var(--color9);
 }
 .wk-rail::-webkit-scrollbar-track {
   background: transparent;
@@ -748,10 +905,11 @@ html.theme-view-transition * {
   text-decoration-line: underline;
   text-decoration-color: transparent;
   text-underline-offset: 4px;
-  transition: text-decoration-color 0.25s;
+  transition: text-decoration-color 0.25s, color 0.25s;
 }
 .wk-entry a:hover {
-  text-decoration-color: var(--accent11);
+  color: var(--fmhy-brand-2);
+  text-decoration-color: var(--fmhy-brand-2);
 }
 .wk-entry a:focus-visible {
   outline: 2px solid var(--color02);
@@ -963,6 +1121,347 @@ html.t_light .wk-removed-tip {
   }
 }
 
+/* home hero name (VPHero .name.clip): the active theme's gradient clipped to
+   the text; monochrome swaps the transparent fill for a solid color */
+.fmhy-hero-name {
+  background: var(--fmhy-hero-name-bg);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: var(--fmhy-hero-name-color);
+}
+/* june pride rainbow wins over any theme's hero (upstream style.scss
+   html.june uses !important for the same reason) */
+html.june {
+  --fmhy-hero-name-bg: linear-gradient(
+    120deg,
+    #ff6763,
+    #feb044,
+    #fcfd96,
+    #9ee09e,
+    #9ec1ce,
+    #cc99c8
+  ) !important;
+}
+
+/* seasonal marks (html.june / html.halloween from seasonalBranding.ts):
+   upstream swaps the navbar logo with css `content`, and the October hero /
+   uwu egg images in index.md — same mechanism here so the SSG markup never
+   carries a build-time month */
+html.june .fmhy-nav-logo {
+  content: url('/upstream/june_icon.webp');
+}
+html.halloween .fmhy-nav-logo,
+html.halloween .fmhy-hero-image {
+  content: url('/upstream/hall.png');
+}
+html.halloween .fmhy-hero-uwu {
+  content: url('/upstream/uwu-hall.png');
+}
+
+/* ---- shared popup surface (upstream style.scss "Shared popup surfaces"):
+   the appearance dropdown, nav flyout menus and note tooltips all sit on the
+   page background with a 1px divider border, 12px radius and --vp-shadow-3,
+   no arrow. monolith's sharp variant (2px brand border, square, flat) is
+   their html.monolith block; its #06070b ground only applies in dark — on a
+   light page it would bury the text. */
+.fmhy-popup {
+  background: var(--background);
+  border: 1px solid var(--color4);
+  border-radius: 12px;
+  box-shadow: var(--fmhy-shadow-3);
+  color: var(--color12);
+}
+html.theme-monolith .fmhy-popup {
+  border: 2px solid var(--fmhy-brand-1);
+  border-radius: 0;
+  box-shadow: none;
+}
+html.theme-monolith.t_dark .fmhy-popup {
+  background: #06070b;
+}
+
+/* nav flyout menu body (VPMenu: 12px padding, sized to its widest row) */
+.fmhy-nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  min-width: 128px;
+  max-width: 280px;
+  padding: 12px;
+}
+
+/* nav flyout rows (upstream .VPMenu .VPMenuLink): 6px pill tinted with the
+   accent on hover, a stronger tint + brand text for the current route */
+.fmhy-menu-link {
+  border-radius: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.fmhy-menu-link:hover {
+  background-color: var(--fmhy-accent-subtle);
+}
+.fmhy-menu-link[aria-current='page'] {
+  background-color: var(--fmhy-accent-muted);
+}
+.fmhy-menu-link:hover .fmhy-menu-link-text,
+.fmhy-menu-link[aria-current='page'] .fmhy-menu-link-text {
+  color: var(--fmhy-brand-1);
+}
+.fmhy-menu-link[aria-current='page'] .fmhy-menu-link-text {
+  font-weight: 600;
+}
+
+/* sidebar rows (upstream .VPSidebarItem.is-link > .item > .link): same
+   accent pills — subtle on hover, muted for the active page */
+.fmhy-sidebar-link {
+  transition: background-color 0.2s, color 0.2s;
+}
+.fmhy-sidebar-link:hover {
+  background-color: var(--fmhy-accent-subtle);
+}
+.fmhy-sidebar-link[aria-current='page'],
+.fmhy-sidebar-link[aria-current='page']:hover {
+  background-color: var(--fmhy-accent-muted);
+}
+
+/* note tooltip card (upstream Tooltip.vue .tooltip-card) */
+.fmhy-note-card {
+  display: flex;
+  flex-direction: column;
+  max-width: min(28rem, calc(100vw - 32px));
+  max-height: min(28rem, calc(100dvh - 32px));
+  overflow: hidden;
+}
+.fmhy-note-content {
+  padding: 16px;
+  overflow-y: auto;
+}
+/* html prefix: tamagui's `.is_Text` (inline, margin 0) would otherwise tie
+   these and win on source order */
+html .fmhy-note-title,
+html .fmhy-note-body {
+  display: block;
+}
+html .fmhy-note-title {
+  margin: 0 0 8px;
+}
+/* touch: a 36px tap target around the small info glyph */
+.fmhy-note-trigger {
+  position: relative;
+}
+@media (pointer: coarse) {
+  .fmhy-note-trigger::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+
+/* ---- header appearance controls (ThemeDropdown.vue / VPNavBarExtra) ---- */
+.fmhy-theme-trigger {
+  color: var(--color11);
+  background: transparent;
+  border-radius: 8px;
+  transition: color 0.25s, background-color 0.25s;
+}
+.fmhy-theme-trigger:hover,
+.fmhy-theme-trigger[aria-expanded='true'] {
+  color: var(--color12);
+  background: var(--fmhy-default-soft);
+}
+.fmhy-theme-popup {
+  --ap-surface: var(--background);
+  padding: 6px;
+}
+/* >=1280px the palette button + socials sit in the bar; 800-1279px they
+   live in the "…" flyout instead (upstream's 1280px VPNavBarExtra split) */
+.fmhy-nav-wide {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+.fmhy-nav-extra {
+  display: flex;
+  align-items: center;
+}
+@media (min-width: 1280px) {
+  .fmhy-nav-wide {
+    display: flex;
+  }
+  .fmhy-nav-extra {
+    display: none;
+  }
+}
+.fmhy-extra-menu {
+  --ap-surface: var(--background);
+  width: 220px;
+  padding: 6px;
+}
+.fmhy-menu-group + .fmhy-menu-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color4);
+  display: flex;
+  justify-content: center;
+}
+/* mobile nav sheet (VPNavScreenAppearance): the panel inline, flat */
+.fmhy-screen-appearance {
+  --ap-surface: var(--color2);
+  padding: 4px;
+}
+
+/* ---- appearance panel (AppearancePanel.vue + compact ColorPicker.vue) ---- */
+.ap-panel {
+  width: 100%;
+  min-width: 180px;
+  font-family: var(--f-family);
+}
+.ap-title,
+.ap-section-title {
+  color: var(--color9);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.ap-title {
+  padding: 6px 8px 4px;
+}
+.ap-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  color: var(--color12);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.ap-item:hover {
+  background: var(--fmhy-accent-subtle);
+}
+.ap-item[aria-pressed='true'] {
+  color: var(--fmhy-brand-1);
+  font-weight: 500;
+}
+.ap-item > span {
+  flex: 1;
+}
+.ap-divider {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--color4);
+}
+.ap-colors {
+  padding: 4px 8px 6px;
+}
+.ap-section + .ap-section {
+  margin-top: 12px;
+}
+.ap-section-title {
+  margin-bottom: 8px;
+}
+.ap-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* 22px circles; active = 2px brand-1 ring offset 1px on the panel surface
+   (tailwind ring-2 ring-offset-1) + a white check, inactive dimmed to 85%
+   and scaling up on hover */
+.ap-swatch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: all 0.2s;
+}
+.ap-swatch:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+.ap-swatch[aria-pressed='true'] {
+  opacity: 1;
+  transform: none;
+  box-shadow:
+    0 0 0 1px var(--ap-surface, var(--fmhy-bg-elv)),
+    0 0 0 3px var(--fmhy-brand-1);
+}
+.ap-swatch-fill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+}
+.ap-swatch-check {
+  display: inline-flex;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
+}
+/* monolith has no preview upstream: brand-1 -> brand-2 for the current mode */
+.ap-swatch-fill-monolith {
+  background-image: linear-gradient(135deg, #d81b70 0%, #2d0b80 100%);
+}
+html.t_dark .ap-swatch-fill-monolith {
+  background-image: linear-gradient(135deg, #f42a8b 0%, #3a0ca3 100%);
+}
+
+/* ---- sidebar card toggles (Switch.vue): brand-1 track + white thumb when
+   on; monochrome inverts to a black/white pair (style.scss
+   html[data-theme='monochrome'] .switch). html:root outranks tamagui's
+   `:root ._bg-*` atomic switch colors. */
+html:root .fmhy-switch {
+  background-color: var(--fmhy-default-soft);
+  border-color: var(--color6);
+  transition: border-color 0.25s, background-color 0.4s ease;
+}
+html:root .fmhy-switch.fmhy-switch-on {
+  background-color: var(--fmhy-brand-1);
+}
+html:root .fmhy-switch-thumb {
+  background-color: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+html.theme-monochrome .fmhy-switch {
+  background-color: #000;
+  border-color: #5a5a5a;
+}
+html.theme-monochrome .fmhy-switch.fmhy-switch-on {
+  background-color: #fff;
+}
+html.theme-monochrome .fmhy-switch-thumb {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+html.theme-monochrome .fmhy-switch-on .fmhy-switch-thumb {
+  background-color: #000;
+}
+
 /* AMOLED override — must stay LAST so it beats every theme-* block above
    (upstream forces black backgrounds over the active theme's palette) */
 html.amoled.t_dark {
@@ -972,6 +1471,8 @@ html.amoled.t_dark {
   --backgroundHover: #0a0a0a;
   --backgroundPress: #000000;
   --color1: #000000;
-  --color2: #050505;
+  /* their bgAlt / bgElv under AMOLED (themeHandler.ts applyCSSVariables) */
+  --color2: #000000;
   --color3: #0e0e0e;
+  --fmhy-bg-elv: #121212;
 }

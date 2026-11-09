@@ -1091,7 +1091,8 @@ const homeAnnouncement = upstream.homeAnnouncement
 // The mirror once froze a June capture as THE logo and served pride branding
 // into August. Filenames are existence-gated pointers into their config:
 // fmhy.ico = themeConfig.logo.src, june_icon.webp = their June script,
-// logo-uwu.svg = the ?uwu easter egg, hero from index.md hero.image.src.
+// logo-uwu.svg = the ?uwu easter egg, hero from index.md hero.image.src,
+// hall.png / uwu-hall.png = their October logo + uwu variant.
 const brandDir = join(SITE, 'public', 'upstream')
 mkdirSync(brandDir, { recursive: true })
 const copyBrandAsset = (name: string | null): string | null => {
@@ -1105,6 +1106,10 @@ const brand = {
   logo: copyBrandAsset('fmhy.ico'),
   juneLogo: copyBrandAsset('june_icon.webp'),
   uwuLogo: copyBrandAsset('logo-uwu.svg'),
+  // October branding (theme/index.ts applySeasonalBranding + index.md):
+  // root.css / seasonalBranding.ts swap to these off html.halloween
+  halloweenLogo: copyBrandAsset('hall.png'),
+  halloweenUwuLogo: copyBrandAsset('uwu-hall.png'),
   // raster icon source for our favicon/OG generator (sharp can't read .ico)
   pwaIcon: copyBrandAsset('pwa_icon.png'),
   heroImage: copyBrandAsset(upstream.homeHeroImage),

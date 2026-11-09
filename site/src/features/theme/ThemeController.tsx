@@ -1,4 +1,7 @@
+import { usePathname } from 'one'
 import { useEffect } from 'react'
+
+import { applySeasonalBranding } from './seasonalBranding'
 
 import {
   ACCENT_BASELINE,
@@ -12,7 +15,7 @@ import {
   THEME_NAMES,
   accentStorage,
   amoledStorage,
-  themeStorage,
+  resolveStoredThemeName,
   useAccent,
   useAmoled,
   useThemeName,
@@ -49,7 +52,7 @@ if (typeof document !== 'undefined') {
     applyClasses(
       amoledStorage.get() ?? false,
       accentStorage.get() ?? 'swarm',
-      themeStorage.get() ?? 'default',
+      resolveStoredThemeName(),
     )
   } catch (err) {
     console.info('[ThemeController] pre-paint apply skipped', err)
@@ -65,6 +68,13 @@ export function ThemeController() {
   useEffect(() => {
     applyClasses(amoled, accent, themeName)
   }, [amoled, accent, themeName])
+
+  // re-apply the June / October icon + theme-color swap after hydration and
+  // on each navigation (see seasonalBranding.ts)
+  const pathname = usePathname()
+  useEffect(() => {
+    applySeasonalBranding()
+  }, [pathname])
 
   return null
 }

@@ -6,12 +6,12 @@ import { createStorageValue } from '~/lib/storage'
 // note: base light/dark/system mode lives in the tamagui scheme provider.
 // these settings cover the extra fmhy.net theming layers: amoled, accent, theme.
 //
-// "accent" and "theme" are independent axes on fmhy.net (ColorPicker vs
-// ThemeSelector, docs/.vitepress/theme/themes/README.md): accent only
-// recolors the brand/link scale, while a theme (catppuccin, monochrome)
-// replaces the full palette — backgrounds, text, tip/warning callouts, and
-// the brand scale together. A theme's own brand colors win over the accent
-// pick while active (see the CSS cascade in app/root.css).
+// fmhy.net stores ONE theme name: a generated `color-<accent>` theme or a
+// preset (catppuccin, halloween, …), picked from the same Appearance panel.
+// We keep two keys (accent + theme) but drive them as one pick: a color
+// swatch sets the accent and resets the theme to 'default', a preset swatch
+// sets the theme and leaves the stored accent inert underneath it (a preset's
+// own brand colors win the CSS cascade, see app/root.css).
 
 // the 7 named accent palettes from fmhy.net (docs/.vitepress/theme/utils/colors.ts)
 export type AccentName =
@@ -46,25 +46,61 @@ export const ACCENT_SWATCHES: Record<AccentName, string> = {
 
 // full palette themes from fmhy.net (docs/.vitepress/theme/themes/configs) —
 // each replaces background/surface/text/callout/brand colors together, not
-// just the accent scale
-export type ThemeName = 'default' | 'catppuccin' | 'monochrome' | 'monolith'
+// just the accent scale. order = their registry order (configs/index.ts),
+// which is the order the THEME PRESETS swatches render in.
+export type ThemeName = 'default' | 'catppuccin' | 'halloween' | 'monochrome' | 'monolith'
 
 export const THEME_NAMES: readonly ThemeName[] = [
   'default',
   'catppuccin',
+  'halloween',
   'monochrome',
   'monolith',
 ] as const
 
-export const THEME_SWATCHES: Record<Exclude<ThemeName, 'default'>, string> = {
-  catppuccin: '#9345ed',
-  monochrome: '#808080',
-  monolith: '#f42a8b',
+export type PresetName = Exclude<ThemeName, 'default'>
+
+export const PRESET_NAMES = THEME_NAMES.filter(
+  (name): name is PresetName => name !== 'default',
+)
+
+// each config's displayName — the swatch title / aria-label
+export const PRESET_LABELS: Record<PresetName, string> = {
+  catppuccin: 'Catppuccin',
+  halloween: 'Halloween',
+  monochrome: 'Monochrome',
+  monolith: 'Monolith',
+}
+
+// "blue-violet" -> "Blue violet" (their normalizeColorName)
+export function accentLabel(name: AccentName): string {
+  const spaced = name.replaceAll('-', ' ')
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+// fmhy.net makes halloween the default theme through October
+// (themeHandler.ts resolveThemeName) — a default, not an override: anyone who
+// has picked a theme or color keeps it
+export function isOctober(date = new Date()): boolean {
+  return date.getMonth() === 9
 }
 
 export const amoledStorage = createStorageValue<boolean>('theme.amoled')
 export const accentStorage = createStorageValue<AccentName>('theme.accent')
 export const themeStorage = createStorageValue<ThemeName>('theme.name')
+
+// the theme to show when storage holds no explicit theme pick. upstream stores
+// one name for color + preset, so a saved color counts as a pick here too.
+export function resolveStoredThemeName(): ThemeName {
+  const stored = themeStorage.get()
+  if (stored != null && THEME_NAMES.includes(stored)) {
+    return stored
+  }
+  if (accentStorage.get() == null && isOctober()) {
+    return 'halloween'
+  }
+  return 'default'
+}
 
 // emitters seed with defaults so ssr + first client render match; storage syncs after mount
 const amoledEmitter = createEmitter<boolean>('theme.amoled', false)
@@ -122,8 +158,8 @@ export function useThemeName(): readonly [ThemeName, (value: ThemeName) => void]
   const value = useEmitterValue(themeEmitter)
 
   useEffect(() => {
-    const stored = themeStorage.get()
-    if (stored != null && stored !== themeEmitter.value) {
+    const stored = resolveStoredThemeName()
+    if (stored !== themeEmitter.value) {
       themeEmitter.emit(stored)
     }
   }, [])

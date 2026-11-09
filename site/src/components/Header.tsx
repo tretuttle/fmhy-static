@@ -16,6 +16,7 @@ import {
 
 import { ArrowUpRightIcon } from '~/icons/phosphor/ArrowUpRightIcon'
 import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
+import { DotsThreeIcon } from '~/icons/phosphor/DotsThreeIcon'
 import { ChatCircleIcon } from '~/icons/phosphor/ChatCircleIcon'
 import { GithubLogoIcon } from '~/icons/phosphor/GithubLogoIcon'
 import {
@@ -25,6 +26,7 @@ import {
 } from '~/icons/social/SolidSocialIcons'
 import { MagnifyingGlassIcon } from '~/icons/phosphor/MagnifyingGlassIcon'
 
+import { AppearancePanel } from '~/features/theme/AppearancePanel'
 import { ThemeMenu } from '~/features/theme/ThemeMenu'
 import { wikiNav } from '~/features/wiki/data'
 import chrome from '~/features/wiki/generated/chrome.json'
@@ -37,6 +39,7 @@ import { Link } from './Link'
 import { LocalNav } from './LocalNav'
 import { ScrollHeader, useMobileNavHidden } from './ScrollHeader'
 
+import type { ReactNode } from 'react'
 import type { TamaguiElement } from 'tamagui'
 
 // fmhy social channels — upstream's shared.ts socialLinks, via chrome.json.
@@ -45,14 +48,12 @@ const socialHref = (icon: string, fallback: string) =>
   chrome.socialLinks.find((s) => s.icon === icon)?.link ?? fallback
 
 // header logo, copied from their docs/public at sync time (generated/home.json
-// brand). Upstream swaps to the pride logo for June via a client script gated
-// on getMonth() === 5 — mirror that exactly, so we're never wearing June's
-// branding in August (which is precisely how this used to ship).
+// brand). The June / October seasonal marks are swapped in by CSS off the
+// html.june / html.halloween classes the pre-paint seasonal script sets
+// (upstream style.scss `.VPNavBarTitle .logo { content: url(...) }`) — never
+// decided here, where the SSG would bake the build month into every page.
 import homeJson from '~/features/wiki/generated/home.json'
-const LOGO_SRC =
-  new Date().getMonth() === 5 && homeJson.brand.juneLogo
-    ? homeJson.brand.juneLogo
-    : (homeJson.brand.logo ?? '/upstream/fmhy.ico')
+const LOGO_SRC = homeJson.brand.logo ?? '/upstream/fmhy.ico'
 
 const GITHUB_URL = socialHref('github', 'https://github.com/fmhy/edit')
 const DISCORD_INVITE_URL = socialHref(
@@ -82,27 +83,34 @@ const NAV_LINKS: NavLink[] = chrome.nav
     arrow: isExternal(n.href),
   }))
 
-// fmhy ecosystem menu, mirroring upstream shared.ts nav '🌱 Ecosystem'.
+// dropdown groups, mirroring upstream shared.ts nav entries with `items`
+// (currently '🛠️ Tools' and '➕ More') — every group, under its own label.
 // internal where a route exists; the rest deep-link externally
-type EcosystemItem = {
+type NavMenuItem = {
   emoji: string
   label: string
   href: string
   external?: boolean
 }
 
-const ECOSYSTEM_ITEMS: EcosystemItem[] = (
-  chrome.nav.find((n) => n.items?.length)?.items ?? []
-).map((item) => ({
-  emoji: item.emoji,
-  label: item.label,
-  href: item.href,
-  external: isExternal(item.href),
-}))
+type NavGroup = { emoji: string; label: string; items: NavMenuItem[] }
+
+const NAV_GROUPS: NavGroup[] = chrome.nav
+  .filter((n) => n.items?.length)
+  .map((n) => ({
+    emoji: n.emoji,
+    label: n.label,
+    items: (n.items ?? []).map((item) => ({
+      emoji: item.emoji,
+      label: item.label,
+      href: item.href,
+      external: isExternal(item.href),
+    })),
+  }))
 
 // "Search" opens the live ⌘K modal instead of routing anywhere — desktop and
 // mobile both need to special-case it out of the plain link-rendering loop
-const isSearchItem = (item: EcosystemItem) => item.label === 'Search'
+const isSearchItem = (item: NavMenuItem) => item.label === 'Search'
 
 type SocialLink = {
   label: string
@@ -124,7 +132,13 @@ const Logo = () => (
           rounded black plate, so any tile background shows as a halo on themes
           whose surface isn't that exact black */}
       <YStack width={28} height={28} items="center" justify="center">
-        <Image src={LOGO_SRC} width={28} height={28} alt="FMHY Logo" />
+        <Image
+          className="fmhy-nav-logo"
+          src={LOGO_SRC}
+          width={28}
+          height={28}
+          alt="FMHY Logo"
+        />
       </YStack>
       <SizableText
         select="none"
@@ -169,34 +183,45 @@ const NavTextLink = ({ emoji, label, href, arrow }: NavLink) => {
 }
 
 // render="a" when this row is the Link asChild target — see CircleLink
-const EcosystemRowInner = ({ item, render }: { item: EcosystemItem; render?: 'a' }) => (
+// hover/current-route tints come from .fmhy-menu-link in app/root.css (no
+// tamagui bg on the row: its `:root ._bg-*` atomics would outrank them)
+const NavMenuRowInner = ({
+  item,
+  render,
+  current,
+}: {
+  item: NavMenuItem
+  render?: 'a'
+  current?: boolean
+}) => (
   <XStack
     render={render}
+    className="fmhy-menu-link"
+    {...(current ? ({ 'aria-current': 'page' } as object) : {})}
     items="center"
     gap="$2.5"
     px="$2.5"
     py="$2"
-    rounded="$3"
+    rounded={6}
     cursor="pointer"
-    bg="transparent"
     borderWidth={0}
     width="100%"
-    hoverStyle={{ bg: '$color4' }}
   >
     <SizableText size="$4">{item.emoji}</SizableText>
-    <SizableText flex={1} size="$3" color="$color12">
+    <SizableText className="fmhy-menu-link-text" flex={1} size="$3" color="$color12">
       {item.label}
     </SizableText>
     {item.external ? <ArrowUpRightIcon size={12} color="$color9" /> : null}
   </XStack>
 )
 
-const EcosystemRow = ({ item }: { item: EcosystemItem }) => {
+const NavMenuRow = ({ item }: { item: NavMenuItem }) => {
+  const pathname = usePathname()
   // "Search" opens the live ⌘K content-search modal, not a route
   if (isSearchItem(item)) {
     return (
       <XStack render="button" bg="transparent" borderWidth={0} onPress={() => openSearch()}>
-        <EcosystemRowInner item={item} />
+        <NavMenuRowInner item={item} />
       </XStack>
     )
   }
@@ -206,15 +231,30 @@ const EcosystemRow = ({ item }: { item: EcosystemItem }) => {
       {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       asChild
     >
-      <EcosystemRowInner item={item} render="a" />
+      <NavMenuRowInner
+        item={item}
+        render="a"
+        current={!item.external && pathname === item.href}
+      />
     </Link>
   )
 }
 
 // VPFlyout port: opens on hover (mouseenter/mouseleave), stays click- and
 // keyboard-operable (the trigger is a real button toggling aria-expanded),
-// closes on Escape and when focus leaves the flyout
-const EcosystemMenu = () => {
+// closes on Escape and when focus leaves the flyout. the menu wears the shared
+// popup surface (.fmhy-popup in app/root.css, upstream's .VPMenu rules).
+const Flyout = ({
+  label,
+  button,
+  menuClassName,
+  children,
+}: {
+  label: string
+  button: ReactNode
+  menuClassName?: string
+  children: ReactNode
+}) => {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<TamaguiElement>(null)
 
@@ -258,15 +298,12 @@ const EcosystemMenu = () => {
         borderWidth={0}
         opacity={0.85}
         hoverStyle={{ opacity: 1 }}
-        aria-label="Ecosystem"
+        aria-label={label}
         {...({ 'aria-haspopup': 'true' } as object)}
         aria-expanded={open}
         onPress={() => setOpen(!open)}
       >
-        <SizableText fontFamily="$body" size="$3" color="$color12">
-          🌱 Ecosystem
-        </SizableText>
-        <CaretDownIcon size={12} color="$color11" />
+        {button}
       </XStack>
 
       {/* .menu: fades in/out (opacity/visibility .25s), sits right under the
@@ -283,27 +320,32 @@ const EcosystemMenu = () => {
           transition: 'opacity 0.25s, visibility 0.25s',
         }}
       >
-        <YStack
-          bg="$color2"
-          borderWidth={1}
-          borderColor="$color5"
-          rounded="$4"
-          p="$2"
-          gap="$0.5"
-          width={240}
-          // --vp-shadow-3
-          style={{
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08)',
-          }}
-        >
-          {ECOSYSTEM_ITEMS.map((item) => (
-            <EcosystemRow key={item.label} item={item} />
-          ))}
-        </YStack>
+        <div className={menuClassName ? `fmhy-popup ${menuClassName}` : 'fmhy-popup'}>
+          {children}
+        </div>
       </YStack>
     </XStack>
   )
 }
+
+const NavMenu = ({ group }: { group: NavGroup }) => (
+  <Flyout
+    label={group.label}
+    button={
+      <>
+        <SizableText fontFamily="$body" size="$3" color="$color12">
+          {group.emoji} {group.label}
+        </SizableText>
+        <CaretDownIcon size={12} color="$color11" />
+      </>
+    }
+    menuClassName="fmhy-nav-menu"
+  >
+    {group.items.map((item) => (
+      <NavMenuRow key={item.label} item={item} />
+    ))}
+  </Flyout>
+)
 
 const SocialLinksRow = () => (
   <XStack items="center">
@@ -313,6 +355,28 @@ const SocialLinksRow = () => (
       </CircleLink>
     ))}
   </XStack>
+)
+
+// VPNavBarExtra port (800-1279px): the "…" flyout holding the Appearance
+// panel and the social links, which only sit in the bar itself from 1280px
+// (upstream style.scss @media (max-width: 1279px) .VPNavBarExtra rules)
+const NavBarExtra = () => (
+  <Flyout
+    label="extra navigation"
+    button={
+      <XStack width={36} height={36} items="center" justify="center">
+        <DotsThreeIcon size={20} color="$color12" />
+      </XStack>
+    }
+    menuClassName="fmhy-extra-menu"
+  >
+    <div className="fmhy-menu-group">
+      <AppearancePanel />
+    </div>
+    <div className="fmhy-menu-group">
+      <SocialLinksRow />
+    </div>
+  </Flyout>
 )
 
 // expanded search trigger beside the logo on wide screens (phase 1 placeholder)
@@ -528,7 +592,6 @@ const MobileMenu = () => {
           <YStack flex={1} gap="$2">
             <XStack items="center" justify="space-between">
               <Logo />
-              <ThemeMenu />
             </XStack>
 
             <Separator my="$2" />
@@ -589,19 +652,31 @@ const MobileMenu = () => {
                   />
                 ))}
 
-                <Separator my="$2" />
-
-                {ECOSYSTEM_ITEMS.filter((item) => !isSearchItem(item)).map((item) => (
-                  <SheetRow
-                    key={item.label}
-                    label={item.label}
-                    emoji={item.emoji}
-                    href={item.href}
-                    external={item.external}
-                    onPress={close}
-                  />
+                {NAV_GROUPS.map((group) => (
+                  <YStack key={group.label} gap="$0.5">
+                    <Separator my="$2" />
+                    <SheetGroupLabel label={`${group.emoji} ${group.label}`} />
+                    {group.items
+                      .filter((item) => !isSearchItem(item))
+                      .map((item) => (
+                        <SheetRow
+                          key={item.label}
+                          label={item.label}
+                          emoji={item.emoji}
+                          href={item.href}
+                          external={item.external}
+                          onPress={close}
+                        />
+                      ))}
+                  </YStack>
                 ))}
               </YStack>
+
+              {/* VPNavScreenAppearance: the panel inline, below the menu */}
+              <Separator my="$2" />
+              <div className="fmhy-screen-appearance">
+                <AppearancePanel />
+              </div>
             </ScrollView>
 
             <Separator my="$2" />
@@ -647,8 +722,8 @@ export function Header() {
               </CircleButton>
             </XStack>
 
-            {/* lg+ : nav links + ecosystem in a labelled <nav> (VPNavBarMenu),
-                then theme + socials beside it */}
+            {/* lg+ : nav links + dropdown groups in a labelled <nav> (VPNavBarMenu),
+                then theme + socials (or the "…" menu) beside it */}
             <XStack display="none" $lg={{ display: 'flex' }} gap="$4" items="center">
               <XStack
                 render="nav"
@@ -662,10 +737,19 @@ export function Header() {
                 {NAV_LINKS.map((l) => (
                   <NavTextLink key={l.label} {...l} />
                 ))}
-                <EcosystemMenu />
+                {NAV_GROUPS.map((group) => (
+                  <NavMenu key={group.label} group={group} />
+                ))}
               </XStack>
-              <ThemeMenu />
-              <SocialLinksRow />
+              {/* >=1280px: palette dropdown + socials in the bar; below that
+                  both move into the "…" menu (VPNavBarExtra) */}
+              <div className="fmhy-nav-wide">
+                <ThemeMenu />
+                <SocialLinksRow />
+              </div>
+              <div className="fmhy-nav-extra">
+                <NavBarExtra />
+              </div>
             </XStack>
 
             {/* below lg: hamburger menu */}

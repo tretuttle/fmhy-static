@@ -1,5 +1,6 @@
 import { memo, useState, type ReactNode } from 'react'
-import { Tooltip, YStack } from 'tamagui'
+
+import { NoteBody, NoteStatus, NoteTooltip } from '~/components/NoteLink'
 
 import { TwemojiIcon, TWEMOJI_CODES } from '~/icons/TwemojiIcon'
 import { Text } from '~/interface/text/Text'
@@ -91,32 +92,25 @@ const MARKER_TWEMOJI: Record<string, string> = {
 // tooltip. the one stateful row piece that stays a component (content loads on
 // hover) — a handful per page, so its tamagui weight doesn't matter.
 const NoteSubLink = ({ noteId, label }: { noteId: string; label: string }) => {
-  const [open, setOpen] = useState(false)
   const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle')
   const [note, setNote] = useState<WikiNote | null>(null)
 
   return (
-    <Tooltip
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (next && status === 'idle') {
-          setStatus('loading')
-          void loadNote(noteId).then((resolved) => {
-            setNote(resolved)
-            setStatus('done')
-          })
-        }
+    <NoteTooltip
+      title={status === 'done' ? note?.title : null}
+      onOpen={() => {
+        if (status !== 'idle') return
+        setStatus('loading')
+        void loadNote(noteId).then((resolved) => {
+          setNote(resolved)
+          setStatus('done')
+        })
       }}
-      placement="top"
-      delay={{ open: 120, close: 120 }}
-      restMs={120}
-      allowFlip
-    >
-      <Tooltip.Trigger asChild="except-style">
+      trigger={
         <Text
           render="span"
           tag="span"
+          className="fmhy-note-trigger"
           display="inline-flex"
           cursor="pointer"
           color="$accent11"
@@ -126,48 +120,16 @@ const NoteSubLink = ({ noteId, label }: { noteId: string; label: string }) => {
         >
           <InfoFilledEntrySvg />
         </Text>
-      </Tooltip.Trigger>
-
-      <Tooltip.Content
-        maxW={360}
-        p="$3"
-        bg="$color2"
-        borderWidth={2}
-        borderColor="$color4"
-        rounded="$4"
-        z={100000}
-        enterStyle={{ y: -4, opacity: 0 }}
-        exitStyle={{ y: -4, opacity: 0 }}
-        // @ts-ignore css-only config lacks animation types (same pattern as NoteLink.tsx)
-        animation="quick"
-      >
-        <Tooltip.Arrow size="$3" borderWidth={1} borderColor="$color4" />
-        <YStack gap="$1.5" maxW={336} maxH={320} overflow="hidden">
-          {status === 'loading' && (
-            <Text size="$2" fontFamily="$mono" color="$color10">
-              Loading note…
-            </Text>
-          )}
-          {status === 'done' && note && (
-            <>
-              {!!note.title && (
-                <Text size="$3" fontWeight="700" color="$color12">
-                  {note.title}
-                </Text>
-              )}
-              <Text size="$2" lineHeight={18} color="$color11">
-                <InlineMarkdown markdown={note.markdown} />
-              </Text>
-            </>
-          )}
-          {status === 'done' && !note && (
-            <Text size="$2" color="$color10">
-              Note unavailable.
-            </Text>
-          )}
-        </YStack>
-      </Tooltip.Content>
-    </Tooltip>
+      }
+    >
+      {status === 'loading' && <NoteStatus>Loading note…</NoteStatus>}
+      {status === 'done' && note && (
+        <NoteBody>
+          <InlineMarkdown markdown={note.markdown} />
+        </NoteBody>
+      )}
+      {status === 'done' && !note && <NoteStatus>Note unavailable.</NoteStatus>}
+    </NoteTooltip>
   )
 }
 

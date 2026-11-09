@@ -815,10 +815,12 @@ html.theme-view-transition * {
   text-decoration-line: underline;
   text-decoration-color: transparent;
   text-underline-offset: 4px;
-  transition: text-decoration-color 0.25s;
+  transition: text-decoration-color 0.25s, color 0.25s;
 }
+/* hover shifts to brand-2 (upstream style.scss .vp-doc a:hover) */
 .vp-link-reveal:hover {
-  text-decoration-color: var(--accent11);
+  color: var(--fmhy-brand-2);
+  text-decoration-color: var(--fmhy-brand-2);
 }
 
 /* header bottom divider: full width on small screens; from $xl it starts
@@ -853,12 +855,13 @@ html.theme-view-transition * {
   inline-size: 4px;
   block-size: 4px;
 }
+/* thumb: divider color, text-3 on hover (upstream .VPSidebar scrollbar) */
 .wk-rail::-webkit-scrollbar-thumb {
   background: var(--color4);
   border-radius: 14px;
 }
 .wk-rail::-webkit-scrollbar-thumb:hover {
-  background: var(--color5);
+  background: var(--color9);
 }
 .wk-rail::-webkit-scrollbar-track {
   background: transparent;
@@ -902,10 +905,11 @@ html.theme-view-transition * {
   text-decoration-line: underline;
   text-decoration-color: transparent;
   text-underline-offset: 4px;
-  transition: text-decoration-color 0.25s;
+  transition: text-decoration-color 0.25s, color 0.25s;
 }
 .wk-entry a:hover {
-  text-decoration-color: var(--accent11);
+  color: var(--fmhy-brand-2);
+  text-decoration-color: var(--fmhy-brand-2);
 }
 .wk-entry a:focus-visible {
   outline: 2px solid var(--color02);
@@ -1097,9 +1101,80 @@ html.theme-monolith.t_dark .fmhy-popup {
   padding: 12px;
 }
 
+/* nav flyout rows (upstream .VPMenu .VPMenuLink): 6px pill tinted with the
+   accent on hover, a stronger tint + brand text for the current route */
+.fmhy-menu-link {
+  border-radius: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.fmhy-menu-link:hover {
+  background-color: var(--fmhy-accent-subtle);
+}
+.fmhy-menu-link[aria-current='page'] {
+  background-color: var(--fmhy-accent-muted);
+}
+.fmhy-menu-link:hover .fmhy-menu-link-text,
+.fmhy-menu-link[aria-current='page'] .fmhy-menu-link-text {
+  color: var(--fmhy-brand-1);
+}
+.fmhy-menu-link[aria-current='page'] .fmhy-menu-link-text {
+  font-weight: 600;
+}
+
+/* sidebar rows (upstream .VPSidebarItem.is-link > .item > .link): same
+   accent pills — subtle on hover, muted for the active page */
+.fmhy-sidebar-link {
+  transition: background-color 0.2s, color 0.2s;
+}
+.fmhy-sidebar-link:hover {
+  background-color: var(--fmhy-accent-subtle);
+}
+.fmhy-sidebar-link[aria-current='page'],
+.fmhy-sidebar-link[aria-current='page']:hover {
+  background-color: var(--fmhy-accent-muted);
+}
+
+/* note tooltip card (upstream Tooltip.vue .tooltip-card) */
+.fmhy-note-card {
+  display: flex;
+  flex-direction: column;
+  max-width: min(28rem, calc(100vw - 32px));
+  max-height: min(28rem, calc(100dvh - 32px));
+  overflow: hidden;
+}
+.fmhy-note-content {
+  padding: 16px;
+  overflow-y: auto;
+}
+/* html prefix: tamagui's `.is_Text` (inline, margin 0) would otherwise tie
+   these and win on source order */
+html .fmhy-note-title,
+html .fmhy-note-body {
+  display: block;
+}
+html .fmhy-note-title {
+  margin: 0 0 8px;
+}
+/* touch: a 36px tap target around the small info glyph */
+.fmhy-note-trigger {
+  position: relative;
+}
+@media (pointer: coarse) {
+  .fmhy-note-trigger::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+
 /* ---- header appearance controls (ThemeDropdown.vue / VPNavBarExtra) ---- */
 .fmhy-theme-trigger {
   color: var(--color11);
+  background: transparent;
   border-radius: 8px;
   transition: color 0.25s, background-color 0.25s;
 }
@@ -1269,17 +1344,17 @@ html.t_dark .ap-swatch-fill-monolith {
 
 /* ---- sidebar card toggles (Switch.vue): brand-1 track + white thumb when
    on; monochrome inverts to a black/white pair (style.scss
-   html[data-theme='monochrome'] .switch). html prefix outranks tamagui's
-   atomic switch colors. */
-html .fmhy-switch {
+   html[data-theme='monochrome'] .switch). html:root outranks tamagui's
+   `:root ._bg-*` atomic switch colors. */
+html:root .fmhy-switch {
   background-color: var(--fmhy-default-soft);
   border-color: var(--color6);
   transition: border-color 0.25s, background-color 0.4s ease;
 }
-html .fmhy-switch.fmhy-switch-on {
+html:root .fmhy-switch.fmhy-switch-on {
   background-color: var(--fmhy-brand-1);
 }
-html .fmhy-switch-thumb {
+html:root .fmhy-switch-thumb {
   background-color: #fff;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
 }

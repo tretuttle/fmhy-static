@@ -36,7 +36,6 @@ export function ThemeMenu() {
           items="center"
           justify="center"
           cursor="pointer"
-          bg="transparent"
           borderWidth={0}
           p={0}
         >

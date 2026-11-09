@@ -183,22 +183,32 @@ const NavTextLink = ({ emoji, label, href, arrow }: NavLink) => {
 }
 
 // render="a" when this row is the Link asChild target — see CircleLink
-const NavMenuRowInner = ({ item, render }: { item: NavMenuItem; render?: 'a' }) => (
+// hover/current-route tints come from .fmhy-menu-link in app/root.css (no
+// tamagui bg on the row: its `:root ._bg-*` atomics would outrank them)
+const NavMenuRowInner = ({
+  item,
+  render,
+  current,
+}: {
+  item: NavMenuItem
+  render?: 'a'
+  current?: boolean
+}) => (
   <XStack
     render={render}
+    className="fmhy-menu-link"
+    {...(current ? ({ 'aria-current': 'page' } as object) : {})}
     items="center"
     gap="$2.5"
     px="$2.5"
     py="$2"
-    rounded="$3"
+    rounded={6}
     cursor="pointer"
-    bg="transparent"
     borderWidth={0}
     width="100%"
-    hoverStyle={{ bg: '$color4' }}
   >
     <SizableText size="$4">{item.emoji}</SizableText>
-    <SizableText flex={1} size="$3" color="$color12">
+    <SizableText className="fmhy-menu-link-text" flex={1} size="$3" color="$color12">
       {item.label}
     </SizableText>
     {item.external ? <ArrowUpRightIcon size={12} color="$color9" /> : null}
@@ -206,6 +216,7 @@ const NavMenuRowInner = ({ item, render }: { item: NavMenuItem; render?: 'a' }) 
 )
 
 const NavMenuRow = ({ item }: { item: NavMenuItem }) => {
+  const pathname = usePathname()
   // "Search" opens the live ⌘K content-search modal, not a route
   if (isSearchItem(item)) {
     return (
@@ -220,7 +231,11 @@ const NavMenuRow = ({ item }: { item: NavMenuItem }) => {
       {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       asChild
     >
-      <NavMenuRowInner item={item} render="a" />
+      <NavMenuRowInner
+        item={item}
+        render="a"
+        current={!item.external && pathname === item.href}
+      />
     </Link>
   )
 }

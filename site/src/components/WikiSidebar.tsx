@@ -14,28 +14,19 @@ import type { WikiNavGroup, WikiNavItem } from '~/features/wiki/types'
 // sidebar (shared.ts) into nav.json, same as the groups
 const TOP_ITEMS: WikiNavItem[] = wikiNav.topLinks
 
-// row frame mirrors fmhy-app SidebarRowFrame (height 36, rounded, hover/press, active bg)
+// row frame: 6px pill whose hover / active tints are the accent mixes in
+// app/root.css (.fmhy-sidebar-link, upstream's .VPSidebarItem link rules) —
+// subtle on hover, muted behind the active page's brand-colored label
 const SidebarRowFrame = styled(XStack, {
   cursor: 'pointer',
   height: 32,
   px: '$3',
-  rounded: '$3',
+  rounded: 6,
   items: 'center',
   gap: '$2.5',
-  bg: 'transparent',
+  // no bg here: tamagui's `:root ._bg-*` atomics would tie the root.css
+  // hover/active rules on specificity and win on source order
   textDecorationLine: 'none',
-  transition: '200ms',
-
-  hoverStyle: { bg: '$color3' },
-  pressStyle: { bg: '$color4', scale: 0.98 },
-
-  variants: {
-    active: {
-      // fmhy.net's active row is colored text, no background pill — hover
-      // feedback (defined above) still applies to non-active rows as normal.
-      true: { bg: 'transparent' },
-    },
-  } as const,
 })
 
 function SidebarRow({ item, onNavigate }: { item: WikiNavItem; onNavigate?: () => void }) {
@@ -54,7 +45,8 @@ function SidebarRow({ item, onNavigate }: { item: WikiNavItem; onNavigate?: () =
       render="a"
       href={href}
       {...(external && { target: '_blank', rel: 'noopener noreferrer' })}
-      active={active}
+      className="fmhy-sidebar-link"
+      {...(active ? ({ 'aria-current': 'page' } as object) : {})}
       onPress={(e) => {
         onNavigate?.()
         if (external) return

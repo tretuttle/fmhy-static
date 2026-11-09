@@ -9,7 +9,7 @@ Wiki content comes from a real clone of [fmhy/edit](https://github.com/fmhy/edit
 - **Static Site Generation** — every wiki page prerendered with One's SSG mode
 - **Wiki parity** — sections, entries, starred items, notices, tooltips and NSFW entries matching fmhy.net rendering
 - **MiniSearch-powered search** — flat results, detailed view, excerpts, match cycling and pagination mirroring fmhy.net's local search
-- **Catppuccin / Monochrome theming** — dark/light/system with the fmhy.net theme palettes
+- **fmhy.net theming** — header Appearance panel: light/dark/AMOLED (OS-following until picked), 7 accent colors and the Catppuccin / Halloween / Monochrome / Monolith presets; Halloween is the default theme through October
 - **SEO / head parity** — per-page canonical, Open Graph and Twitter tags with the `:title • freemediaheckyeah` title scheme
 - **OG cards** — 1200x630 branded Open Graph image generated per route at prebuild (satori + sharp)
 - **PWA basics** — `manifest.webmanifest`, favicon.ico, apple-touch and PWA icons generated from the FMHY logo

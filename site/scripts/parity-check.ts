@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { assertFmhyRoot } from './wiki/fmhy-root'
+import { stripInvisible } from './wiki/parse'
 
 const SITE = join(import.meta.dir, '..')
 const ROOT = assertFmhyRoot()
@@ -46,7 +47,9 @@ const decodeEntities = (s: string): string =>
     .replace(/&gt;/g, '>')
 
 // normalize an external url so cosmetic differences don't count as drift:
-// entity decoding, percent-encoding, trailing slash (also before a fragment)
+// entity decoding, percent-encoding, invisible chars, trailing slash (also
+// before a fragment). invisibles: the generator strips them from the source,
+// but their HTML keeps any that leaked into a url (e.g. notes/<U+2060>tobari.md)
 const norm = (u: string): string | null => {
   let url = decodeEntities(u.trim())
   if (!/^https?:\/\//i.test(url)) return null
@@ -55,6 +58,7 @@ const norm = (u: string): string | null => {
   } catch {
     // malformed escapes — compare as-is
   }
+  url = stripInvisible(url)
   url = url.replace(/\/+(?=#|$)/, '')
   // fragments: their renderer slugifies even external anchors (digit-leading
   // gets a "_" prefix, "_" becomes "-"), and reddit-era fragments carry

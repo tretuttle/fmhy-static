@@ -220,14 +220,16 @@ export function centerMarkInExcerpt(
 // ---------------------------------------------------------------------------
 // post-navigation scroll-to-match — searchScroll.ts port adapted to our DOM:
 // content root is #main-content, section anchors are the generated wrapper
-// divs (WikiSectionList's Anchor), the navbar is the fixed 56px header.
+// divs (WikiSectionList's Anchor), the bars are the fixed <header> + #local-nav.
 // ---------------------------------------------------------------------------
 
-const HEADER_HEIGHT = 64
 const HIGHLIGHT_CLASS = 'vp-search-highlight-target'
-// freezes the (mobile) hide-on-scroll header + local-nav while we jump
-// (upstream html.vp-search-scrolling, style.scss)
+// disables the header / local-nav transitions while we jump so they can't
+// animate mid-scroll (upstream html.vp-search-scrolling, style.scss)
 const SCROLLING_CLASS = 'vp-search-scrolling'
+// breathing room between the bars and the landed match (upstream
+// --fmhy-scroll-inset = nav + local nav + 16px)
+const LANDING_GAP_PX = 16
 
 let activeScrollId = 0
 let activeObserver: MutationObserver | null = null
@@ -237,37 +239,40 @@ function getContentRoot(): Element | null {
   return document.getElementById('main-content') ?? document.body
 }
 
-// upstream getNavbarHeight: fixed header plus the sticky mobile local-nav bar
-// when it is visible — without it the match lands hidden under the bar
-function getNavbarHeight(): number {
-  let navHeight = HEADER_HEIGHT
-  const localNav = document.getElementById('local-nav')
-  if (localNav) {
-    const rect = localNav.getBoundingClientRect()
-    if (rect.height > 0) navHeight += rect.height
-  }
-  return navHeight
+// upstream updateScrollInset (Layout.vue): the bars' full heights — a
+// hide-on-scroll header still counts, like VPNav's — plus 16px
+// TODO(parity/scroll): use shared offset
+function getLandingInset(): number {
+  const visibleHeight = (el: Element | null) =>
+    el && getComputedStyle(el).display !== 'none' ? el.getBoundingClientRect().height : 0
+  return (
+    visibleHeight(document.querySelector('body header')) +
+    visibleHeight(document.getElementById('local-nav')) +
+    LANDING_GAP_PX
+  )
 }
 
-function scrollToMatchInSection(
+// upstream scrollToMatchInSection's multi-pass element pick; returns the
+// element to land on (the scroll itself is landOnMatch)
+function findMatchInSection(
   sectionEl: HTMLElement | null,
   query: string,
   matchContext: string | null,
-): boolean {
-  if (!query.trim()) return false
+): Element | null {
+  if (!query.trim()) return null
 
   const queryLower = query.trim().toLowerCase()
   const queryWords = queryLower.split(/\s+/).filter(Boolean)
-  if (queryWords.length === 0) return false
+  if (queryWords.length === 0) return null
 
   const contentRoot = getContentRoot()
-  if (!contentRoot) return false
+  if (!contentRoot) return null
 
   // our section anchors are wrapper divs containing the whole (sub)section,
   // so candidate collection is a simple scoped query
   const scope: Element = sectionEl ?? contentRoot
   const candidates = Array.from(scope.querySelectorAll('p, li, td, dd, blockquote'))
-  if (candidates.length === 0) return false
+  if (candidates.length === 0) return null
 
   let bestMatch: Element | null = null
   const contextLower = matchContext?.trim().toLowerCase() || null
@@ -348,42 +353,75 @@ function scrollToMatchInSection(
     }
   }
 
-  if (!bestMatch) return false
-  if (sectionEl && bestMatch === sectionEl) return false
-
-  doScrollAndHighlight(bestMatch)
-  return true
+  if (!bestMatch) return null
+  if (sectionEl && bestMatch === sectionEl) return null
+  return bestMatch
 }
 
-function doScrollAndHighlight(el: Element): void {
+const LANDING_MAX_ATTEMPTS = 40
+const LANDING_STABLE_FRAMES = 3
+
+/**
+ * Flash the match and put it at the top of the content, just below the bars
+ * (upstream scrollIntoView({ block: 'start' }) against scroll-margin-top:
+ * inset). Our sections are content-visibility placeholders, so one measured
+ * jump lands off once the sections above realize their real heights — jump,
+ * re-measure and correct until the position holds for a few frames
+ * (scrollToAnchor.ts's settle loop). A user wheel/touch/key ends it early.
+ * TODO(parity/scroll): use shared offset
+ */
+function landOnMatch(el: Element, isStale: () => boolean, onDone: () => void): void {
   const prev = document.querySelector(`.${HIGHLIGHT_CLASS}`)
   if (prev) prev.classList.remove(HIGHLIGHT_CLASS)
   if (highlightTimeout) {
     clearTimeout(highlightTimeout)
     highlightTimeout = null
   }
-
-  // place the match at 18% of the remaining viewport height below the navbar
-  const navHeight = getNavbarHeight()
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
-  const remainingHeight = Math.max(200, viewportHeight - navHeight)
-  const desiredOffset = navHeight + Math.floor(remainingHeight * 0.18)
-
-  const rect = el.getBoundingClientRect()
-  const targetY = Math.max(0, rect.top + window.scrollY - desiredOffset)
+  el.classList.add(HIGHLIGHT_CLASS)
+  highlightTimeout = setTimeout(() => el.classList.remove(HIGHLIGHT_CLASS), 2000)
 
   const docEl = document.documentElement
   const prevBehavior = docEl.style.scrollBehavior
   docEl.style.scrollBehavior = 'auto'
-  window.scrollTo({ top: targetY, behavior: 'auto' })
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      docEl.style.scrollBehavior = prevBehavior
-    })
-  })
 
-  el.classList.add(HIGHLIGHT_CLASS)
-  highlightTimeout = setTimeout(() => el.classList.remove(HIGHLIGHT_CLASS), 2000)
+  let interrupted = false
+  const interrupt = () => {
+    interrupted = true
+  }
+  const userInputs = ['wheel', 'touchstart', 'keydown'] as const
+  for (const type of userInputs) window.addEventListener(type, interrupt, { passive: true })
+
+  const finish = () => {
+    for (const type of userInputs) window.removeEventListener(type, interrupt)
+    docEl.style.scrollBehavior = prevBehavior
+    onDone()
+  }
+
+  let attempts = 0
+  let stableFrames = 0
+  const step = () => {
+    if (isStale() || interrupted || !el.isConnected) {
+      finish()
+      return
+    }
+    const target = Math.max(
+      0,
+      el.getBoundingClientRect().top + window.scrollY - getLandingInset(),
+    )
+    if (Math.abs(window.scrollY - target) > 1) {
+      stableFrames = 0
+      window.scrollTo({ top: target, behavior: 'auto' })
+    } else {
+      stableFrames++
+    }
+    attempts++
+    if (attempts < LANDING_MAX_ATTEMPTS && stableFrames < LANDING_STABLE_FRAMES) {
+      requestAnimationFrame(() => requestAnimationFrame(step))
+    } else {
+      finish()
+    }
+  }
+  step()
 }
 
 /** Cancel any in-progress scroll-to-match operation. */
@@ -434,8 +472,10 @@ export function scheduleScrollToMatch(
 ): void {
   cancelPendingScroll()
 
-  // lock the (mobile) navbar in place so the instant jump can't animate it
-  // away mid-scroll (upstream html.vp-search-scrolling)
+  // no transitions on the bars while we jump (upstream html.vp-search-scrolling);
+  // the bars keep whatever state the scroll leaves them in
+  // TODO(parity/scroll): freeze ScrollHeader's hide-on-scroll state during the
+  // jump like upstream VPNav (it ignores scroll while vp-search-scrolling is set)
   if (typeof document !== 'undefined') {
     document.documentElement.classList.add(SCROLLING_CLASS)
   }
@@ -469,16 +509,15 @@ export function scheduleScrollToMatch(
     }
     if (hash && !sectionEl) return false
 
-    const found = scrollToMatchInSection(sectionEl, query, matchContext)
-    if (found) {
-      if (activeObserver && !isStale()) {
-        activeObserver.disconnect()
-        activeObserver = null
-      }
-      // defer so the browser processes the scroll before the navbar unfreezes
-      setTimeout(unlock, 100)
+    const match = findMatchInSection(sectionEl, query, matchContext)
+    if (!match) return false
+    if (activeObserver && !isStale()) {
+      activeObserver.disconnect()
+      activeObserver = null
     }
-    return found
+    // defer so the browser processes the last scroll before the bars unfreeze
+    landOnMatch(match, isStale, () => setTimeout(unlock, 100))
+    return true
   }
 
   function poll() {

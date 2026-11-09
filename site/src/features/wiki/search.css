@@ -978,11 +978,11 @@ html.theme-monolith.t_dark {
 /* searchHighlight.ts and removed after the animation)                     */
 /* ----------------------------------------------------------------------- */
 
-/* upstream style.scss: freeze the hide-on-scroll chrome while search's
-   post-navigation jump runs, so the target offset stays correct */
+/* upstream style.scss (32ce352): only disable the bars' transitions while
+   search's post-navigation jump runs so they can't animate mid-scroll — the
+   header is NOT forced visible */
 html.vp-search-scrolling header,
 html.vp-search-scrolling #local-nav {
-  transform: none !important;
   transition: none !important;
 }
 

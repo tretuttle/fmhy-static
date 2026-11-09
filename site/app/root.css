@@ -302,16 +302,56 @@ html {
    moment any theme was selected. */
 
 /*
+  fmhy brand tokens — upstream's --vp-c-brand-1 / --vp-c-brand-2 /
+  --vp-c-selection-bg / --vp-c-bg-elv, kept as literal values per accent x
+  mode x preset because the tamagui accent ramp doesn't line up with their
+  scale (our light accent11 is a darker swarm than their brand-1). baseline =
+  generated color-swarm theme (configs/colors.ts): light 500/600, selection
+  200; dark 400/500, selection 800. accent/preset blocks below override them.
+  accent-subtle / -muted are their style.scss hover/active tints (7% / 13%
+  brand-1 over the page background).
+*/
+:root {
+  --fmhy-brand-1: hsl(211, 63%, 61%);
+  --fmhy-brand-2: hsl(215, 57%, 53%);
+  --fmhy-selection-bg: hsl(208, 66%, 87%);
+  --fmhy-bg-elv: rgba(255, 255, 255, 0.8);
+  --fmhy-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --fmhy-hero-name-color: transparent;
+  --fmhy-hero-name-bg: linear-gradient(120deg, #c4b5fd 30%, #7bc5e4);
+  --fmhy-accent-subtle: color-mix(in srgb, var(--fmhy-brand-1) 7%, var(--background));
+  --fmhy-accent-muted: color-mix(in srgb, var(--fmhy-brand-1) 13%, var(--background));
+}
+html.t_dark {
+  --fmhy-brand-1: hsl(207, 65%, 68%);
+  --fmhy-brand-2: hsl(211, 63%, 61%);
+  --fmhy-selection-bg: hsl(220, 48%, 40%);
+  --fmhy-bg-elv: #1a1a1acc;
+  --fmhy-shadow-3: 0 12px 32px #0000004d, 0 2px 6px #00000029;
+}
+
+/* selection follows the active accent/preset (upstream style.scss ::selection).
+   html.t_* outranks tamagui's generated `.t_dark ::selection` grey. */
+html.t_light ::selection,
+html.t_dark ::selection {
+  background: var(--fmhy-selection-bg);
+}
+
+/*
   accent presets — the 7 named palettes from fmhy.net (utils/colors.ts).
   swarm is the shipped baseline (no class). each block below maps the palette
   scale onto the tamagui accent vars. base selector = dark mode:
     accent9→500  accent10→600  accent11→400 (link/brand)  accent12→200  accent1→950  accent2→900
   .t_light override = light mode:
     accent9→500  accent10→600  accent11→500 (link/brand)  accent12→800  accent1→50   accent2→100
+  plus the --fmhy-brand-1/-2/selection tokens (see the baseline block above).
 */
 
 /* turquoise */
 html.accent-turquoise.t_dark {
+  --fmhy-brand-1: hsl(188, 78%, 60%);
+  --fmhy-brand-2: hsl(188, 86%, 43%);
+  --fmhy-selection-bg: hsl(194, 64%, 27%);
   --accent9: hsl(188, 86%, 43%);
   --accent10: hsl(191, 84%, 36%);
   --accent11: hsl(188, 78%, 60%);
@@ -320,6 +360,9 @@ html.accent-turquoise.t_dark {
   --accent2: hsl(197, 59%, 24%);
 }
 html.accent-turquoise.t_light {
+  --fmhy-brand-1: hsl(188, 86%, 43%);
+  --fmhy-brand-2: hsl(191, 84%, 36%);
+  --fmhy-selection-bg: hsl(185, 85%, 82%);
   --accent9: hsl(188, 86%, 43%);
   --accent10: hsl(191, 84%, 36%);
   --accent11: hsl(188, 86%, 43%);
@@ -330,6 +373,9 @@ html.accent-turquoise.t_light {
 
 /* carnation */
 html.accent-carnation.t_dark {
+  --fmhy-brand-1: hsl(0, 91%, 71%);
+  --fmhy-brand-2: hsl(0, 84%, 60%);
+  --fmhy-selection-bg: hsl(0, 70%, 35%);
   --accent9: hsl(0, 84%, 60%);
   --accent10: hsl(0, 72%, 51%);
   --accent11: hsl(0, 91%, 71%);
@@ -338,6 +384,9 @@ html.accent-carnation.t_dark {
   --accent2: hsl(0, 63%, 31%);
 }
 html.accent-carnation.t_light {
+  --fmhy-brand-1: hsl(0, 84%, 60%);
+  --fmhy-brand-2: hsl(0, 72%, 51%);
+  --fmhy-selection-bg: hsl(0, 96%, 89%);
   --accent9: hsl(0, 84%, 60%);
   --accent10: hsl(0, 72%, 51%);
   --accent11: hsl(0, 84%, 60%);
@@ -348,6 +397,9 @@ html.accent-carnation.t_light {
 
 /* cerise */
 html.accent-cerise.t_dark {
+  --fmhy-brand-1: hsl(348, 82%, 71%);
+  --fmhy-brand-2: hsl(346, 77%, 57%);
+  --fmhy-selection-bg: hsl(340, 68%, 35%);
   --accent9: hsl(346, 77%, 57%);
   --accent10: hsl(343, 67%, 50%);
   --accent11: hsl(348, 82%, 71%);
@@ -356,6 +408,9 @@ html.accent-cerise.t_dark {
   --accent2: hsl(338, 65%, 30%);
 }
 html.accent-cerise.t_light {
+  --fmhy-brand-1: hsl(346, 77%, 57%);
+  --fmhy-brand-2: hsl(343, 67%, 50%);
+  --fmhy-selection-bg: hsl(347, 84%, 90%);
   --accent9: hsl(346, 77%, 57%);
   --accent10: hsl(343, 67%, 50%);
   --accent11: hsl(346, 77%, 57%);
@@ -366,6 +421,9 @@ html.accent-cerise.t_light {
 
 /* meadow */
 html.accent-meadow.t_dark {
+  --fmhy-brand-1: hsl(156, 59%, 52%);
+  --fmhy-brand-2: hsl(158, 77%, 42%);
+  --fmhy-selection-bg: hsl(161, 80%, 20%);
   --accent9: hsl(158, 77%, 42%);
   --accent10: hsl(159, 86%, 30%);
   --accent11: hsl(156, 59%, 52%);
@@ -374,6 +432,9 @@ html.accent-meadow.t_dark {
   --accent2: hsl(162, 79%, 16%);
 }
 html.accent-meadow.t_light {
+  --fmhy-brand-1: hsl(158, 77%, 42%);
+  --fmhy-brand-2: hsl(159, 86%, 30%);
+  --fmhy-selection-bg: hsl(150, 70%, 80%);
   --accent9: hsl(158, 77%, 42%);
   --accent10: hsl(159, 86%, 30%);
   --accent11: hsl(158, 77%, 42%);
@@ -384,6 +445,9 @@ html.accent-meadow.t_light {
 
 /* merlin */
 html.accent-merlin.t_dark {
+  --fmhy-brand-1: hsl(45, 96%, 53%);
+  --fmhy-brand-2: hsl(45, 93%, 47%);
+  --fmhy-selection-bg: hsl(45, 81%, 29%);
   --accent9: hsl(45, 93%, 47%);
   --accent10: hsl(45, 96%, 40%);
   --accent11: hsl(45, 96%, 53%);
@@ -392,6 +456,9 @@ html.accent-merlin.t_dark {
   --accent2: hsl(45, 73%, 26%);
 }
 html.accent-merlin.t_light {
+  --fmhy-brand-1: hsl(45, 93%, 47%);
+  --fmhy-brand-2: hsl(45, 96%, 40%);
+  --fmhy-selection-bg: hsl(46, 98%, 77%);
   --accent9: hsl(45, 93%, 47%);
   --accent10: hsl(45, 96%, 40%);
   --accent11: hsl(45, 93%, 47%);
@@ -402,6 +469,9 @@ html.accent-merlin.t_light {
 
 /* blue-violet */
 html.accent-blue-violet.t_dark {
+  --fmhy-brand-1: hsl(237, 98%, 74%);
+  --fmhy-brand-2: hsl(242, 91%, 64%);
+  --fmhy-selection-bg: hsl(246, 59%, 41%);
   --accent9: hsl(242, 91%, 64%);
   --accent10: hsl(246, 82%, 59%);
   --accent11: hsl(237, 98%, 74%);
@@ -410,6 +480,9 @@ html.accent-blue-violet.t_dark {
   --accent2: hsl(245, 52%, 34%);
 }
 html.accent-blue-violet.t_light {
+  --fmhy-brand-1: hsl(242, 91%, 64%);
+  --fmhy-brand-2: hsl(246, 82%, 59%);
+  --fmhy-selection-bg: hsl(231, 100%, 88%);
   --accent9: hsl(242, 91%, 64%);
   --accent10: hsl(246, 82%, 59%);
   --accent11: hsl(242, 91%, 64%);
@@ -448,9 +521,10 @@ html.theme-catppuccin.t_dark {
   --accent12: #ddd6fe;
   --accent1: #2e1065;
   --accent2: #4c1d95;
-}
-html.theme-catppuccin.t_dark ::selection {
-  background: #0f2c47;
+  --fmhy-brand-1: #cba6f6;
+  --fmhy-brand-2: #7c3aed;
+  --fmhy-selection-bg: #0f2c47;
+  --fmhy-bg-elv: #1e1e29;
 }
 html.theme-catppuccin.t_light {
   --background: #f8fafc;
@@ -476,9 +550,77 @@ html.theme-catppuccin.t_light {
   --accent12: #5b21b6;
   --accent1: #f5f3ff;
   --accent2: #ede9fe;
+  --fmhy-brand-1: #9345ed;
+  --fmhy-brand-2: #7c3aed;
+  --fmhy-selection-bg: #5586a6;
+  --fmhy-bg-elv: #eef2f5;
+  --fmhy-hero-name-bg: #c5a5f6;
 }
-html.theme-catppuccin.t_light ::selection {
-  background: #5586a6;
+
+/* halloween (configs/halloween.ts) — warm stone neutrals with an orange
+   brand and violet secondary. a year-round preset, and the default theme for
+   anyone without a saved pick during October (see resolveStoredThemeName). */
+html.theme-halloween.t_dark {
+  --background: #17141a;
+  --backgroundHover: #221d26;
+  --backgroundPress: #221d26;
+  --backgroundFocus: #221d26;
+  --color1: #17141a;
+  --color2: #110f14;
+  --color3: #221d26;
+  --color9: #a8a29e;
+  --color10: #a8a29e;
+  --color11: #d6d3d1;
+  --color12: #f8f7ff;
+  --tipBg: #052e16;
+  --tipBorder: #4d7c0f;
+  --tipText: #bbf7d0;
+  --warnBg: #451a03;
+  --warnBorder: #b45309;
+  --warnText: #fcd34d;
+  --dangerText: #fecaca;
+  --accent9: #ea580c;
+  --accent10: #f97316;
+  --accent11: #fb923c;
+  --accent12: #fdba74;
+  --accent1: #431407;
+  --accent2: #7c2d12;
+  --fmhy-brand-1: #fb923c;
+  --fmhy-brand-2: #fdba74;
+  --fmhy-selection-bg: #7c2d12;
+  --fmhy-bg-elv: rgba(17, 15, 20, 0.8);
+  --fmhy-hero-name-bg: linear-gradient(120deg, #fdba74 30%, #a78bfa);
+}
+html.theme-halloween.t_light {
+  --background: #faf7f4;
+  --backgroundHover: #f2ece6;
+  --backgroundPress: #f2ece6;
+  --backgroundFocus: #f2ece6;
+  --color1: #faf7f4;
+  --color2: #f2ece6;
+  --color3: #ebe3db;
+  --color9: #78716c;
+  --color10: #78716c;
+  --color11: #44403c;
+  --color12: #1c1917;
+  --tipBg: #dcfce7;
+  --tipBorder: #4d7c0f;
+  --tipText: #3f6212;
+  --warnBg: #fef3c7;
+  --warnBorder: #b45309;
+  --warnText: #92400e;
+  --dangerText: #991b1b;
+  --accent9: #ea580c;
+  --accent10: #c2410c;
+  --accent11: #c2410c;
+  --accent12: #7c2d12;
+  --accent1: #fff7ed;
+  --accent2: #ffedd5;
+  --fmhy-brand-1: #c2410c;
+  --fmhy-brand-2: #9a3412;
+  --fmhy-selection-bg: #fed7aa;
+  --fmhy-bg-elv: rgba(255, 255, 255, 0.8);
+  --fmhy-hero-name-bg: linear-gradient(120deg, #ea580c 30%, #7c3aed);
 }
 
 /* monochrome (configs/monochrome.ts) — real grayscale-family literal colors,
@@ -491,8 +633,8 @@ html.theme-monochrome.t_dark {
   --color1: #1a1a1a;
   --color2: #171717;
   --color3: #262626;
-  --color9: #808080;
-  --color10: #808080;
+  --color9: #8a8a8a;
+  --color10: #8a8a8a;
   --color11: #cccccc;
   --color12: #ffffff;
   --tipBg: #1a1a1a;
@@ -507,9 +649,12 @@ html.theme-monochrome.t_dark {
   --accent12: #cccccc;
   --accent1: #0a0a0a;
   --accent2: #1a1a1a;
-}
-html.theme-monochrome.t_dark ::selection {
-  background: #333333;
+  --fmhy-brand-1: #ffffff;
+  --fmhy-brand-2: #e0e0e0;
+  --fmhy-selection-bg: #333333;
+  --fmhy-bg-elv: #242424;
+  --fmhy-hero-name-color: #ffffff;
+  --fmhy-hero-name-bg: #000000;
 }
 html.theme-monochrome.t_light {
   --background: #ffffff;
@@ -519,8 +664,8 @@ html.theme-monochrome.t_light {
   --color1: #ffffff;
   --color2: #f5f5f5;
   --color3: #e0e0e0;
-  --color9: #808080;
-  --color10: #808080;
+  --color9: #737373;
+  --color10: #737373;
   --color11: #333333;
   --color12: #000000;
   --tipBg: #f5f5f5;
@@ -535,9 +680,12 @@ html.theme-monochrome.t_light {
   --accent12: #333333;
   --accent1: #f5f5f5;
   --accent2: #e0e0e0;
-}
-html.theme-monochrome.t_light ::selection {
-  background: #cccccc;
+  --fmhy-brand-1: #000000;
+  --fmhy-brand-2: #1a1a1a;
+  --fmhy-selection-bg: #cccccc;
+  --fmhy-bg-elv: #ffffff;
+  --fmhy-hero-name-color: #000000;
+  --fmhy-hero-name-bg: #ffffff;
 }
 
 /* monolith (configs/monolith.ts) — the "sharp" theme: JetBrains Mono for
@@ -551,8 +699,8 @@ html.theme-monolith.t_dark {
   --color1: #06070b;
   --color2: #0a0b12;
   --color3: #1a1b25;
-  --color9: #467085;
-  --color10: #467085;
+  --color9: #7596a8;
+  --color10: #7596a8;
   --color11: #a8c5d6;
   --color12: #d2f4ff;
   --tipBg: #0d2818;
@@ -561,15 +709,17 @@ html.theme-monolith.t_dark {
   --warnBg: #2d1f06;
   --warnBorder: #d97706;
   --warnText: #fbbf24;
-  --accent9: #f42a8b;
+  --accent9: #d81b70;
   --accent10: #d81b70;
   --accent11: #f42a8b;
   --accent12: #46c7ff;
   --accent1: #1a1b25;
   --accent2: #242533;
-}
-html.theme-monolith.t_dark ::selection {
-  background: #005eff;
+  --fmhy-brand-1: #f42a8b;
+  --fmhy-brand-2: #3a0ca3;
+  --fmhy-selection-bg: #005eff;
+  --fmhy-bg-elv: #0e101a;
+  --fmhy-hero-name-bg: linear-gradient(120deg, #ffd700 20%, #4caf50 50%, #2196f3 80%);
 }
 html.theme-monolith.t_light {
   --background: #f5fbff;
@@ -579,8 +729,8 @@ html.theme-monolith.t_light {
   --color1: #f5fbff;
   --color2: #e8f4fd;
   --color3: #e0eaf5;
-  --color9: #6b7b9a;
-  --color10: #6b7b9a;
+  --color9: #53627b;
+  --color10: #53627b;
   --color11: #3a4560;
   --color12: #0a0e1a;
   --tipBg: #d1fae5;
@@ -595,9 +745,11 @@ html.theme-monolith.t_light {
   --accent12: #0047b8;
   --accent1: #e8f4fd;
   --accent2: #d0e8f5;
-}
-html.theme-monolith.t_light ::selection {
-  background: #46c7ff;
+  --fmhy-brand-1: #d81b70;
+  --fmhy-brand-2: #2d0b80;
+  --fmhy-selection-bg: #46c7ff;
+  --fmhy-bg-elv: #e8f4fd;
+  --fmhy-hero-name-bg: linear-gradient(120deg, #ffd700 20%, #4caf50 50%, #2196f3 80%);
 }
 /* monolith's signature traits beyond the palette: mono type + square corners
    (their config sets fonts and borderRadius: 0; their style.scss squares the
@@ -873,6 +1025,28 @@ html.starred-only.indexes-only .wk-entry:not(.wk-starred):not(.wk-index) {
   transition-delay: 0.2s;
 }
 
+/* home hero name (VPHero .name.clip): the active theme's gradient clipped to
+   the text; monochrome swaps the transparent fill for a solid color */
+.fmhy-hero-name {
+  background: var(--fmhy-hero-name-bg);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: var(--fmhy-hero-name-color);
+}
+/* june pride rainbow wins over any theme's hero (upstream style.scss
+   html.june uses !important for the same reason) */
+html.june {
+  --fmhy-hero-name-bg: linear-gradient(
+    120deg,
+    #ff6763,
+    #feb044,
+    #fcfd96,
+    #9ee09e,
+    #9ec1ce,
+    #cc99c8
+  ) !important;
+}
+
 /* AMOLED override — must stay LAST so it beats every theme-* block above
    (upstream forces black backgrounds over the active theme's palette) */
 html.amoled.t_dark {
@@ -882,6 +1056,8 @@ html.amoled.t_dark {
   --backgroundHover: #0a0a0a;
   --backgroundPress: #000000;
   --color1: #000000;
-  --color2: #050505;
+  /* their bgAlt / bgElv under AMOLED (themeHandler.ts applyCSSVariables) */
+  --color2: #000000;
   --color3: #0e0e0e;
+  --fmhy-bg-elv: #121212;
 }

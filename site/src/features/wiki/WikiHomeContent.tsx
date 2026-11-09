@@ -20,8 +20,10 @@ const POSTS_ROUTE = '/posts'
 const CONTRIBUTE_ROUTE = '/other/contributing'
 const DISCORD_URL = 'https://github.com/fmhy/FMHY/wiki/FMHY-Discord'
 
-// gradient-text heading — the real --vp-home-hero-name-background from
-// upstream style.scss (the rainbow variant only exists behind html.june)
+// gradient-text heading — upstream's --vp-home-hero-name-background, which
+// each theme config sets (configs/*.ts home.heroNameBackground): the paint
+// lives on .fmhy-hero-name in app/root.css so it follows the active
+// theme/preset and the june rainbow without a re-render.
 // VPHero name scale: 32px phones, 48px tablets, 56px desktop — the previous
 // fixed $12 rendered 52px+ on a 390px viewport and clipped at both edges
 const HeroTitle = styled(H1, {
@@ -32,10 +34,6 @@ const HeroTitle = styled(H1, {
   $xl: { fontSize: 56, lineHeight: 64 },
 
   '$platform-web': {
-    backgroundImage: 'linear-gradient(120deg, #c4b5fd 30%, #7bc5e4)',
-    backgroundClip: 'text',
-    WebkitBackgroundClip: 'text',
-    color: 'transparent' as any,
     hyphens: 'none' as any,
   },
 })
@@ -210,7 +208,7 @@ export function WikiHomeContent() {
             </XStack>
           )}
 
-          <HeroTitle text="center" $xl={{ text: 'left' }}>
+          <HeroTitle className="fmhy-hero-name" text="center" $xl={{ text: 'left' }}>
             freemediaheckyeah
           </HeroTitle>
 

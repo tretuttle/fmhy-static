@@ -12,7 +12,7 @@ import {
   THEME_NAMES,
   accentStorage,
   amoledStorage,
-  themeStorage,
+  resolveStoredThemeName,
   useAccent,
   useAmoled,
   useThemeName,
@@ -49,7 +49,7 @@ if (typeof document !== 'undefined') {
     applyClasses(
       amoledStorage.get() ?? false,
       accentStorage.get() ?? 'swarm',
-      themeStorage.get() ?? 'default',
+      resolveStoredThemeName(),
     )
   } catch (err) {
     console.info('[ThemeController] pre-paint apply skipped', err)

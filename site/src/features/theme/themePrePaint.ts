@@ -42,6 +42,9 @@ const themeClassMap = Object.fromEntries(
 // first paint flashes the default theme. Storage encoding mirrors
 // ~/lib/storage.ts: JSON values under 'fmhy.'-prefixed keys (keep in sync).
 // Only ADDS classes; ThemeController reconciles (add + remove) after hydration.
+// With no saved theme or color pick, October falls back to halloween — same
+// rule as resolveStoredThemeName (themeSettings.ts) and upstream's own head
+// script (config.mts).
 //
 // Default color scheme (fmhy.net parity): a brand-new visitor with no
 // 'vxrn-scheme' key should land on DARK, not light and not system-tracking.
@@ -61,7 +64,10 @@ var c=document.documentElement.classList;
 function r(k){try{return JSON.parse(localStorage.getItem('fmhy.'+k))}catch(e){return null}}
 if(r('theme.amoled')===true)c.add('${AMOLED_CLASS}');
 var a=${JSON.stringify(accentClassMap)}[r('theme.accent')];if(a)c.add(a);
-var t=${JSON.stringify(themeClassMap)}[r('theme.name')];if(t)c.add(t);
+var n=r('theme.name');
+var t=${JSON.stringify(themeClassMap)}[n];
+if(!t&&n==null&&r('theme.accent')==null&&new Date().getMonth()===9)t='${themeClassName('halloween')}';
+if(t)c.add(t);
 if(!localStorage.getItem('vxrn-scheme')){
 localStorage.setItem('vxrn-scheme','dark');
 c.remove('t_light');

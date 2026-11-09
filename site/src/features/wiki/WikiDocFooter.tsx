@@ -8,7 +8,7 @@ import { wikiNav } from './data'
 
 import type { Href } from 'one'
 
-// VitePress VPDocFooter parity: "📝 Edit this page" (upstream config.mts editLink)
+// VitePress VPDocFooter parity: "Edit this page" (upstream config.mts editLink)
 // above a prev/next pager whose sequence is the flattened sidebar (shared.ts):
 // three standalone top links, then the Wiki / Tools / More groups in order.
 // VitePress dedupes pager candidates on the link sans hash/query keeping the
@@ -60,12 +60,18 @@ const SEQUENCE = buildSequence()
 // WikiProsePages already carry their doc-relative id ('other/contributing',
 // 'posts/changelog-sites' — see types.ts), so most of these only need to
 // override `pager`. `pager: false` mirrors a `prev: false` / `next: false`
-// frontmatter for pages that don't belong in the sidebar sequence.
-const PAGE_OVERRIDES: Record<string, { route?: string; docPath?: string; pager?: false }> =
-  {
-    backups: { route: '/other/backups', docPath: 'other/backups.md' },
-    'posts/changelog-sites': { pager: false },
-  }
+// frontmatter for pages that don't belong in the sidebar sequence;
+// `editLink: false` mirrors the frontmatter upstream's transformer/constants.ts
+// getHeader() writes for recently-removed.md (the page is generated, there is
+// no source to edit).
+const PAGE_OVERRIDES: Record<
+  string,
+  { route?: string; docPath?: string; pager?: false; editLink?: false }
+> = {
+  backups: { route: '/other/backups', docPath: 'other/backups.md' },
+  'posts/changelog-sites': { pager: false },
+  'recently-removed': { editLink: false },
+}
 
 // .pager-link: bordered card, border brightens to brand on hover
 const PagerLinkFrame = styled(YStack, {
@@ -165,7 +171,7 @@ const EditLink = ({ docPath }: { docPath: string }) => (
       color="$accent11"
       hoverStyle={{ color: '$accent12' }}
     >
-      📝 Edit this page
+      Edit this page
     </SizableText>
   </XStack>
 )
@@ -196,9 +202,11 @@ export function WikiDocFooter({
 
   return (
     <YStack mt={64}>
-      <XStack pb={14} items="center" justify="space-between">
-        <EditLink docPath={docPath} />
-      </XStack>
+      {override?.editLink !== false && (
+        <XStack pb={14} items="center" justify="space-between">
+          <EditLink docPath={docPath} />
+        </XStack>
+      )}
 
       {(prev || next) && (
         <XStack

@@ -3,7 +3,8 @@
 /**
  * post-build: writes dist/client/sitemap.xml from the SSG html output, and
  * dist/client/feed.rss from src/features/wiki/generated/posts.json when that
- * manifest exists (mirrors fmhy.net's hooks/rss.ts channel fields).
+ * manifest exists (mirrors fmhy.net's hooks/rss.ts: channel fields + each
+ * post's full rendered body as <content:encoded>).
  *
  * Wired into package.json: "build": "one build && bun scripts/sitemap-gen.ts"
  */
@@ -11,11 +12,16 @@
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
+import { proseBlocksToHtml } from './wiki/prose-html'
+
+import type { WikiProsePage } from '../src/features/wiki/types'
+
 const SITE_URL = process.env.ONE_SERVER_URL || 'https://fmhy-static.expo.app'
 
 const cwd = process.cwd()
 const distClient = join(cwd, 'dist', 'client')
 const postsManifest = join(cwd, 'src', 'features', 'wiki', 'generated', 'posts.json')
+const postsProseDir = join(cwd, 'src', 'features', 'wiki', 'generated', 'prose', 'posts')
 
 if (!existsSync(distClient)) {
   console.error('sitemap-gen: dist/client not found — run `one build` first')
@@ -94,9 +100,21 @@ if (existsSync(postsManifest)) {
     .filter((post) => post.slug && post.title)
     .sort((a, b) => Number(new Date(b.date ?? 0)) - Number(new Date(a.date ?? 0)))
 
+  // the post body as html, like upstream's createContentLoader render: true
+  // (null when the prose json is missing — the item still ships)
+  const postHtml = (slug: string): string | null => {
+    const file = join(postsProseDir, `${slug}.json`)
+    if (!existsSync(file)) return null
+    const page = JSON.parse(readFileSync(file, 'utf8')) as WikiProsePage
+    return proseBlocksToHtml(page.blocks, { origin: SITE_URL })
+  }
+  // a CDATA section cannot contain ']]>' — split it across two sections
+  const cdata = (value: string) => `<![CDATA[${value.replaceAll(']]>', ']]]]><![CDATA[>')}]]>`
+
   const items = posts
     .map((post) => {
       const url = `${SITE_URL}/posts/${post.slug}`
+      const html = postHtml(post.slug)
       return [
         '    <item>',
         `      <title>${escapeXml(post.title)}</title>`,
@@ -106,6 +124,7 @@ if (existsSync(postsManifest)) {
         post.description
           ? `      <description>${escapeXml(post.description)}</description>`
           : null,
+        html ? `      <content:encoded>${cdata(html)}</content:encoded>` : null,
         '    </item>',
       ]
         .filter(Boolean)
@@ -115,7 +134,7 @@ if (existsSync(postsManifest)) {
 
   // channel fields mirror upstream docs/.vitepress/hooks/rss.ts
   const rss = `<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>FMHY blog</title>
     <link>${escapeXml(SITE_URL)}</link>

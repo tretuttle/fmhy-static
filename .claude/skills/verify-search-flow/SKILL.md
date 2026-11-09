@@ -32,7 +32,6 @@ To read a result, use the pstack **/statechart** skill (`/pstack:statechart` in 
 | --- | --- |
 | `SearchModalOpen.tla` | Modal lifecycle: emitter `open`, React commits, `hasOpenedOnce`/`visible`/`leaving`, leave timer, focus, scroll lock. |
 | `SearchModalOpen.cfg` | Rules that hold (regression gate). |
-| `SearchModalOpen.focus.cfg` | Open finding F1. |
 | `SearchResults.tla` | Engine: `enginePromise`, `clientFetches` corpus entry, network, debounce, stage 2, spinner, "No results". |
 | `SearchResults.cfg` | Rules that hold (regression gate). |
 | `SearchResults.noresults.cfg`, `.retry.cfg`, `.stale.cfg` | Open findings F2, F3, F4 (one each, since TLC stops at the first violation). |
@@ -48,7 +47,7 @@ Each rule is an INVARIANT in the spec named in brackets.
 | --- | --- | --- | --- |
 | Once an open search box has rendered, it is on screen, not hidden and not fading. | Search "opens" but nothing is visible. | `BoxShownWhileOpen` (Modal) | holds |
 | The page behind is scroll-locked while search is open and scrolls again after it closes. | The page stays frozen after search closes. | `ScrollLockedOnlyWhileOpen` (Modal) | holds |
-| Whenever search is open and rendered, the cursor is in the search box. | You press Ctrl+K and type, and your keystrokes go nowhere. | `FocusInBoxWhenOpen` (Modal) | **breaks: F1** |
+| Whenever search is open and rendered, the cursor is in the search box. | You press Ctrl+K and type, and your keystrokes go nowhere. | `FocusInBoxWhenOpen` (Modal) | holds |
 | An empty box lists nothing and shows no spinner. | Old results or a stuck spinner under an empty box. | `EmptyBoxShowsNothing` (Results) | holds |
 | The spinner is on only while a search or its list-building is pending. | The spinner spins forever. | `SpinnerOnlyWhileWorking` (Results) | holds |
 | "No results" appears only after a search really ran on the loaded index. | A failed download tells the reader the wiki has nothing, which is a false answer. | `FailureNotShownAsNoResults` (Results) | **breaks: F2** |
@@ -58,14 +57,6 @@ Each rule is an INVARIANT in the spec named in brackets.
 Old results that stay listed while the spinner shows are allowed on purpose. That matches upstream VitePress, which keeps the old list visible during the debounce.
 
 ## Open findings (reproduced in a browser against `site/dist`)
-
-**F1. The second and later opens leave focus on the page.** (`FocusInBoxWhenOpen`, 10 steps)
-1. `openSearch()` first time: the `WikiSearchModal` effect sets `hasOpenedOnce`/`visible`, `SearchBox` mounts with `visible=true`, and its `[open]` effect focuses the input.
-2. `closeSearch()`: the `SearchBox` cleanup restores `previouslyFocused`, and the parent arms the 100 ms `LEAVE_DURATION_MS` timeout. When it fires, `setVisible(false)` gives `display:none`.
-3. `openSearch()` again: React commits `open=true` with `visible` still `false` (`display:none`). The child `[open, focusSearchInput]` effect runs before the parent effect, so `inputRef.current.focus()` hits a hidden input and does nothing.
-4. The parent effect calls `setVisible(true)` and the box appears. The child effect's deps did not change, so focus is never retried. `document.activeElement` is `<body>` (or the header button you clicked).
-
-Reopening within the 100 ms fade does focus the input, because `visible` is still true. The browser shows the same.
 
 **F2. A failed index download shows "No results for …".** (`FailureNotShownAsNoResults`, 2 steps)
 1. Search is open with a query (for example a `?q=` link) and `/data/search-corpus.json` is still loading. The 350 ms debounce fires and awaits `getSearchEngine()`.
@@ -84,7 +75,7 @@ The model shows that resetting `enginePromise` alone is not enough, because the 
 3. Commit 2: `enableNoResults` is a stage-2 dep, so stage 2 re-runs with the old `allResults` (proxy hits) and `queryRef.current="zzqxv"`.
 4. The list is built: `setResults(old hits)` and `setIsSearching(false)`. For about 350 ms the box shows "zzqxv", no spinner, and "Showing 16 of 33 matches" of proxy results. Then the real search lands with "No results". Switching fuzzy/exact goes the same way, because `fuzzy` is also a stage-2 dep.
 
-Browser replays: F1 and F4 on a normal visit, and F2/F3 with `page.route(...).abort('internetdisconnected')` on a first visit. In the browser the service worker (`sw.js`, Workbox) serves `/data/*.json` NetworkFirst from a 24 h `data-cache`. F2 therefore needs the corpus to be missing from that cache: a first visit, an expired or evicted entry, or no service worker. F3 holds whenever F2 happened, because nothing ever refetches. To intercept the excerpt fetches in Playwright, create the context with `serviceWorkers: 'block'`.
+Browser replays: F4 on a normal visit, and F2/F3 with `page.route(...).abort('internetdisconnected')` on a first visit. In the browser the service worker (`sw.js`, Workbox) serves `/data/*.json` NetworkFirst from a 24 h `data-cache`. F2 therefore needs the corpus to be missing from that cache: a first visit, an expired or evicted entry, or no service worker. F3 holds whenever F2 happened, because nothing ever refetches. To intercept the excerpt fetches in Playwright, create the context with `serviceWorkers: 'block'`.
 
 ## Does my change touch this? (coverage record)
 
@@ -93,7 +84,7 @@ Browser replays: F1 and F4 on a normal visit, and F2/F3 with `page.route(...).ab
 | Code | Covered | Model element |
 | --- | --- | --- |
 | `site/src/features/wiki/WikiSearchModal.tsx` `WikiSearchModal` | `hasOpenedOnce`, `visible`, `leaving`, `visibleRef`, the `[open]` effect and `LEAVE_DURATION_MS` timeout, conditional `SearchBox` render | Modal `Commit` (parent part), `LeaveTimerFires` |
-| same, `SearchBox` | the `[open, focusSearchInput]` effect (focus+select, overflow lock and restore, focus restore); `style={{ display: visible ? 'flex' : 'none' }}`; `showNoResults`; spinner render; Esc / backdrop / back button / `navigateToResult` → `closeSearch` | Modal `Commit` (child part), `YouClose`; Results `ShowsNoResults` |
+| same, `SearchBox` | the `[open, focusSearchInput]` effect (focus+select, overflow lock and restore, focus restore); `style={{ display: open || visible ? 'flex' : 'none' }}`; `showNoResults`; spinner render; Esc / backdrop / back button / `navigateToResult` → `closeSearch` | Modal `Commit` (child part), `YouClose`; Results `ShowsNoResults` |
 | same, `useSearchFromQuery` | `?q=` → `primeSearchQuery` + `openSearch` | Modal `YouOpen`; Results `Init` with query `"A"` |
 | `site/src/features/wiki/searchModal.ts` | `openSearch`, `closeSearch`, `toggleSearch` | `YouOpen`, `YouClose` |
 | `site/src/lib/emitter.ts` | `useEmitterValue` (`useSyncExternalStore`): emitting the same value causes no render | `YouOpen` enabled only when closed |
@@ -139,7 +130,7 @@ If the change was not meant to fix it, the model drifted. Recheck it against the
 
 ## Bounds, assumptions, what is not covered
 
-- **Exhaustive, but over a small abstraction.** Queries are `""`, `"A"` (has hits) and `"B"` (no hits), in exact or fuzzy mode. The modal model has 14 states and the results model 114. Both are checked completely; there is no depth bound.
+- **Exhaustive, but over a small abstraction.** Queries are `""`, `"A"` (has hits) and `"B"` (no hits), in exact or fuzzy mode. The modal model has 11 states and the results model 114. Both are checked completely; there is no depth bound.
 - **React timing.** A commit, its passive effects, and the re-render their `setState` calls queue are flushed before the next user event, timer or fetch callback. This holds for discrete events, which run at sync priority. Stage 2's async half (`buildDisplayResults` and its excerpt fetch) is a separate step, so you can type while it is in flight.
 - **Stage 2's phrase filter** is assumed to keep a non-empty hit list non-empty. The model's network can come back, but it never drops again. In the model, a load fails exactly when the network is down or a rejected fetch is still cached.
 - **Focus abstraction.** "page" means "not the search input". In the browser, when the earlier focus was `<body>`, the input keeps focus during the fade (`body.focus()` is a no-op) until `display:none` blurs it. No rule depends on this.

@@ -18,14 +18,14 @@ If you change the code, you change the model to match. Then you run the check.
 ## 1. Does your change touch the verified code?
 
 ```sh
-git diff --name-only fb43561 -- .github/workflows/deploy.yml .github/last-deployed-upstream-sha \
+git diff --name-only cd7dec4 -- .github/workflows/deploy.yml .github/last-deployed-upstream-sha \
   site/scripts/sync-fmhy.ts site/scripts/wiki/generate.ts site/scripts/convert-fmhy.ts \
   site/scripts/parity-check.ts site/package.json site/scripts/generate-images.tsx \
   site/scripts/single-page.ts site/scripts/sitemap-gen.ts site/scripts/defer-hydration.ts \
   site/scripts/strip-loader-data.ts site/scripts/generate-sw.ts
 ```
 
-`fb43561` is the sync commit, the last commit at which the model was confirmed
+`cd7dec4` is the sync commit, the last commit at which the model was confirmed
 to describe the code (see Coverage). Add your working-tree diff too (`git diff`,
 `git diff --cached`). If nothing in that list changed, the check still passes
 for your change and you can stop.
@@ -50,7 +50,7 @@ sh .claude/skills/verify-deploy-pipeline/check.sh
 
 It runs each config through the repo's pinned runner, `.claude/verify/tlc.sh`
 (TLC 1.7.4 and Temurin 25 through mise; the first run needs the network). At
-fb43561 it takes about 25 s, and `MC.cfg` reaches 2.6 M distinct states. Both
+cd7dec4 it takes about 11 s, and `MC.cfg` reaches 0.7 M distinct states. Both
 numbers grow when an edit adds behavior. Exit 0 means every config got what it expects. TLC's output
 for each config stays in the folder it prints (set `OUT=dir` to choose it). TLC
 writes its state files under `$TMPDIR`; if `/tmp` is small, set
@@ -58,8 +58,8 @@ writes its state files under `$TMPDIR`; if `/tmp` is small, set
 
 | Config | Expect | Meaning |
 | --- | --- | --- |
-| `MC.cfg` | pass | R7, R8, R9 and `TypeOK` hold on the current code. This is the regression check. |
-| `finding-1-...cfg` to `finding-8-...cfg` | the named rule breaks | Known findings F1-F8. They break today. Each config keeps its finding visible and tracks whether it still exists. |
+| `MC.cfg` | pass | R7-R10 and `TypeOK` hold on the current code. This is the regression check. |
+| `finding-1-...cfg`, `finding-3-...cfg` to `finding-8-...cfg` | the named rule breaks | Open findings F1 and F3-F8. They break today. Each config keeps its finding visible and tracks whether it still exists. |
 
 To run one config by hand:
 `.claude/verify/tlc.sh .claude/skills/verify-deploy-pipeline/DeployPipeline.tla .claude/skills/verify-deploy-pipeline/MC.cfg`
@@ -83,7 +83,7 @@ shortest path to each broken rule in plain words. Give it `DeployPipeline.tla`
 with the config and the view `chart-view.mjs` from this folder. Write its output
 outside the repo. For a picture of the main flow, use `chart.cfg`. It is kept
 under the chart's state budget by the `ChartLimit` constraint, which only that
-config uses. `chart-findings.cfg` draws the bug paths of F2-F5 and F8.
+config uses. `chart-findings.cfg` draws the bug paths of F3-F5 and F8.
 
 - **`MC` MISMATCH (a rule that held now breaks).** Treat it as a bug in the
   change until you show otherwise. Turn the path into steps of the workflow and
@@ -108,7 +108,7 @@ Steps run in workflow order. "Live" means what EAS Hosting serves.
 | Rule (TLA name) | Plain sentence | Harm when broken | Today |
 | --- | --- | --- | --- |
 | R1 `ChangesGoLive` | Once the hourly check would skip, the live mirror has the newest fmhy/edit commit and the newest site code. | Pushed site code never ships. | breaks: F1 |
-| R2 `RecordIsTrue` | `.github/last-deployed-upstream-sha` names the fmhy/edit commit that the run which wrote it actually deployed. | The audit trail lies (an empty sha, or a commit that was never built). | breaks: F2, F3 |
+| R2 `RecordIsTrue` | `.github/last-deployed-upstream-sha` names the fmhy/edit commit that the run which wrote it actually deployed. | The audit trail lies (a commit that was never built). | breaks: F3 |
 | R3 `HourlyDeploysOnlyOnChange` | A scheduled run deploys only when what it ships differs from what is live. | Needless production redeploys every hour. | breaks: F4, F5 |
 | R4 `FailureSaysWhichGate` | A failed run's summary annotation names the step that stopped it. | Hundreds of failures look the same. | breaks: F6 |
 | R5 `RedRunShippedNothing` | A red run did not change the live site. | "Failed" runs that actually shipped. | breaks: F4, F8 |
@@ -116,40 +116,42 @@ Steps run in workflow order. "Live" means what EAS Hosting serves.
 | R7 `OnlyParityCheckedBuildsGoLive` | The live mirror only ever carries a build that passed the parity check for its own fmhy/edit commit. | The mirror stops being 1:1 with fmhy.net. | holds |
 | R8 `FailedRunLeavesRecord` | The record only moves in a run whose EAS deploy succeeded. | A failed deploy is never retried. | holds |
 | R9 `LiveNeverGoesBack` | The live mirror never moves back to an older fmhy/edit commit or older site code. | Users see old content. | holds |
+| R10 `RecordNamesACommit` | `.github/last-deployed-upstream-sha` always holds a commit sha, never an empty line. | The record commits `chore: deployed fmhy/edit @` with no sha, and the next hour redeploys. | holds (F2 fixed) |
 
 R7-R9 were each shown to fail on a broken variant: `continue-on-error: true`
 on the parity step breaks R7, the record step moved before the EAS deploy
-breaks R8, and sync building a cached clone after a swallowed fetch failure
-breaks R9.
+breaks R8, sync building a cached clone after a swallowed fetch failure
+breaks R9, and a gate that passes an empty sha after a failed ls-remote
+breaks R10.
 
-## Findings (open at fb43561)
+## Findings (open at cd7dec4)
 
 | # | Config | What happens, in the workflow's words |
 | --- | --- | --- |
 | F1 | `finding-1-site-code-never-ships` | Site code is pushed to main. The hourly `check` compares only `git ls-remote fmhy/edit` with the record, finds them equal, and skips `deploy`. There is no `push:` trigger. The code ships only when fmhy/edit moves or someone runs the workflow by hand. |
-| F2 | `finding-2-empty-sha-recorded` | `git ls-remote` fails. The step runs `bash -e` without pipefail, so `sha=""` and `"" != last`, so changed=true. Every deploy step passes. "Record deployed upstream sha" writes an empty line and commits `chore: deployed fmhy/edit @`. The next hour redeploys. |
+| F2 | fixed in cd7dec4, now R10 in `MC.cfg` | `git ls-remote` failed. The step ran `bash -e` without pipefail, so `sha=""` and `"" != last`, so changed=true, and "Record deployed upstream sha" committed `chore: deployed fmhy/edit @` with an empty line. The gate now runs `set -euo pipefail` and requires a 40-hex sha, so job `check` fails and job `deploy` does not run. |
 | F3 | `finding-3-record-names-unbuilt-commit` | `check` resolves fmhy/edit at U1. fmhy/edit gets U2. `sync-fmhy.ts` clones `--branch main`, which is U2. U2 is built, checked and deployed, and the footer `rev:` shows U2, but U1 is recorded. The next hour redeploys U2. |
 | F4 | `finding-4-push-fails-hourly-redeploy` | The EAS deploy succeeds, then `git push` and the rebase fallback fail. The run is red with the site live. The record is unchanged, so every next hour redeploys the same build until a push works. |
-| F5 | `finding-5-gh-api-fails-hourly-redeploy` | `gh api` fails. Without pipefail, `last=""` (`|| echo none` never runs), so an unchanged hour still deploys. |
+| F5 | `finding-5-gh-api-fails-hourly-redeploy` | `gh api` fails. `|| echo none` gives `last="none"`, which never equals a sha, so an unchanged hour still deploys. |
 | F6 | `finding-6-failure-summary-generic` | No step writes `::error::` or `$GITHUB_STEP_SUMMARY`. Every failure, parity or EAS or build, leaves only "Process completed with exit code 1." The failed step shows only in the job's step list or the logs. |
 | F7 | `finding-7-green-run-missing-artifacts` | `generate-images.tsx` exits 0 when the font fetch fails. `public/og/` is gitignored and CI starts with no cache, so no OG card ships, yet `HeadInfo.tsx` links `/og/<slug>.webp`. `single-page.ts` exits 0 with no `single-page.md` when `.fmhy-edit/scripts/generate-single-page.js` is missing. Either way the run is green. |
 | F8 | `finding-8-queued-run-record-conflict` | Run B waits in concurrency group `deploy` behind run A. B's checkout is its trigger commit, before A's record commit. A records U1. B deploys U2, its push is rejected, and `git pull --rebase` conflicts on the record file. B is red with the site live, and the next hour redeploys. |
 
-## Coverage (sync commit: fb43561)
+## Coverage (sync commit: cd7dec4)
 
-| Code (at fb43561) | Model |
+| Code (at cd7dec4) | Model |
 | --- | --- |
 | `deploy.yml` 15-18 `on: schedule` / `workflow_dispatch` | `HourlyTick`, `ManualDispatch`. No `push:` trigger. |
 | `deploy.yml` 27-29 `concurrency: deploy`, `cancel-in-progress: false` | `Queue` (one running run, one waiting run that a newer one replaces), `StartWaitingRun`. One run at a time is built into the model (single `phase`). |
-| `deploy.yml` 39-52, `check` gate (`bash -e`, no pipefail) | `CheckGate`: `sha`, `last`, changed = dispatch or `sha != last` |
-| `deploy.yml` 58 `if: needs.check.outputs.changed == 'true'` | `CheckGate` skip branch |
-| `deploy.yml` 64-80 checkout (GITHUB_SHA), setup-node, setup-bun, corepack, `bun install` | Folded into `Sync`'s failure (`StepFails`); the checkout fixes `run.site` and `run.recIn` at trigger time (`Queue`) |
-| `deploy.yml` 85 + `site/scripts/sync-fmhy.ts` 32-52 (clone `--branch main`), 65-75 (generate.ts, convert-fmhy.ts); `wiki/generate.ts` 1405 (`exitCode = 1`), 1156 (chrome.json commit = clone HEAD); `convert-fmhy.ts` 32-34 | `Sync` (`run.built = upHead` at sync time), `StepFails` at "sync" |
-| `deploy.yml` 89 `corepack pnpm docs:build` | `UpstreamBuild`, `StepFails` at "upbuild" |
-| `deploy.yml` 95 + `site/scripts/parity-check.ts` 30-35, 147-151 | `Parity`, `StepFails` at "parity" |
-| `deploy.yml` 98 + `site/package.json` 13-14; `generate-images.tsx` 315-321 (fonts: exit 0); `single-page.ts` 28-31 (exit 0); sitemap-gen, defer-hydration, strip-loader-data, generate-sw (exit 1 on error) | `SiteBuild` (`og`, `sp`), `StepFails` at "build" |
-| `deploy.yml` 104 EAS deploy | `EasDeploy`, `StepFails` at "eas" |
-| `deploy.yml` 112-125 Record step (`git diff --quiet`, commit, push, `pull --rebase --autostash`) + `.github/last-deployed-upstream-sha` | `RecordSha`, `record` |
+| `deploy.yml` 39-58, `check` gate (`set -euo pipefail`, 40-hex sha check) | `CheckGate`: a failed ls-remote fails job `check` (`Finish("red", "check")`); `last`, changed = dispatch or `sha != last` |
+| `deploy.yml` 63 `if: needs.check.outputs.changed == 'true'` | `CheckGate` skip branch |
+| `deploy.yml` 69-85 checkout (GITHUB_SHA), setup-node, setup-bun, corepack, `bun install` | Folded into `Sync`'s failure (`StepFails`); the checkout fixes `run.site` and `run.recIn` at trigger time (`Queue`) |
+| `deploy.yml` 90 + `site/scripts/sync-fmhy.ts` 32-52 (clone `--branch main`), 65-75 (generate.ts, convert-fmhy.ts); `wiki/generate.ts` 1405 (`exitCode = 1`), 1156 (chrome.json commit = clone HEAD); `convert-fmhy.ts` 32-34 | `Sync` (`run.built = upHead` at sync time), `StepFails` at "sync" |
+| `deploy.yml` 94 `corepack pnpm docs:build` | `UpstreamBuild`, `StepFails` at "upbuild" |
+| `deploy.yml` 100 + `site/scripts/parity-check.ts` 30-35, 147-151 | `Parity`, `StepFails` at "parity" |
+| `deploy.yml` 103 + `site/package.json` 13-14; `generate-images.tsx` 315-321 (fonts: exit 0); `single-page.ts` 28-31 (exit 0); sitemap-gen, defer-hydration, strip-loader-data, generate-sw (exit 1 on error) | `SiteBuild` (`og`, `sp`), `StepFails` at "build" |
+| `deploy.yml` 109 EAS deploy | `EasDeploy`, `StepFails` at "eas" |
+| `deploy.yml` 117-130 Record step (`git diff --quiet`, commit, push, `pull --rebase --autostash`) + `.github/last-deployed-upstream-sha` | `RecordSha`, `record` |
 
 When you have confirmed that the model describes the code at a newer commit,
 update the sync commit in this file (here and in step 1), and the line numbers
@@ -160,7 +162,7 @@ check passed.
 
 - `MC.cfg` and the finding configs: up to 2 new fmhy/edit commits, 1 site-code
   push, the workflow can be disabled and enabled, and every outside call or step
-  in `Flaky` can fail. That gives 2.6 M states. A pass covers these bounds only.
+  in `Flaky` can fail. That gives 0.7 M states. A pass covers these bounds only.
 - One EAS deploy is atomic. Upstream main never moves backwards (no force-push).
   GitHub starts a queued run as soon as the running one ends, in trigger order.
 - Rules R1 and R4-R6 are judged when no run is in progress. A run always
@@ -192,7 +194,7 @@ You cannot run Actions locally. Run the workflow's own shell instead:
 - **Gate and Record steps.** Copy the `run:` text out of `deploy.yml`. Replace
   `${{ github.event_name }}`, `${{ github.repository }}` and
   `${{ needs.check.outputs.sha }}` with the path's values. Run it with
-  `bash -e` (what GitHub uses, no pipefail), with `GITHUB_OUTPUT` set to a
+  `bash -e` (what GitHub uses; the gate step adds pipefail itself), with `GITHUB_OUTPUT` set to a
   file. Put stub `git` and `gh` scripts first on `PATH` to make `ls-remote` or
   `gh api` fail or return a sha. For the Record step, use a scratch bare repo
   as `origin`, with clones checked out at the run's trigger commit.

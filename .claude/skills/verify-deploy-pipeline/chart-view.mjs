@@ -56,10 +56,10 @@ export const step = (action, from, to) => {
     case "StartWaitingRun":
       return to.run.event === "dispatch" ? "you run the workflow by hand" : "the hourly run starts";
     case "CheckGate":
+      if (to.phase === "idle" && to.lastRun === "red") return "check: git ls-remote fails, check job fails";
       if (to.phase === "idle") return "check: sha equals the record, deploy job skipped";
-      if (to.run.sha === -1) return "check: git ls-remote fails, sha is empty, so 'changed'";
       if (to.run.event === "schedule" && to.run.sha === from.record)
-        return "check: gh api read fails, record reads empty, so 'changed'";
+        return "check: gh api read fails, record reads 'none', so 'changed'";
       return "check: changed (or a manual run)";
     case "Sync":
       return "fmhy/edit main cloned and data regenerated";
@@ -77,8 +77,6 @@ export const step = (action, from, to) => {
       return "EAS deploy succeeds";
     case "RecordSha":
       if (to.lastRun === "red") return "record push fails or rebase conflicts";
-      if (to.record === -1 && from.record !== -1)
-        return "empty sha committed: 'deployed fmhy/edit @ '";
       return "sha recorded (or unchanged)";
     case "DisableWorkflow":
       return "the workflow gets disabled";

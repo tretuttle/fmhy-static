@@ -18,6 +18,7 @@ import { WikiToc } from '~/components/WikiToc'
 import { ThemeController } from '~/features/theme/ThemeController'
 import { THEME_PRE_PAINT_SCRIPT } from '~/features/theme/themePrePaint'
 import { SEASONAL_BRANDING_SCRIPT, THEME_COLOR } from '~/features/theme/seasonalBranding'
+import { Base64LinkGuard } from '~/features/wiki/base64Links'
 import {
   closeSearch,
   isSearchOpen,
@@ -115,10 +116,19 @@ function SkipLink() {
   )
 }
 
+// routes fmhy.net renders with `layout: false` — page content only, no
+// header/sidebar/toc/footer and no site search hotkeys (they'd fight the
+// page's own '/' handling)
+const BARE_ROUTES = new Set(['/startpage'])
+
+const isBareRoute = (pathname: string) => BARE_ROUTES.has(pathname.replace(/\/+$/, '') || '/')
+
 // TODO(native): this layout renders <html>/<head>/<body> and imports
 // root.css/search.css — web-only by nature. a native target needs a _layout.native.tsx
 // fork plus expo/react-native deps in package.json before anything can boot on ios/android.
 export function Layout() {
+  const bare = isBareRoute(usePathname())
+
   return (
     <html lang="en-US">
       <head>
@@ -180,14 +190,23 @@ export function Layout() {
           <GlobalTooltipProvider>
             <WikiFiltersProvider>
               <ThemeController />
-              <SearchHotkey />
+              {bare ? null : <SearchHotkey />}
               <RouteProgress />
               <View className="body-scrollable">
-                <Header />
-                <Shell />
-                <Footer />
+                {bare ? (
+                  <View render="main" id={MAIN_CONTENT_ID} tabIndex={-1}>
+                    <Slot />
+                  </View>
+                ) : (
+                  <>
+                    <Header />
+                    <Shell />
+                    <Footer />
+                  </>
+                )}
               </View>
-              <WikiSearchModal />
+              {bare ? null : <WikiSearchModal />}
+              <Base64LinkGuard />
             </WikiFiltersProvider>
           </GlobalTooltipProvider>
         </TamaguiRootProvider>

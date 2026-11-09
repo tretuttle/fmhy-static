@@ -1,0 +1,359 @@
+/* ModalDialog: reka-ui DialogOverlay + DialogContent equivalents. colors map
+   vitepress vars onto the tamagui theme vars like search.css does:
+   --vp-c-bg → --background, --vp-c-divider → --color4,
+   --vp-c-text-1/2 → --color12/11, --vp-c-brand-1/2 → --accent11/10.
+   z-index clears the search modal (400000) so a dialog opened from a search
+   result sits on top of it. */
+
+.md-root {
+  --md-bg: var(--background);
+  --md-divider: var(--color4);
+  --md-text-1: var(--color12);
+  --md-text-2: var(--color11);
+  --md-brand-1: var(--accent11);
+  --md-brand-2: var(--accent10);
+  position: fixed;
+  inset: 0;
+  z-index: 500000;
+  font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  color: var(--md-text-1);
+}
+
+.md-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  animation: md-fade-in 0.15s ease-out;
+}
+
+.md-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  max-width: 448px;
+  max-height: 90vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px;
+  background-color: var(--md-bg);
+  /* the startpage dialogs' `border border-div` paints nothing upstream (uno
+     ships no preflight, so border-style stays none) — only the base64 dialog
+     declares a full border shorthand */
+  border: none;
+  border-radius: 8px;
+  animation: md-fade-in 0.15s ease-out;
+}
+
+.md-content:focus {
+  outline: none;
+}
+
+@keyframes md-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   shared form + button bits (startpage bookmark dialogs, base64 dialog)
+   --------------------------------------------------------------------------- */
+
+.md-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  color: var(--md-text-1);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.md-description {
+  margin: 0 0 24px;
+  color: var(--md-text-2);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.md-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+}
+
+.md-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--md-text-2);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+/* upstream's form controls keep the UA 13.33px size and borderless look (no
+   preflight); focus gets an inset brand ring instead of upstream's invisible
+   `focus:border-primary` so keyboard users can see where they are */
+.md-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 12px;
+  color: var(--md-text-1);
+  background-color: var(--color2);
+  border: none;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13.333px;
+  line-height: 24px;
+  outline: none;
+}
+
+.md-input:focus {
+  box-shadow: inset 0 0 0 1px var(--md-brand-1);
+}
+
+.md-input-upper {
+  text-transform: uppercase;
+}
+
+textarea.md-input {
+  height: 80px;
+  resize: none;
+}
+
+.md-error {
+  margin: 4px 0 0;
+  color: #ef4444;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.md-hint {
+  margin: 4px 0 0;
+  color: var(--md-text-2);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.md-row {
+  display: flex;
+  gap: 12px;
+}
+
+.md-row-top {
+  padding-top: 16px;
+}
+
+/* flex-1 action buttons (bookmark dialogs) */
+.md-action {
+  flex: 1;
+  padding: 8px 16px;
+  font: inherit;
+  font-size: 13.333px;
+  font-weight: 500;
+  line-height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    opacity 0.2s,
+    background-color 0.2s;
+}
+
+.md-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.md-action-primary {
+  color: #fff;
+  background-color: var(--md-brand-1);
+  border: none;
+}
+
+.md-action-primary:not(:disabled):hover {
+  opacity: 0.8;
+}
+
+.md-action-secondary {
+  color: var(--md-text-1);
+  background-color: var(--color2);
+  border: none;
+}
+
+.md-action-secondary:hover {
+  background-color: var(--color3);
+}
+
+.md-action-danger {
+  color: #fff;
+  background-color: #dc2626;
+  border: none;
+}
+
+.md-action-danger:hover {
+  background-color: #b91c1c;
+}
+
+.md-action:focus-visible {
+  outline: 2px solid var(--md-brand-1);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   base64 link dialog (upstream Base64Dialog.vue scoped styles)
+   --------------------------------------------------------------------------- */
+
+.md-b64 .md-backdrop {
+  /* --vp-backdrop-bg-color */
+  background: rgba(0, 0, 0, 0.6);
+  /* prefixed first: in the reverse order lightningcss folds both into the
+     -webkit- form only, which chromium ignores */
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.md-b64 .md-content {
+  max-width: 440px;
+  border: 1px solid var(--md-divider);
+  max-height: calc(100dvh - 32px);
+  /* --vp-shadow-3 */
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.1),
+    0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.md-b64 .md-title {
+  line-height: 24px;
+}
+
+.b64-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--md-brand-1);
+}
+
+.b64-text {
+  margin: 0 0 12px;
+  color: var(--md-text-1);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.b64-text-subtitle {
+  margin-bottom: 6px;
+}
+
+.b64-list {
+  margin: 0 0 16px;
+  padding-left: 20px;
+  color: var(--md-text-1);
+  font-size: 14px;
+  line-height: 22px;
+  list-style-type: disc;
+}
+
+.b64-list li {
+  margin-bottom: 4px;
+}
+
+.b64-link {
+  color: var(--md-brand-1);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+
+.b64-link:hover {
+  color: var(--md-brand-2);
+}
+
+.b64-footer-hint {
+  margin: 0 0 16px;
+  color: var(--md-text-2);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.b64-checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--md-divider);
+  cursor: pointer;
+}
+
+.b64-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--md-brand-1);
+  cursor: pointer;
+}
+
+.b64-checkbox-label {
+  color: var(--md-text-2);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.b64-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.b64-btn {
+  padding: 8px 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+/* --vp-button-alt-* */
+.b64-btn-secondary {
+  color: var(--md-text-1);
+  background-color: var(--color3);
+  border: 1px solid var(--md-divider);
+}
+
+.b64-btn-secondary:hover {
+  background-color: var(--color4);
+}
+
+/* --vp-button-brand-*: brand-1 fill, brand-soft border/hover, dark text */
+.b64-btn-primary {
+  --b64-brand-soft: color-mix(in srgb, var(--md-brand-1) 75%, white);
+  color: rgb(42, 40, 47);
+  background-color: var(--md-brand-1);
+  border: 1px solid var(--b64-brand-soft);
+}
+
+.b64-btn-primary:hover {
+  background-color: var(--b64-brand-soft);
+}
+
+.b64-btn:focus-visible,
+.b64-link:focus-visible,
+.b64-checkbox:focus-visible {
+  outline: 2px solid var(--md-brand-1);
+  outline-offset: 2px;
+}

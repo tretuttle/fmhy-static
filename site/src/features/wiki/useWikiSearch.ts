@@ -57,6 +57,9 @@ const writeSessionQuery = (value: string) => {
   }
 }
 
+// seed the query the next mounted search box starts with (?q= deep links)
+export const primeSearchQuery = writeSessionQuery
+
 // ---------------------------------------------------------------------------
 // section filter chips — categories are the sidebar's pages keyed by the first
 // path segment of a result id ("/gaming#anchor" → "/gaming"); entries sharing

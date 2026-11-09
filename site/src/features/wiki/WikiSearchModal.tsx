@@ -11,7 +11,7 @@
 import { router, type Href } from 'one'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { closeSearch, useSearchOpen } from './searchModal'
+import { closeSearch, openSearch, useSearchOpen } from './searchModal'
 import {
   centerMarkInExcerpt,
   cancelPendingScroll,
@@ -24,7 +24,7 @@ import {
   unmarkAll,
 } from './searchHighlight'
 import { buildUrlQuery, urlMatchesQuery } from './searchUrl'
-import { useWikiSearch, type WikiDisplayResult } from './useWikiSearch'
+import { primeSearchQuery, useWikiSearch, type WikiDisplayResult } from './useWikiSearch'
 
 // tabbable-element query for the native focus trap — mirrors what
 // focus-trap/tabbable considers focusable within the modal shell
@@ -58,6 +58,18 @@ const TITLES = {
   buttonText: 'Search',
 }
 
+// upstream searchFromQuery.ts: a `?q=` param on any page opens search
+// prefilled — the query goes through the same session key the box reads on
+// mount. initial page load only, like their onMounted.
+function useSearchFromQuery() {
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q')?.trim()
+    if (!q) return
+    primeSearchQuery(q)
+    openSearch()
+  }, [])
+}
+
 // vertical wheel over the chip row scrolls it sideways (upstream onCategoryWheel).
 // attached natively: react's wheel listeners are passive, so they can't
 // preventDefault the page/list scroll
@@ -76,6 +88,7 @@ const categoryWheelRef = (el: HTMLDivElement | null) => {
 }
 
 export function WikiSearchModal() {
+  useSearchFromQuery()
   const open = useSearchOpen()
   const [hasOpenedOnce, setHasOpenedOnce] = useState(false)
   // exit animation state: keep rendering with .vpl-leaving for a beat

@@ -1099,6 +1099,12 @@ const brand = {
   pwaIcon: copyBrandAsset('pwa_icon.png'),
   heroImage: copyBrandAsset(upstream.homeHeroImage),
 }
+// og card backdrop (upstream hooks/opengraph.ts composites onto
+// .vitepress/og-base.jpg) — read by scripts/generate-images.tsx
+{
+  const ogBase = join(DOCS_DIR, '.vitepress', 'og-base.jpg')
+  if (existsSync(ogBase)) writeFileSync(join(brandDir, 'og-base.jpg'), readFileSync(ogBase))
+}
 
 writeFileSync(
   join(OUT_DIR, 'home.json'),

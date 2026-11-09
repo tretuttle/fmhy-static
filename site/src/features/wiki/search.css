@@ -29,8 +29,8 @@
   /* --vp-local-search-highlight-bg/text (dark flips text to black below) */
   --vpl-highlight-bg: var(--accent11);
   --vpl-highlight-text: #ffffff;
-  /* --vp-c-yellow-3: current-match gold (upstream #9f6a00 / #a46a0a) */
-  --vpl-mark-current-bg: #9f6a00;
+  /* --vp-focus-highlight-bg (brand-soft based, see the theme tokens below) */
+  --vpl-mark-current-bg: var(--vp-focus-highlight-bg);
   /* --vp-c-danger-1 */
   --vpl-danger: #b8272c;
   /* --vp-shadow-1 */
@@ -48,8 +48,84 @@
 
 html.t_dark .VPLocalSearchBox {
   --vpl-highlight-text: #000000;
-  --vpl-mark-current-bg: #a46a0a;
   --vpl-danger: #f66f81;
+}
+
+/* ----------------------------------------------------------------------- */
+/* theme-coloured search highlights — upstream style.scss derives the       */
+/* focused-match + scroll-to-match colours from --vp-c-brand-soft, which    */
+/* themeHandler sets per palette: accent presets use the palette's 400      */
+/* (light) / 300 (dark) step, full themes their own `soft`. our accent      */
+/* scale has no such step, so the soft colour is pinned per theme class.   */
+/* these sit on html because the scroll flash lands on the page, not the    */
+/* modal. TODO(parity/theme): read a shared brand-soft token if one lands.  */
+/* ----------------------------------------------------------------------- */
+
+html {
+  /* swarm (the shipped baseline) */
+  --vpl-brand-soft: hsl(207, 65%, 68%);
+  --vp-focus-highlight-bg: color-mix(in srgb, var(--vpl-brand-soft) 87%, black);
+  --vp-scroll-match-bg: color-mix(in srgb, var(--vpl-brand-soft) 46%, transparent);
+}
+html.t_dark {
+  --vpl-brand-soft: hsl(206, 65%, 78%);
+  --vp-focus-highlight-bg: color-mix(in srgb, var(--vpl-brand-soft) 87%, white);
+  --vp-scroll-match-bg: color-mix(in srgb, var(--vpl-brand-soft) 38%, black);
+}
+html.accent-turquoise.t_light {
+  --vpl-brand-soft: hsl(188, 78%, 60%);
+}
+html.accent-turquoise.t_dark {
+  --vpl-brand-soft: hsl(187, 85%, 69%);
+}
+html.accent-carnation.t_light {
+  --vpl-brand-soft: hsl(0, 91%, 71%);
+}
+html.accent-carnation.t_dark {
+  --vpl-brand-soft: hsl(0, 94%, 82%);
+}
+html.accent-cerise.t_light {
+  --vpl-brand-soft: hsl(348, 82%, 71%);
+}
+html.accent-cerise.t_dark {
+  --vpl-brand-soft: hsl(348, 83%, 82%);
+}
+html.accent-meadow.t_light {
+  --vpl-brand-soft: hsl(156, 59%, 52%);
+}
+html.accent-meadow.t_dark {
+  --vpl-brand-soft: hsl(154, 66%, 67%);
+}
+html.accent-merlin.t_light {
+  --vpl-brand-soft: hsl(45, 96%, 53%);
+}
+html.accent-merlin.t_dark {
+  --vpl-brand-soft: hsl(45, 98%, 64%);
+}
+html.accent-blue-violet.t_light {
+  --vpl-brand-soft: hsl(237, 98%, 74%);
+}
+html.accent-blue-violet.t_dark {
+  --vpl-brand-soft: hsl(233, 100%, 82%);
+}
+/* full palette themes win over accent presets (same order as root.css) */
+html.theme-catppuccin.t_light {
+  --vpl-brand-soft: #f5f0ff;
+}
+html.theme-catppuccin.t_dark {
+  --vpl-brand-soft: #35274a;
+}
+html.theme-monochrome.t_light {
+  --vpl-brand-soft: #f0f0f0;
+}
+html.theme-monochrome.t_dark {
+  --vpl-brand-soft: #333333;
+}
+html.theme-monolith.t_light {
+  --vpl-brand-soft: #e8f4fd;
+}
+html.theme-monolith.t_dark {
+  --vpl-brand-soft: #2a1730;
 }
 
 /* element resets (the upstream theme resets these globally) */
@@ -910,11 +986,13 @@ html.vp-search-scrolling #local-nav {
   transition: none !important;
 }
 
+/* solid resting state so the flash still shows when the fade animation is
+   suppressed (reduced-motion userstyles); js drops the class after 2s */
 .vp-search-highlight-target {
   border-radius: 4px;
-  outline: 2px solid #ffd54f;
+  outline: 2px solid var(--vp-scroll-match-bg);
   outline-offset: 2px;
-  background-color: rgba(255, 213, 79, 0.22);
+  background-color: var(--vp-scroll-match-bg);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -931,12 +1009,12 @@ html.vp-search-scrolling #local-nav {
 
 @keyframes vp-search-flash {
   0% {
-    background-color: rgba(255, 213, 79, 0.25);
-    outline-color: #ffd54f;
+    background-color: var(--vp-scroll-match-bg);
+    outline-color: var(--vpl-brand-soft);
   }
   70% {
-    background-color: rgba(255, 241, 118, 0.15);
-    outline-color: #fff176;
+    background-color: var(--vp-scroll-match-bg);
+    outline-color: var(--vpl-brand-soft);
   }
   100% {
     background-color: transparent;

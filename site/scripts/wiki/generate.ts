@@ -43,7 +43,7 @@ import { profileFor, REDDIT_WIKI_PAGES } from './constants'
 import { noteIdFromUrl, parsePage, stripInvisible, type PageStats } from './parse'
 import { parseProse, splitForSearch, type ParsedProse } from './prose'
 import { assertFmhyRoot } from './fmhy-root'
-import { generateRemovedMarkdown } from './removed'
+import { generateRemoved } from './removed'
 import { loadUpstream } from './upstream'
 
 const SITE = join(import.meta.dirname, '..', '..')
@@ -858,10 +858,13 @@ postsManifest.sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompar
 
 // recently-removed — regenerated from upstream docs/ git history like the
 // real site does at deploy (scripts/generate-removed.js)
-const removed = generateRemovedMarkdown(ROOT)
+const removed = generateRemoved(ROOT)
 {
-  const parsed = parseProse(removed.markdown)
-  const page = buildProsePage('recently-removed', 'page', parsed)
+  const page = buildProsePage('recently-removed', 'page', {
+    frontmatter: {},
+    authorNames: [],
+    blocks: removed.blocks,
+  })
   page.title = upstream.recentlyRemovedHeader.title
   page.description = upstream.recentlyRemovedHeader.description
   prosePages.push(page)
@@ -876,9 +879,6 @@ const removed = generateRemovedMarkdown(ROOT)
 // the FULL page blocks (the real site renders the live page component, where
 // search-exclude spans still exist).
 // ---------------------------------------------------------------------------
-
-const SEARCH_EXCLUDE_SPAN_RE =
-  /<!--\s*search-exclude\s*-->[\s\S]*?<!--\s*\/search-exclude\s*-->/gi
 
 const postCutoff = new Date()
 postCutoff.setMonth(postCutoff.getMonth() - 2)
@@ -910,6 +910,13 @@ function proseBlockHtml(block: WikiProseBlock): string {
       return ''
     case 'image':
       return `<p><img src="${escapeHtml(block.src)}" alt="${escapeHtml(block.alt)}" loading="lazy" /></p>`
+    case 'removed':
+      return `<ul>${block.sites
+        .map(
+          (site) =>
+            `<li>${escapeHtml(site.name)}${site.description ? ` - ${escapeHtml(site.description)}` : ''}</li>`,
+        )
+        .join('')}</ul>`
     default:
       return ''
   }
@@ -980,11 +987,8 @@ for (const page of prosePages) {
     if (!page.date || new Date(page.date) < postCutoff) continue
   }
   // recently-removed hides its removal metadata from search via
-  // search-exclude comments — re-parse with those spans dropped
-  const blocks =
-    page.id === 'recently-removed'
-      ? parseProse(removed.markdown.replace(SEARCH_EXCLUDE_SPAN_RE, '')).blocks
-      : page.blocks
+  // search-exclude comments — index the generator's names-only body
+  const blocks = page.id === 'recently-removed' ? removed.searchBlocks : page.blocks
 
   const pageTitle = SEARCH_PAGE_TITLES[page.id] ?? null
   const { excerpts, phrasesByAnchor } = proseSectionData(page.blocks)
@@ -1013,7 +1017,7 @@ for (const page of prosePages) {
     searchExcerpts.set(page.id, excerpts)
   }
 
-  // heading-less prose (recently-removed's generated body): one lead doc for
+  // heading-less prose: one lead doc for
   // the whole page — no excerpt, same as the real client's hash-less ids
   if (!emitted) {
     const text = splitForSearch(blocks)
@@ -1056,6 +1060,12 @@ for (const page of pages.values()) {
     ...section.subsections.map((sub) => ({ id: sub.id, title: sub.title, depth: 1 as const })),
   ])
 }
+// recently-removed's outline is `outline: 2` upstream — page headings only
+toc['recently-removed'] = removed.blocks.flatMap((block) =>
+  block.kind === 'heading' && block.level === 2
+    ? [{ id: block.id, title: block.markdown, depth: 0 as const }]
+    : [],
+)
 writeFileSync(join(OUT_DIR, 'toc.json'), JSON.stringify(toc))
 for (const page of prosePages) {
   const file = join(OUT_DIR, 'prose', `${page.id}.json`)

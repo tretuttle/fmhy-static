@@ -19,7 +19,7 @@ that runs to the end before anything else runs.
 | `NewestRequestLands` | Once everything settles, the page sits where my newest request sent it. (A search result whose match can't be found is exempt.) | You land on an older target. The URL can show `#x` while the page sits somewhere else. | **breaks** (findings 1, 3, 4) |
 | `NoSilentDrop` | A jump I ask for is never silently ignored. | A tap or `#hash` change does nothing for up to ~7s, while the URL and the "On this page" highlight claim it worked. | **breaks** (finding 1) |
 | `HeaderFreeOnceIdle` | Once no jump is running, the mobile header hides and shows again. | The header stays pinned (or hidden) for good. | holds |
-| `JumpStaysOnItsPage` | A jump never scrolls a page other than its own. | The next page drifts up by hundreds or thousands of px right after you open it. | **breaks** (finding 2) |
+| `JumpStaysOnItsPage` | A jump never scrolls a page other than its own. | The next page drifts up by hundreds or thousands of px right after you open it. | holds (finding 2, fixed) |
 
 `TypeOK` is a sanity check. TLC's deadlock check is on. `Done` is the no-op
 end state, reached once the reader has made every request and everything has settled.
@@ -27,7 +27,7 @@ end state, reached once the reader has made every request and everything has set
 ## Is my change covered?
 
 Coverage record. The model was last confirmed against these files at the
-**sync commit `fb43561`** (`fb43561cc7355afc69c8890d4cd0467bd26ff3f7`):
+**sync commit `ba3835b`** (`ba3835ba56f400cd273b3429b5d5ec1be2d9e383`):
 
 | File | What the model covers |
 | --- | --- |
@@ -43,8 +43,8 @@ Coverage record. The model was last confirmed against these files at the
 To see what changed since the sync commit:
 
 ```sh
-git log --oneline fb43561..HEAD -- site/src/features/wiki/scrollToAnchor.ts site/src/features/wiki/scrollOffset.ts site/src/features/wiki/searchHighlight.ts site/src/features/wiki/WikiSearchModal.tsx site/src/components/ScrollHeader.tsx site/src/components/WikiToc.tsx site/src/components/LocalNav.tsx site/src/components/WikiSidebar.tsx
-git diff fb43561 -- <same paths>
+git log --oneline ba3835b..HEAD -- site/src/features/wiki/scrollToAnchor.ts site/src/features/wiki/scrollOffset.ts site/src/features/wiki/searchHighlight.ts site/src/features/wiki/WikiSearchModal.tsx site/src/components/ScrollHeader.tsx site/src/components/WikiToc.tsx site/src/components/LocalNav.tsx site/src/components/WikiSidebar.tsx
+git diff ba3835b -- <same paths>
 ```
 
 If your diff touches any line the map below names, or adds a new caller of
@@ -72,7 +72,7 @@ result. To see one rule's full TLC trace:
 ```
 
 `SectionJumps.cfg` (the default when you run `tlc.sh` on the model with no config) has all
-four rules. TLC stops at the first one that breaks. `tlc.sh` alone returns 0 only when every invariant in that config holds. Three
+four rules. TLC stops at the first one that breaks. `tlc.sh` alone returns 0 only when every invariant in that config holds. Two
 rules break on the current code, so `tlc.sh` exits 12 on those configs. That is expected
 until the findings are fixed.
 
@@ -98,7 +98,7 @@ in its `hidden()` function, and the hand-off must name them.
 | `SearchUnlocks` | `setTimeout(unlock, 100)` after `finish()` |
 | `SearchGivesUp` | 15 polls × 120ms, then the observer's 5s safety `unlock()`, about 7s after the pick |
 | `HashPollFires` | `watchHashNavigations` `settle()`: `if (isSearchScrolling()) return`, else `scrollToAnchor` |
-| `JumpSettleStep` | `scrollToAnchor` rAF×2 `step()`: `superseded()` → stop, else measure and `window.scrollTo`. **No `isConnected` check.** |
+| `JumpSettleStep` | `scrollToAnchor` rAF×2 `step()`: `!el.isConnected \|\| superseded()` → stop, else measure and `window.scrollTo` |
 | `JumpLateCorrection` | the 600ms `setTimeout`: `el.isConnected && !superseded()` → re-scroll |
 | `JumpReleasesHeader` | `setTimeout(releaseNav, 100)` → `navFreezes--` |
 
@@ -129,16 +129,20 @@ Each was replayed against a production build (`site/dist`, served with
    `#encyclopedias` hash change left the heading at −302px (control: 55px). At
    phone width the header stayed shown while the reader scrolled 2000px
    (control: it hides).
-2. **A jump keeps scrolling after you leave its page** (`JumpStaysOnItsPage`).
-   TLC: (1) `YouTapAHeading` (or a `#hash` change) on page A. (2) the reader opens
-   another page while the settle loop runs. (3) `JumpSettleStep`: the loop has no
-   `el.isConnected` check, and a detached element measures `top = 0`, so the
-   target becomes `scrollY − scroll-margin-top` and it scrolls the new page up.
+2. **Fixed at the sync commit: a jump kept scrolling after you left its page**
+   (`JumpStaysOnItsPage`, now holds). TLC before the fix: (1) `YouTapAHeading`
+   (or a `#hash` change) on page A. (2) the reader opens another page while the
+   settle loop runs. (3) `JumpSettleStep`: the loop had no `el.isConnected`
+   check, and a detached element measures `top = 0`, so the target became
+   `scrollY − scroll-margin-top` and it scrolled the new page up.
    Replay: tap `#ai-benchmarks`, then 60ms later press Back to /audio (restored
    to 8000). The old loop scrolled /audio up 15px every ~33ms, 38 times
    (8000 → 7445) at 1440px wide, and 63px at a time (8000 → 5669) at 390px. With a
    sidebar `page#hash` row instead, it made one stray scroll (22546 → 22531)
-   before the new page's jump superseded it.
+   before the new page's jump superseded it. After the fix, both replays made no
+   scroll on /audio other than its own, and a same-page tap still put the
+   `#ai-benchmarks` heading at 81px (1440px) and 129px (390px). To see the
+   old break, drop `j.visit # visit \/` from `JumpSettleStep` in a copy.
 3. **An older tap's 600ms re-check undoes a newer search**
    (`NewestRequestLands`). (1) `YouTapAHeading`. (2) `YouPickASearchResult`
    (same page). (3) `SearchFindsTheMatch` → landing. (4) `SearchUnlocks`.
@@ -198,7 +202,7 @@ sees the lock within ~33ms.
 
 ## Bounds and assumptions
 
-- Two pages and at most 3 reader requests (`MaxReq = 3`): 13,953 distinct
+- Two pages and at most 3 reader requests (`MaxReq = 3`): 9,809 distinct
   states, complete. The chart uses `MaxReq = 2` with `VIEW ChartView`, which
   only merges states that agree on every comparison the rules and actions read.
 - Section ids are unique to their page. A page renders within the search's

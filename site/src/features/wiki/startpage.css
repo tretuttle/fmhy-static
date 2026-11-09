@@ -1,0 +1,419 @@
+/* /startpage — port of fmhy.net's startpage/*.vue uno classes. upstream runs
+   uno without a preflight, so `border border-div` / `border-2` utilities paint
+   nothing there (border-style stays none); the borderless cards below are that
+   rendered look, not an omission. breakpoints are tailwind's (sm 640, lg 1024,
+   xl 1280) to match the uno grid exactly. vitepress vars map onto the tamagui
+   theme vars the way search.css does. */
+
+.sp-root {
+  --sp-bg: var(--background);
+  --sp-bg-alt: var(--color2);
+  --sp-bg-elv: var(--color2);
+  --sp-text-1: var(--color12);
+  --sp-text-2: var(--color11);
+  --sp-brand: var(--accent11);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 192px 16px 16px;
+  color: var(--sp-text-1);
+  font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.sp-root *,
+.sp-root *::before,
+.sp-root *::after {
+  box-sizing: border-box;
+}
+
+.sp-root button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sp-root h2,
+.sp-root h3,
+.sp-root p {
+  margin: 0;
+}
+
+.sp-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+  max-width: 1280px;
+}
+
+.sp-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-hide-mobile {
+  display: none !important;
+}
+
+@media (min-width: 640px) {
+  .sp-hide-mobile {
+    display: flex !important;
+  }
+}
+
+/* --- search bar ----------------------------------------------------------- */
+
+.sp-search {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sp-clock {
+  font-size: 60px;
+  line-height: 60px;
+  font-weight: 700;
+  font-variant-numeric: normal;
+  color: var(--sp-text-1);
+}
+
+.sp-search-form {
+  position: relative;
+  width: 100%;
+  margin: 0;
+}
+
+.sp-search-icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: var(--sp-text-2);
+  pointer-events: none;
+}
+
+.sp-search-input {
+  width: 100%;
+  padding: 12px 12px 12px 40px;
+  font: inherit;
+  font-size: 18px;
+  line-height: 28px;
+  color: var(--sp-text-1);
+  background-color: var(--sp-bg-elv);
+  border: none;
+  border-radius: 6px;
+  outline: none;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.15s;
+}
+
+.sp-search-input::placeholder {
+  color: var(--sp-text-2);
+  opacity: 0.8;
+}
+
+.sp-platforms {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .sp-platforms {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .sp-platforms {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.sp-root .sp-platform {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  background-color: var(--sp-bg-elv);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.sp-root .sp-platform:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* upstream's `border-2 border-primary scale-105` while Alt is held — only the
+   scale paints (see the border note at the top) */
+.sp-platform.is-highlight {
+  transform: scale(1.05);
+}
+
+.sp-platform-name {
+  flex-grow: 1;
+  min-width: 0;
+  text-align: left;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.sp-keys {
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--sp-text-2);
+}
+
+.sp-plus {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* chord / shortcut keycaps (`bg-bg px-1 py-0.5 rounded text-sm font-semibold`) */
+.sp-keycap {
+  padding: 2px 4px;
+  border-radius: 4px;
+  background-color: var(--sp-bg);
+  color: var(--sp-text-2);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sp-platform:focus-visible,
+.sp-bm:focus-visible,
+.sp-add:focus-visible,
+.sp-bm-action:focus-visible {
+  outline: 2px solid var(--sp-brand);
+  outline-offset: 2px;
+}
+
+/* --- bookmarks ------------------------------------------------------------ */
+
+.sp-bookmarks {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sp-bm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sp-bm-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sp-text-2);
+}
+
+.sp-bm-title {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 400;
+}
+
+.sp-bm-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sp-chord-badge {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  /* bg-yellow-200/20 text-yellow-600 */
+  background-color: rgba(254, 240, 138, 0.2);
+  color: #ca8a04;
+}
+
+.sp-root .sp-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  background-color: var(--sp-bg-alt);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.sp-root .sp-add:hover {
+  opacity: 0.8;
+}
+
+.sp-bm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .sp-bm-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .sp-bm-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .sp-bm-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.sp-bm-item {
+  position: relative;
+  min-width: 0;
+}
+
+.sp-bm {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background-color: var(--sp-bg-alt);
+  color: var(--sp-text-1);
+  text-align: left;
+  text-decoration: none;
+  font-size: 13.333px;
+  transition: opacity 0.15s;
+}
+
+.sp-bm.is-possible {
+  opacity: 0.75;
+}
+
+.sp-bm.is-dimmed {
+  opacity: 0.3;
+}
+
+/* ring-2 ring-primary ring-offset-2 ring-offset-bg */
+.sp-bm.is-exact {
+  box-shadow:
+    0 0 0 2px var(--sp-bg),
+    0 0 0 4px var(--sp-brand);
+}
+
+.sp-bm-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .sp-bm-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+}
+
+.sp-bm-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sp-bm-name {
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.sp-bm-icon {
+  flex-shrink: 0;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.sp-bm-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sp-bm-item:hover .sp-bm-actions,
+.sp-bm-actions:focus-within {
+  opacity: 1;
+}
+
+.sp-root .sp-bm-action {
+  display: flex;
+  padding: 4px;
+  border-radius: 4px;
+  background-color: var(--sp-bg-elv);
+  color: var(--sp-text-2);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.sp-root .sp-bm-action:hover {
+  background-color: var(--sp-bg-alt);
+}
+
+.sp-root .sp-bm-action.is-danger:hover {
+  background-color: #fee2e2;
+}
+
+/* --- keyboard hints ------------------------------------------------------- */
+
+.sp-hints {
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--sp-text-2);
+}
+
+/* `kbd` element rule + uno's `.kbd` rule, as they resolve upstream */
+.sp-kbd {
+  display: inline-block;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75em;
+  line-height: 1;
+  font-weight: 500;
+  color: var(--sp-text-1);
+  white-space: nowrap;
+}

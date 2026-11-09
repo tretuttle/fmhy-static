@@ -3,7 +3,7 @@ import { Separator, SizableText, XStack, YStack } from 'tamagui'
 
 import { Link } from '~/components/Link'
 import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
-import { H1, H2, H3, H4 } from '~/interface/text/Headings'
+import { H1, H2, H3, H4, SubHeading } from '~/interface/text/Headings'
 import { Text } from '~/interface/text/Text'
 
 import { FeedbackCard } from './FeedbackCard'
@@ -397,12 +397,19 @@ export function WikiProseContent({ page }: { page: WikiProsePage }) {
     <YStack pb="$10" gap="$1">
       {page.header === 'page' && (
         <YStack gap="$2" pt="$4" pb="$2">
-          <PageTitle title={page.title} />
-          {!!page.description && (
-            <SizableText size="$5" color="$color10" fontWeight="300">
-              {page.description}
-            </SizableText>
-          )}
+          {/* recently-removed's header is upstream's .fmhy-page-header, the
+              accented + underlined H1 of WikiCategoryContent */}
+          <H1
+            fontSize={32}
+            lineHeight={40}
+            fontWeight="600"
+            letterSpacing={-0.64}
+            color="$accent11"
+            textDecorationLine="underline"
+          >
+            {page.title}
+          </H1>
+          {!!page.description && <SubHeading size="$5">{page.description}</SubHeading>}
           <FeedbackCard />
         </YStack>
       )}

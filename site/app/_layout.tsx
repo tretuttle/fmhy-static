@@ -16,6 +16,7 @@ import { WikiSidebar } from '~/components/WikiSidebar'
 import { WikiToc } from '~/components/WikiToc'
 import { ThemeController } from '~/features/theme/ThemeController'
 import { THEME_PRE_PAINT_SCRIPT } from '~/features/theme/themePrePaint'
+import { Base64LinkGuard } from '~/features/wiki/base64Links'
 import {
   closeSearch,
   isSearchOpen,
@@ -202,6 +203,7 @@ export function Layout() {
                 <Footer />
               </View>
               <WikiSearchModal />
+              <Base64LinkGuard />
             </WikiFiltersProvider>
           </GlobalTooltipProvider>
         </TamaguiRootProvider>

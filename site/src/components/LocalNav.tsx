@@ -13,6 +13,7 @@ import { useTocEntries, type TocEntry } from './WikiToc'
 const SIDEBAR_DRAWER_ID = 'sidebar-drawer'
 
 import type { TamaguiElement } from 'tamagui'
+import { getAnchorLandingTop } from '~/features/wiki/scrollOffset'
 import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
 
 // mobile "On this page" sub-bar under the header, ported from vitepress
@@ -26,7 +27,8 @@ import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
 //   row at the top (theme returnToTopLabel default); Escape / outside click /
 //   route change / link click all close it
 // - active link tracked on scroll like fmhy Layout.vue's
-//   runUpdateMobileActiveLink: last anchor whose top is above 120px
+//   runUpdateMobileActiveLink: last anchor within 4px of the shared scroll
+//   offset (the same line the desktop aside ToC uses)
 export function LocalNav({ navHidden }: { navHidden: boolean }) {
   const pathname = usePathname()
   const entries = useTocEntries()
@@ -76,8 +78,9 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
   }, [open])
 
   // active-link tracking ported from fmhy Layout.vue runUpdateMobileActiveLink:
-  // rAF-throttled scroll handler, active = LAST anchor whose top is above
-  // 120px, only below the desktop-ToC breakpoint (there: innerWidth < 1280)
+  // rAF-throttled scroll handler, active = LAST anchor that has reached its
+  // landing line (getScrollOffset() + 4 there), only below the desktop-ToC
+  // breakpoint (there: innerWidth < 1280)
   useEffect(() => {
     if (!isWeb || entries.length === 0) return
 
@@ -88,7 +91,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
       for (const entry of entries) {
         const el = document.getElementById(entry.id)
         if (!el) continue
-        if (el.getBoundingClientRect().top < 120) {
+        if (el.getBoundingClientRect().top <= getAnchorLandingTop(el) + 4) {
           active = entry.id
         } else {
           break
@@ -175,6 +178,9 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
             pinned, so the button disappears exactly like theirs does. */}
         <XStack
           render="button"
+          // vitepress resets the ua button padding (1px 6px) — without it the
+          // bar grows to 50px and every anchor lands 2px low
+          p={0}
           onPress={() => setMenuOpen(true)}
           aria-expanded={menuOpen}
           aria-controls={SIDEBAR_DRAWER_ID}
@@ -204,6 +210,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
 
         <XStack
           render="button"
+          p={0}
           onPress={() => setOpen(!open)}
           aria-expanded={open}
           items="center"

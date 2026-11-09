@@ -86,6 +86,9 @@ const Anchor = ({
   return (
     <div
       id={id}
+      // root.css: lands the section's heading (not its top margin) at the
+      // shared scroll inset
+      className="wk-anchor"
       data-toc-level={tocLevel}
       data-toc-title={tocTitle}
       style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 2000px' }}

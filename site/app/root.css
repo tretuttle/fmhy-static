@@ -280,10 +280,33 @@ details .details-inner > :last-child {
   }
 }
 
-/* align anchor scroll with the fixed header */
-html {
-  scroll-padding-top: 64px;
+/* shared scroll offset (fmhy.net --fmhy-scroll-inset): fixed header + the
+   mobile "On this page" bar while shown + 16px. these static values cover
+   first paint / pre-hydration; ScrollHeader then measures the real chrome and
+   sets the var inline on <html> (scrollOffset.ts). every in-content anchor
+   lands there, native #hash jumps included */
+:root {
+  --fmhy-scroll-inset: 80px;
 }
+@media (max-width: 1023.98px) {
+  :root:has(#local-nav) {
+    --fmhy-scroll-inset: 128px;
+  }
+}
+#main-content [id] {
+  scroll-margin-top: var(--fmhy-scroll-inset);
+}
+/* section wrappers (WikiSectionList Anchor) start at their heading's top
+   margin (SepHeading: h2 41px, h3 25px). land the heading box at the inset —
+   the h2 box 24px higher, since vitepress counts its 24px top padding (fmhy
+   style.scss .vp-doc h2[id]) */
+#main-content .wk-anchor[data-toc-level='0'] {
+  scroll-margin-top: calc(var(--fmhy-scroll-inset) - 41px - 24px);
+}
+#main-content .wk-anchor[data-toc-level='1'] {
+  scroll-margin-top: calc(var(--fmhy-scroll-inset) - 25px);
+}
+
 
 /*
   theme controller overrides (applied at runtime by ThemeController via html classes,

@@ -12,7 +12,14 @@
 // react-native — meaning TOC taps, local-nav links and #hash navigation all go dead
 // there. native needs a scroll-registry equivalent behind this same signature.
 
-const HEADER_OFFSET = 64 // matches html { scroll-padding-top } for the fixed header
+import { freezeMobileNav, getAnchorScrollTop } from './scrollOffset'
+
+// a newer jump supersedes an older one still settling, and a search
+// scroll-to-match (html.vp-search-scrolling) supersedes both
+let activeJump = 0
+
+const isSearchScrolling = () =>
+  document.documentElement.classList.contains('vp-search-scrolling')
 
 export function scrollToAnchor(id: string, { updateHash = true } = {}): boolean {
   if (typeof document === 'undefined') return false
@@ -23,15 +30,21 @@ export function scrollToAnchor(id: string, { updateHash = true } = {}): boolean 
     history.replaceState(null, '', `#${id}`)
   }
 
+  // hold the mobile header where it is while we jump: a downward jump would
+  // otherwise hide it mid-flight and the target would settle with a gap above
+  const releaseNav = freezeMobileNav()
+  const jump = ++activeJump
+  const superseded = () => jump !== activeJump || isSearchScrolling()
+
   let attempts = 0
   let stableRuns = 0
   const MAX_ATTEMPTS = 40
 
   const step = () => {
-    const target = Math.max(
-      0,
-      el.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET,
-    )
+    if (superseded()) return
+    // lands on the shared measured inset (header + mobile local-nav + 16px)
+    // via the anchor's scroll-margin-top — see scrollOffset.ts
+    const target = getAnchorScrollTop(el)
     const settled = Math.abs(window.scrollY - target) <= 1
     if (!settled) {
       stableRuns = 0
@@ -51,14 +64,15 @@ export function scrollToAnchor(id: string, { updateHash = true } = {}): boolean 
   // late correction: image/emoji loads and stragglers can still shift layout
   // after the loop settles
   setTimeout(() => {
-    if (!el.isConnected) return
-    const target = Math.max(
-      0,
-      el.getBoundingClientRect().top + window.scrollY - HEADER_OFFSET,
-    )
-    if (Math.abs(window.scrollY - target) > 4) {
-      window.scrollTo({ top: target, behavior: 'auto' })
+    if (el.isConnected && !superseded()) {
+      const target = getAnchorScrollTop(el)
+      if (Math.abs(window.scrollY - target) > 4) {
+        window.scrollTo({ top: target, behavior: 'auto' })
+      }
     }
+    // let the last scroll event dispatch before the header may react again
+    setTimeout(releaseNav, 100)
   }, 600)
   return true
 }
+

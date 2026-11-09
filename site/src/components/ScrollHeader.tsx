@@ -1,10 +1,12 @@
 import { usePathname } from 'one'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { XStack, isWeb } from 'tamagui'
 
+import { observeScrollInset } from '~/features/wiki/scrollOffset'
 import { breakpoints } from '~/tamagui/breakpoints'
 
 import type { ReactNode } from 'react'
+import type { TamaguiElement } from 'tamagui'
 
 // fixed header height — must match HEADER_H in app/_layout.tsx, which pads the
 // page content to clear this bar (fmhy.net: --vp-nav-height, 64px there)
@@ -88,8 +90,20 @@ export const ScrollHeader = ({
   children: ReactNode
   hidden?: boolean
 }) => {
-  const isHome = usePathname() === '/'
+  const pathname = usePathname()
+  const isHome = pathname === '/'
   const [atTop, setAtTop] = useState(true)
+  const headerRef = useRef<TamaguiElement>(null)
+
+  // publish the shared scroll inset (header + visible "On this page" bar +
+  // 16px) — re-observed per route since the local-nav only exists on pages
+  // with an outline (fmhy.net Layout.vue observeScrollInset)
+  useEffect(() => {
+    if (!isWeb) return
+    const header = headerRef.current as HTMLElement | null
+    if (!header) return
+    return observeScrollInset(header, document.getElementById('local-nav'))
+  }, [pathname])
 
   useEffect(() => {
     if (!isWeb) return
@@ -103,6 +117,7 @@ export const ScrollHeader = ({
 
   return (
     <XStack
+      ref={headerRef}
       render="header"
       t={0}
       l={0}

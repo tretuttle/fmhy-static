@@ -45,14 +45,12 @@ const socialHref = (icon: string, fallback: string) =>
   chrome.socialLinks.find((s) => s.icon === icon)?.link ?? fallback
 
 // header logo, copied from their docs/public at sync time (generated/home.json
-// brand). Upstream swaps to the pride logo for June via a client script gated
-// on getMonth() === 5 — mirror that exactly, so we're never wearing June's
-// branding in August (which is precisely how this used to ship).
+// brand). The June / October seasonal marks are swapped in by CSS off the
+// html.june / html.halloween classes the pre-paint seasonal script sets
+// (upstream style.scss `.VPNavBarTitle .logo { content: url(...) }`) — never
+// decided here, where the SSG would bake the build month into every page.
 import homeJson from '~/features/wiki/generated/home.json'
-const LOGO_SRC =
-  new Date().getMonth() === 5 && homeJson.brand.juneLogo
-    ? homeJson.brand.juneLogo
-    : (homeJson.brand.logo ?? '/upstream/fmhy.ico')
+const LOGO_SRC = homeJson.brand.logo ?? '/upstream/fmhy.ico'
 
 const GITHUB_URL = socialHref('github', 'https://github.com/fmhy/edit')
 const DISCORD_INVITE_URL = socialHref(
@@ -124,7 +122,13 @@ const Logo = () => (
           rounded black plate, so any tile background shows as a halo on themes
           whose surface isn't that exact black */}
       <YStack width={28} height={28} items="center" justify="center">
-        <Image src={LOGO_SRC} width={28} height={28} alt="FMHY Logo" />
+        <Image
+          className="fmhy-nav-logo"
+          src={LOGO_SRC}
+          width={28}
+          height={28}
+          alt="FMHY Logo"
+        />
       </YStack>
       <SizableText
         select="none"

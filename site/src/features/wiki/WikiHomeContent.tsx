@@ -164,8 +164,11 @@ export function WikiHomeContent() {
             items="center"
             justify="center"
           >
-            {/* fmhy.net play-button mark (glow baked into the png) */}
+            {/* fmhy.net play-button mark (glow baked into the png). the
+                October hall.png / uwu-hall.png variants swap in from CSS off
+                html.halloween (root.css), like the navbar logo */}
             <img
+              className={uwu ? 'fmhy-hero-uwu' : 'fmhy-hero-image'}
               src={
                 uwu
                   ? (homeJson.brand.uwuLogo ?? '/upstream/logo-uwu.svg')

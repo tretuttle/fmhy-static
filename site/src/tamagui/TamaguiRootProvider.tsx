@@ -1,8 +1,8 @@
 import './tamagui.css'
 
-import { MetaTheme, SchemeProvider, useUserScheme } from '@vxrn/color-scheme'
+import { SchemeProvider, useUserScheme } from '@vxrn/color-scheme'
 import { type ReactNode } from 'react'
-import { isWeb, TamaguiProvider, Theme, useTheme } from 'tamagui'
+import { TamaguiProvider, Theme } from 'tamagui'
 
 import { config } from './tamagui.config'
 
@@ -24,14 +24,10 @@ const TamaguiInnerProvider = ({ children }: { children: ReactNode }) => {
     // (and every compiled var() style) flips — the split that left dark menu
     // segments/header internals on a light page. The Theme wrapper keeps
     // JS-resolved styles in lockstep with the scheme.
+    // no MetaTheme here: fmhy.net ships a fixed brand theme-color, not the
+    // page background — it lives in app/_layout's <head>
     <TamaguiProvider disableInjectCSS config={config} defaultTheme={userScheme.value}>
-      {isWeb && <ThemeMetaTag />}
       <Theme name={userScheme.value}>{children}</Theme>
     </TamaguiProvider>
   )
-}
-
-const ThemeMetaTag = () => {
-  const theme = useTheme()
-  return <MetaTheme color={theme.background.val} darkColor={'#000'} lightColor="#fff" />
 }

@@ -1047,6 +1047,21 @@ html.june {
   ) !important;
 }
 
+/* seasonal marks (html.june / html.halloween from seasonalBranding.ts):
+   upstream swaps the navbar logo with css `content`, and the October hero /
+   uwu egg images in index.md — same mechanism here so the SSG markup never
+   carries a build-time month */
+html.june .fmhy-nav-logo {
+  content: url('/upstream/june_icon.webp');
+}
+html.halloween .fmhy-nav-logo,
+html.halloween .fmhy-hero-image {
+  content: url('/upstream/hall.png');
+}
+html.halloween .fmhy-hero-uwu {
+  content: url('/upstream/uwu-hall.png');
+}
+
 /* AMOLED override — must stay LAST so it beats every theme-* block above
    (upstream forces black backgrounds over the active theme's palette) */
 html.amoled.t_dark {

@@ -16,6 +16,7 @@ import { WikiSidebar } from '~/components/WikiSidebar'
 import { WikiToc } from '~/components/WikiToc'
 import { ThemeController } from '~/features/theme/ThemeController'
 import { THEME_PRE_PAINT_SCRIPT } from '~/features/theme/themePrePaint'
+import { SEASONAL_BRANDING_SCRIPT, THEME_COLOR } from '~/features/theme/seasonalBranding'
 import {
   closeSearch,
   isSearchOpen,
@@ -45,31 +46,6 @@ const CLARITY_SCRIPT = `(function(c,l,a,r,i){c[a]=c[a]||function(){(c[a].q=c[a].
 // prod only — the sw only exists in the built output (scripts/generate-sw.ts)
 // — and after `load`, so it never competes with first paint or hydration.
 const SW_REGISTER_SCRIPT = `if('serviceWorker' in navigator){addEventListener('load',function(){navigator.serviceWorker.register('/sw.js')})}`
-
-// June seasonal icon swap (upstream config.mts applyJuneTheme, month-gated so
-// it is dormant outside June). simplified from upstream: the swap only runs
-// once the asset actually loads (no broken-icon fallback if /june_icon.webp is
-// missing), re-applies on popstate instead of a MutationObserver (which would
-// fight react's DOM ownership), and skips upstream's <img> logo swap (react
-// re-renders would revert it without the observer).
-const JUNE_THEME_SCRIPT = `(function(){try{
-if(new Date().getMonth()!==5)return;
-document.documentElement.classList.add('june');
-var img=new Image();
-img.onload=function(){
-var apply=function(){
-document.querySelectorAll("link[rel*='icon']").forEach(function(link){
-if(link.getAttribute('href')!=='/june_icon.webp'){
-link.setAttribute('href','/june_icon.webp');
-if(link.hasAttribute('type'))link.setAttribute('type','image/webp');
-}
-});
-};
-apply();
-window.addEventListener('popstate',apply);
-};
-img.src='/june_icon.webp';
-}catch(e){}})();`
 
 // mirrors the fmhy.net search hotkey guard: '/' must keep typing normally
 // inside form fields and editable regions
@@ -160,9 +136,16 @@ export function Layout() {
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
         />
+        {/* fmhy.net head extras (config.mts): fixed brand theme-color (the
+            seasonal script swaps it in October), keywords, pwa icon links */}
+        <meta name="theme-color" content={THEME_COLOR} />
+        <meta name="keywords" content="stream movies gaming reading anime" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/upstream/fmhy.ico" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="alternate icon" href="/pwa-192.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/pwa-192.png" sizes="192x192" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="alternate" type="application/rss+xml" title="FMHY" href="/feed.rss" />
         {/* Inter latin is the body face for everything above the fold — same
@@ -182,8 +165,9 @@ export function Layout() {
             blocks, which most wiki pages don't have — preloading pushed 172KB
             of fonts on every page and logged "preload not used" warnings.
             @font-face fetches it on first actual use. */}
-        {/* after the icon links: june seasonal swap (dormant outside June) */}
-        <script dangerouslySetInnerHTML={{ __html: JUNE_THEME_SCRIPT }} />
+        {/* after the icon + theme-color tags: june / october branding swap
+            (dormant other months, see seasonalBranding.ts) */}
+        <script dangerouslySetInnerHTML={{ __html: SEASONAL_BRANDING_SCRIPT }} />
         {import.meta.env.PROD && (
           <script dangerouslySetInnerHTML={{ __html: SW_REGISTER_SCRIPT }} />
         )}

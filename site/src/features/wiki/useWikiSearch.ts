@@ -152,7 +152,7 @@ export function tokenizeIndexLike(text: string, splitDottedParts = false): strin
 }
 
 // ---------------------------------------------------------------------------
-// engine (module-level singleton — corpus and index are permanent)
+// engine (module-level singleton, kept once loaded; a failed load is dropped so the next search retries)
 // ---------------------------------------------------------------------------
 
 type IndexedDoc = {
@@ -238,6 +238,9 @@ export function getSearchEngine(): Promise<SearchEngine> {
     }
 
     return { mini, customMetadata, termKeys, globalStarredLinks, globalLinks }
+  }).catch((error: unknown) => {
+    enginePromise = null
+    throw error
   })
   return enginePromise
 }
@@ -656,6 +659,7 @@ export function useWikiSearch() {
   const [mayHaveMore, setMayHaveMore] = useState(false)
   const [isSearching, setIsSearching] = useState(() => !!readSessionQuery().trim())
   const [enableNoResults, setEnableNoResults] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
   const [resultLimit, setResultLimit] = useState(RESULTS_PAGE_SIZE)
   const [suggestions, setSuggestions] = useState<string[]>([])
   // active section chip ('' = all) and per-section counts of what's displayed
@@ -686,6 +690,7 @@ export function useWikiSearch() {
   useEffect(() => {
     setActiveCategory('')
     setEnableNoResults(false)
+    setSearchFailed(false)
     setResultLimit(RESULTS_PAGE_SIZE)
     shouldResetScrollRef.current = true
   }, [query, fuzzy, urlSearch])
@@ -709,7 +714,7 @@ export function useWikiSearch() {
       if (!engine) {
         setAllResults([])
         setIsSearching(false)
-        setEnableNoResults(true)
+        setSearchFailed(true)
         return
       }
       const wantUrls = urlSearch || looksLikeUrlQuery(query)
@@ -890,6 +895,7 @@ export function useWikiSearch() {
     mayHaveMore,
     isSearching,
     enableNoResults,
+    searchFailed,
     fuzzy,
     setFuzzy,
     urlSearch,

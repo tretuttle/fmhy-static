@@ -1111,10 +1111,23 @@ writeFileSync(
 
 // site chrome (header bar + social icons) — upstream's shared.ts `nav` and
 // `socialLinks`, so adding an Ecosystem entry upstream shows up here with no
-// edit on our side. Header.tsx renders straight from this.
+// edit on our side. Header.tsx renders straight from this. `commit` is the
+// fmhy/edit sha this data came from — Footer.tsx's "rev:" link, upstream's
+// shared.ts commitRef (null outside a git checkout, rendered as 'dev').
+const upstreamCommit = (() => {
+  try {
+    return execFileSync('git', ['-C', ROOT, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+  } catch {
+    return null
+  }
+})()
 writeFileSync(
   join(OUT_DIR, 'chrome.json'),
-  JSON.stringify({ nav: upstream.headerNav, socialLinks: upstream.socialLinks }),
+  JSON.stringify({
+    nav: upstream.headerNav,
+    socialLinks: upstream.socialLinks,
+    commit: upstreamCommit,
+  }),
 )
 
 // twemoji SVGs for the sidebar icons — the same @iconify-json/twemoji set

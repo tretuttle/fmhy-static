@@ -159,6 +159,24 @@ export type WikiProseBlock =
       mobile: string
       desktop: string
     }
+  // recently-removed: one subsection's entries (scripts/wiki/removed.ts)
+  | { kind: 'removed'; sites: WikiRemovedSite[] }
+
+// one removal on /recently-removed — fmhy.net renders the name as a tooltip
+// button ("N days ago" + date), then a muted description and a small
+// "· PR #n · <hash>" meta line
+export type WikiRemovedSite = {
+  name: string
+  description: string | null
+  // 'YYYY-MM-DD' (UTC) commit date of the removal
+  date: string
+  // fmhy/edit pull request number, when the commit subject carries one
+  pr: string | null
+  // abbreviated commit hash
+  hash: string
+  // commit diff link anchored at the removed line
+  commitUrl: string
+}
 
 export type WikiProseAuthor = {
   name: string

@@ -7,13 +7,14 @@ import { InfoIcon } from '~/icons/phosphor/InfoIcon'
 import { LightbulbIcon } from '~/icons/phosphor/LightbulbIcon'
 import { SkullIcon } from '~/icons/phosphor/SkullIcon'
 import { WarningIcon } from '~/icons/phosphor/WarningIcon'
-import { H1, H2, H3, H4 } from '~/interface/text/Headings'
+import { H1, H2, H3, H4, SubHeading } from '~/interface/text/Headings'
 import { Text } from '~/interface/text/Text'
 
 import { FeedbackCard } from './FeedbackCard'
 import { InlineMarkdown } from './InlineMarkdown'
 import { openExternal } from './openExternal'
 import { AuthorAvatar, ProseImage, WallpaperPreview } from './proseImages'
+import { RemovedDateTooltip, RemovedSites } from './RemovedSites'
 import { WikiDocFooter } from './WikiDocFooter'
 
 import type { Href } from 'one'
@@ -361,6 +362,8 @@ function ProseBlocks({ blocks }: { blocks: WikiProseBlock[] }) {
             return <ProseImage key={index} src={block.src} alt={block.alt} />
           case 'wallpaper':
             return <WallpaperCard key={index} block={block} />
+          case 'removed':
+            return <RemovedSites key={index} sites={block.sites} />
         }
       })}
     </>
@@ -424,12 +427,19 @@ export function WikiProseContent({ page }: { page: WikiProsePage }) {
     <YStack pb="$10" gap="$1">
       {page.header === 'page' && (
         <YStack gap="$2" pt="$4" pb="$2">
-          <PageTitle title={page.title} />
-          {!!page.description && (
-            <SizableText size="$5" color="$color10" fontWeight="300">
-              {page.description}
-            </SizableText>
-          )}
+          {/* recently-removed's header is upstream's .fmhy-page-header, the
+              accented + underlined H1 of WikiCategoryContent */}
+          <H1
+            fontSize={32}
+            lineHeight={40}
+            fontWeight="600"
+            letterSpacing={-0.64}
+            color="$accent11"
+            textDecorationLine="underline"
+          >
+            {page.title}
+          </H1>
+          {!!page.description && <SubHeading size="$5">{page.description}</SubHeading>}
           <FeedbackCard />
         </YStack>
       )}
@@ -448,6 +458,7 @@ export function WikiProseContent({ page }: { page: WikiProsePage }) {
       {page.header === 'none' && <YStack pt="$2" />}
 
       <ProseBlocks blocks={page.blocks} />
+      {page.blocks.some((block) => block.kind === 'removed') && <RemovedDateTooltip />}
 
       {/* fmhy.net's "Edit this page" footer, mirrored from WikiCategoryContent.
           Prose posts (header 'post') aren't part of the sidebar sequence, so

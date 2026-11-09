@@ -38,8 +38,9 @@ const tocBySlug = fromJsonModule<Record<string, TocEntry[]>>(tocJson)
 export function useTocEntries(): TocEntry[] {
   const pathname = usePathname()
   const slug = slugFromPathname(pathname)
-  const isCategory = !!slug && WIKI_SLUGS.includes(slug)
-  return isCategory ? (tocBySlug[slug] ?? []) : []
+  // categories, plus recently-removed (its page headings, `outline: 2`)
+  const hasOutline = !!slug && (WIKI_SLUGS.includes(slug) || slug === 'recently-removed')
+  return hasOutline ? (tocBySlug[slug] ?? []) : []
 }
 
 // vitepress site data ships scrollOffset: 134 (fmhy.net html); useActiveAnchor

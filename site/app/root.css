@@ -873,6 +873,96 @@ html.starred-only.indexes-only .wk-entry:not(.wk-starred):not(.wk-index) {
   transition-delay: 0.2s;
 }
 
+/* ---- recently-removed rows (RemovedSites.tsx) ----
+   upstream style.scss .removed-site-* with vitepress vars mapped like
+   search.css: text-1/2/3 → color12/11/10, brand-1 → accent11. brand-soft is
+   swarm.300 dark / swarm.400 light — one step lighter than brand-1 — mixed
+   from the accent slots every preset defines. */
+.wk-removed {
+  /* .vp-doc ul: 16px block margin, 1.25rem disc indent */
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+.wk-removed > .wk-entry:first-child {
+  margin-top: 0;
+}
+.wk-removed-name {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color12);
+  cursor: help;
+  font: inherit;
+  font-weight: 600;
+  text-align: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent11), var(--accent12));
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+html.t_light .wk-removed-name {
+  text-decoration-color: color-mix(in srgb, var(--accent11) 70%, var(--accent2));
+}
+.wk-removed-name:focus-visible {
+  outline: 2px solid var(--accent11);
+  outline-offset: 3px;
+}
+.wk-removed-description {
+  color: var(--color11);
+  margin-inline-start: 0.3em;
+}
+.wk-removed-meta {
+  color: var(--color10);
+  font-size: 0.875em;
+  margin-inline-start: 0.5em;
+  white-space: nowrap;
+}
+.wk-removed-meta a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 4px;
+}
+.wk-removed-meta a:hover {
+  color: var(--accent11);
+}
+/* floating-vue tooltip theme + fmhy's "glassy tooltips" (bg-elv, divider
+   border, soft shadow, no arrow), anchored above the name (below when the
+   header leaves no room). portaled to <body>: width beats the `body > div`
+   full-width rule, and the font_body class supplies --f-family */
+.wk-removed-tip {
+  position: absolute;
+  z-index: 100000;
+  width: max-content;
+  transform: translate(-50%, -100%);
+  padding: 7px 12px 6px;
+  border: 1px solid var(--color4);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--background) 80%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  color: var(--color12);
+  font-family: var(--f-family);
+  font-size: 16px;
+  line-height: 24px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: wk-removed-tip-in 0.15s;
+}
+html.t_light .wk-removed-tip {
+  background: var(--background);
+}
+.wk-removed-tip[data-placement='bottom'] {
+  transform: translateX(-50%);
+}
+@keyframes wk-removed-tip-in {
+  from {
+    opacity: 0;
+  }
+}
+
 /* AMOLED override — must stay LAST so it beats every theme-* block above
    (upstream forces black backgrounds over the active theme's palette) */
 html.amoled.t_dark {

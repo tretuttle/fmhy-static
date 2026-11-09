@@ -678,7 +678,7 @@ function SearchBox({
       aria-haspopup="listbox"
       aria-labelledby="localsearch-label"
       className={`VPLocalSearchBox${leaving ? ' vpl-leaving' : ''}`}
-      style={{ display: visible ? 'flex' : 'none' }}
+      style={{ display: open || visible ? 'flex' : 'none' }}
     >
       <div className="backdrop" onClick={() => closeSearch()} />
 

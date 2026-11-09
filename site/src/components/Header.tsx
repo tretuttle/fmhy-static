@@ -83,27 +83,34 @@ const NAV_LINKS: NavLink[] = chrome.nav
     arrow: isExternal(n.href),
   }))
 
-// fmhy ecosystem menu, mirroring upstream shared.ts nav '🌱 Ecosystem'.
+// dropdown groups, mirroring upstream shared.ts nav entries with `items`
+// (currently '🛠️ Tools' and '➕ More') — every group, under its own label.
 // internal where a route exists; the rest deep-link externally
-type EcosystemItem = {
+type NavMenuItem = {
   emoji: string
   label: string
   href: string
   external?: boolean
 }
 
-const ECOSYSTEM_ITEMS: EcosystemItem[] = (
-  chrome.nav.find((n) => n.items?.length)?.items ?? []
-).map((item) => ({
-  emoji: item.emoji,
-  label: item.label,
-  href: item.href,
-  external: isExternal(item.href),
-}))
+type NavGroup = { emoji: string; label: string; items: NavMenuItem[] }
+
+const NAV_GROUPS: NavGroup[] = chrome.nav
+  .filter((n) => n.items?.length)
+  .map((n) => ({
+    emoji: n.emoji,
+    label: n.label,
+    items: (n.items ?? []).map((item) => ({
+      emoji: item.emoji,
+      label: item.label,
+      href: item.href,
+      external: isExternal(item.href),
+    })),
+  }))
 
 // "Search" opens the live ⌘K modal instead of routing anywhere — desktop and
 // mobile both need to special-case it out of the plain link-rendering loop
-const isSearchItem = (item: EcosystemItem) => item.label === 'Search'
+const isSearchItem = (item: NavMenuItem) => item.label === 'Search'
 
 type SocialLink = {
   label: string
@@ -176,7 +183,7 @@ const NavTextLink = ({ emoji, label, href, arrow }: NavLink) => {
 }
 
 // render="a" when this row is the Link asChild target — see CircleLink
-const EcosystemRowInner = ({ item, render }: { item: EcosystemItem; render?: 'a' }) => (
+const NavMenuRowInner = ({ item, render }: { item: NavMenuItem; render?: 'a' }) => (
   <XStack
     render={render}
     items="center"
@@ -198,12 +205,12 @@ const EcosystemRowInner = ({ item, render }: { item: EcosystemItem; render?: 'a'
   </XStack>
 )
 
-const EcosystemRow = ({ item }: { item: EcosystemItem }) => {
+const NavMenuRow = ({ item }: { item: NavMenuItem }) => {
   // "Search" opens the live ⌘K content-search modal, not a route
   if (isSearchItem(item)) {
     return (
       <XStack render="button" bg="transparent" borderWidth={0} onPress={() => openSearch()}>
-        <EcosystemRowInner item={item} />
+        <NavMenuRowInner item={item} />
       </XStack>
     )
   }
@@ -213,7 +220,7 @@ const EcosystemRow = ({ item }: { item: EcosystemItem }) => {
       {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       asChild
     >
-      <EcosystemRowInner item={item} render="a" />
+      <NavMenuRowInner item={item} render="a" />
     </Link>
   )
 }
@@ -306,21 +313,21 @@ const Flyout = ({
   )
 }
 
-const EcosystemMenu = () => (
+const NavMenu = ({ group }: { group: NavGroup }) => (
   <Flyout
-    label="Ecosystem"
+    label={group.label}
     button={
       <>
         <SizableText fontFamily="$body" size="$3" color="$color12">
-          🌱 Ecosystem
+          {group.emoji} {group.label}
         </SizableText>
         <CaretDownIcon size={12} color="$color11" />
       </>
     }
     menuClassName="fmhy-nav-menu"
   >
-    {ECOSYSTEM_ITEMS.map((item) => (
-      <EcosystemRow key={item.label} item={item} />
+    {group.items.map((item) => (
+      <NavMenuRow key={item.label} item={item} />
     ))}
   </Flyout>
 )
@@ -630,17 +637,23 @@ const MobileMenu = () => {
                   />
                 ))}
 
-                <Separator my="$2" />
-
-                {ECOSYSTEM_ITEMS.filter((item) => !isSearchItem(item)).map((item) => (
-                  <SheetRow
-                    key={item.label}
-                    label={item.label}
-                    emoji={item.emoji}
-                    href={item.href}
-                    external={item.external}
-                    onPress={close}
-                  />
+                {NAV_GROUPS.map((group) => (
+                  <YStack key={group.label} gap="$0.5">
+                    <Separator my="$2" />
+                    <SheetGroupLabel label={`${group.emoji} ${group.label}`} />
+                    {group.items
+                      .filter((item) => !isSearchItem(item))
+                      .map((item) => (
+                        <SheetRow
+                          key={item.label}
+                          label={item.label}
+                          emoji={item.emoji}
+                          href={item.href}
+                          external={item.external}
+                          onPress={close}
+                        />
+                      ))}
+                  </YStack>
                 ))}
               </YStack>
 
@@ -694,7 +707,7 @@ export function Header() {
               </CircleButton>
             </XStack>
 
-            {/* lg+ : nav links + ecosystem in a labelled <nav> (VPNavBarMenu),
+            {/* lg+ : nav links + dropdown groups in a labelled <nav> (VPNavBarMenu),
                 then theme + socials (or the "…" menu) beside it */}
             <XStack display="none" $lg={{ display: 'flex' }} gap="$4" items="center">
               <XStack
@@ -709,7 +722,9 @@ export function Header() {
                 {NAV_LINKS.map((l) => (
                   <NavTextLink key={l.label} {...l} />
                 ))}
-                <EcosystemMenu />
+                {NAV_GROUPS.map((group) => (
+                  <NavMenu key={group.label} group={group} />
+                ))}
               </XStack>
               {/* >=1280px: palette dropdown + socials in the bar; below that
                   both move into the "…" menu (VPNavBarExtra) */}

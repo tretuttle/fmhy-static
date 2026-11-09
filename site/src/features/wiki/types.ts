@@ -8,7 +8,7 @@ export type WikiNotice = {
   markdown: string
 }
 
-export type WikiMarker = 'starred' | 'index' | 'crossref' | null
+export type WikiMarker = 'starred' | 'glowing' | 'index' | 'crossref' | null
 
 export type WikiSubLink = {
   label: string

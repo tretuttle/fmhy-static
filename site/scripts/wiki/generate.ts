@@ -265,7 +265,7 @@ for (const page of pages.values()) {
       if (!entry.url && entry.links.length === 0 && entry.alternatives.length === 0)
         linklessEntries++
       if (entry.marker === 'crossref') crossrefEntries++
-      if (entry.marker === 'starred') starredEntries++
+      if (entry.starred) starredEntries++
       if (entry.marker === 'index') indexEntries++
       if (entry.nsfw !== false) nsfwEntries++
       // raw keeps source order for the renderer — swap reddit-wiki urls for
@@ -473,6 +473,7 @@ type LinkPhrase = { phrase: string; starredBold: boolean }
 
 const MARKER_TWEMOJI_CODE: Record<string, string> = {
   starred: '2b50',
+  glowing: '1f31f',
   index: '1f310',
   crossref: '1f501',
 }

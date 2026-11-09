@@ -239,7 +239,14 @@ export function parseEntryBody(body: string): ParsedEntry | null {
   let marker: WikiEntry['marker'] = null
   const m = MARKER_RE.exec(s)
   if (m) {
-    marker = m[1] === '🌐' ? 'index' : m[1] === '↪' ? 'crossref' : 'starred'
+    marker =
+      m[1] === '🌐'
+        ? 'index'
+        : m[1] === '↪'
+          ? 'crossref'
+          : m[1] === '🌟'
+            ? 'glowing'
+            : 'starred'
     s = s.slice(m[0].length)
   }
   const raw = s
@@ -397,7 +404,8 @@ export function parseEntryBody(body: string): ParsedEntry | null {
 
   return {
     marker,
-    starred: marker === 'starred',
+    // 🌟 is its own glyph upstream but still a starred row (toggleStarred.ts)
+    starred: marker === 'starred' || marker === 'glowing',
     bold: primary.bold,
     title: primary.title,
     url: primary.url,

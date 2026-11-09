@@ -79,9 +79,10 @@ const PLATFORM_WORDS: Record<PlatformWord, { tip: string; Icon: EntryIcon }> = {
 }
 
 // colorful twemoji markers, exactly like fmhy.net (transformer.ts rewrites
-// ⭐→:star:, 🌐→:globe-with-meridians:, ↪→:repeat-button:)
+// ⭐→:star:, 🌟→:glowing-star:, 🌐→:globe-with-meridians:, ↪→:repeat-button:)
 const MARKER_TWEMOJI: Record<string, string> = {
   starred: TWEMOJI_CODES.star,
+  glowing: TWEMOJI_CODES.glowingStar,
   index: TWEMOJI_CODES.globeWithMeridians,
   crossref: TWEMOJI_CODES.repeatButton,
 }

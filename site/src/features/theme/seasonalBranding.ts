@@ -1,46 +1,45 @@
-// seasonal branding (upstream theme/index.ts applySeasonalBranding), inlined
-// into the SSG <head> after the icon links so it runs before first paint.
-// month-gated, dormant outside June and October:
+// seasonal branding (upstream theme/index.ts applySeasonalBranding). runs
+// twice, like upstream's init + onAfterRouteChanged calls: inlined into the
+// SSG <head> after the icon links (so it lands before first paint), then
+// again from ThemeController after hydration and on every navigation — react
+// re-creates the head links it owns during hydration, so a head-script-only
+// swap would be undone. month-gated, dormant outside June and October:
 //   - html.june / html.halloween classes: app/root.css swaps the navbar logo,
 //     home hero and uwu egg images off them (css `content`, so nothing the
 //     SSG baked has to re-render, and it can never go stale at build time)
-//   - favicon / alternate / apple-touch icons -> the seasonal mark
+//   - favicon / alternate / apple-touch icons -> the seasonal mark, only once
+//     the asset actually loads (no broken icon if it's missing)
 //   - October: theme-color -> halloween orange
-// simplified from upstream: icons swap only once the asset actually loads
-// (no broken-icon fallback if it's missing), and re-apply on popstate
-// instead of a MutationObserver (which would fight react's DOM ownership).
+// self-contained on purpose: the inline script is this function's source.
 
-// fmhy.net's default theme-color (config.mts head) and its October swap
+// fmhy.net's default theme-color (config.mts head)
 export const THEME_COLOR = '#7bc5e4'
-const HALLOWEEN_THEME_COLOR = '#EA580C'
 
-// brand assets copied from their docs/public by scripts/wiki/generate.ts
-const JUNE_ICON = '/june_icon.webp'
-const HALLOWEEN_ICON = '/upstream/hall.png'
+export function applySeasonalBranding() {
+  try {
+    const month = new Date().getMonth()
+    if (month !== 5 && month !== 9) return
+    const june = month === 5
+    document.documentElement.classList.add(june ? 'june' : 'halloween')
+    if (!june) {
+      document.querySelectorAll("meta[name='theme-color']").forEach((meta) => {
+        meta.setAttribute('content', '#EA580C')
+      })
+    }
+    // brand assets copied from their docs/public by scripts/wiki/generate.ts
+    const src = june ? '/june_icon.webp' : '/upstream/hall.png'
+    const type = june ? 'image/webp' : 'image/png'
+    const img = new Image()
+    img.onload = () => {
+      document.querySelectorAll("link[rel*='icon']").forEach((link) => {
+        if (link.getAttribute('href') !== src) {
+          link.setAttribute('href', src)
+          if (link.hasAttribute('type')) link.setAttribute('type', type)
+        }
+      })
+    }
+    img.src = src
+  } catch {}
+}
 
-export const SEASONAL_BRANDING_SCRIPT = `(function(){try{
-var m=new Date().getMonth();
-if(m!==5&&m!==9)return;
-var june=m===5;
-document.documentElement.classList.add(june?'june':'halloween');
-if(!june){
-var tc=document.querySelector("meta[name='theme-color']");
-if(tc)tc.setAttribute('content','${HALLOWEEN_THEME_COLOR}');
-}
-var src=june?'${JUNE_ICON}':'${HALLOWEEN_ICON}';
-var type=june?'image/webp':'image/png';
-var img=new Image();
-img.onload=function(){
-var apply=function(){
-document.querySelectorAll("link[rel*='icon']").forEach(function(link){
-if(link.getAttribute('href')!==src){
-link.setAttribute('href',src);
-if(link.hasAttribute('type'))link.setAttribute('type',type);
-}
-});
-};
-apply();
-window.addEventListener('popstate',apply);
-};
-img.src=src;
-}catch(e){}})();`
+export const SEASONAL_BRANDING_SCRIPT = `(${applySeasonalBranding.toString()})();`

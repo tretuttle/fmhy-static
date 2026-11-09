@@ -6,6 +6,8 @@
 // TODO(native): pure DOM (TreeWalker/Range/getBoundingClientRect) —
 // part of the web search presentation; not portable, replaced wholesale on native.
 
+import { looksLikeUrlQuery, normalizeUrlSearchValue, stripSchemeAndWww } from './searchUrl'
+
 const MARK_MERGE_DISTANCE_PX = 20
 const MARK_SAME_LINE_THRESHOLD_PX = 5
 
@@ -13,7 +15,8 @@ const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\
 
 /**
  * Upstream formMarkRegex: longest-first alternation of all highlight terms.
- * Exact mode adds the whole raw query; fuzzy mode adds the query's words.
+ * Exact mode adds the whole raw query (plus its scheme/www-stripped form when
+ * it looks like a url); fuzzy mode adds the query's words.
  */
 export function formMarkRegex(
   terms: Iterable<string>,
@@ -22,14 +25,20 @@ export function formMarkRegex(
 ): RegExp | null {
   const allTerms = new Set<string>()
   for (const term of terms) allTerms.add(term)
-  if (isFuzzySearch) {
+  const urlLike = looksLikeUrlQuery(rawQuery)
+  if (isFuzzySearch && !urlLike) {
     const words = rawQuery
       .trim()
       .split(/[\s\W]+/)
       .filter(Boolean)
     for (const word of words) allTerms.add(word)
   } else {
-    allTerms.add(rawQuery.trim())
+    const trimmed = rawQuery.trim()
+    allTerms.add(trimmed)
+    if (urlLike) {
+      const stripped = stripSchemeAndWww(normalizeUrlSearchValue(trimmed))
+      if (stripped && stripped !== trimmed.toLowerCase()) allTerms.add(stripped)
+    }
   }
   const parts = [...allTerms]
     .filter(Boolean)

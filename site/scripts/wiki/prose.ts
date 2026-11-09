@@ -314,7 +314,9 @@ function parseBlockStream(state: ParseState): WikiProseBlock[] {
     const alert = ALERT_RE.exec(trimmed)
     if (alert) {
       const variant = ALERT_VARIANTS[alert[1]!.toLowerCase()] ?? 'info'
-      const title = alert[2]?.trim() || null
+      // vitepress titles a github alert with its keyword ("> [!NOTE]" → NOTE,
+      // tinted like info), not the variant's own label
+      const title = alert[2]?.trim() || alert[1]!.toUpperCase()
       const inner: string[] = []
       state.pos++
       while (state.pos < lines.length) {

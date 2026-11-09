@@ -59,6 +59,7 @@ public/                  # static assets
 scripts/
   generate-images.tsx    # prebuild: og cards + favicon/pwa icons
   sitemap-gen.ts         # post-build: sitemap.xml (+ feed.rss when posts exist)
+  single-page.ts         # post-build: /single-page.md (whole wiki, upstream's port)
   defer-hydration.ts     # post-build: load module scripts after first paint
   parity-check.ts        # gate: our data vs their rendered HTML, same commit
   wiki/                  # .fmhy-edit/docs/*.md -> src/features/wiki/generated/*.json

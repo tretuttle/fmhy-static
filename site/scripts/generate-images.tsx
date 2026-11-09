@@ -5,8 +5,10 @@
  *
  * 1. og cards — 1200x630 branded card per route (satori + sharp), mirroring
  *    fmhy.net's opengraph hook (docs/.vitepress/hooks/opengraph.ts upstream):
- *    "freemediaheckyeah" wordmark + FMHY mark up top, page title + description
- *    bottom-left on a dark purple/cyan gradient. Written to public/og/<slug>.webp.
+ *    text-only "freemediaheckyeah" wordmark up top, page title + description
+ *    bottom-left, composited onto upstream's og-base.jpg photo
+ *    (public/upstream/og-base.jpg, copied from fmhy/edit at sync). Written to
+ *    public/og/<slug>.webp.
  *    The slug scheme matches ogSlugFromPathname() in src/components/HeadInfo.tsx:
  *    '/' -> 'home', '/other/backups' -> 'other-backups'.
  *
@@ -40,7 +42,7 @@ const OG_WIDTH = 1200
 const OG_HEIGHT = 630
 
 // bump to invalidate every cached og card when the design changes
-const DESIGN_VERSION = 1
+const DESIGN_VERSION = 2
 
 // page ids whose route is not simply `/${id}` (mirrors app/ route filenames)
 const ID_ROUTE_OVERRIDES: Record<string, string> = {
@@ -144,15 +146,10 @@ async function loadFonts() {
 // og card template
 // ---------------------------------------------------------------------------
 
-function OgCard({
-  title,
-  description,
-  logo,
-}: {
-  title: string
-  description: string | null
-  logo: string
-}) {
+// text layer only — composited onto upstream's og-base.jpg photo below, the
+// way their hooks/opengraph.ts layers pango text over the same backdrop
+// (brand at 48/40, title + description bottom-left, 40px bottom inset)
+function OgCard({ title, description }: { title: string; description: string | null }) {
   return (
     <div
       style={{
@@ -162,49 +159,12 @@ function OgCard({
         flexDirection: 'column',
         justifyContent: 'space-between',
         padding: '40px',
-        backgroundColor: '#101018',
-        backgroundImage: 'linear-gradient(135deg, #1d1440 0%, #131325 55%, #0d0d16 100%)',
         fontFamily: 'Inter',
-        position: 'relative',
       }}
     >
-      {/* gradient accents approximating fmhy.net's og-base backdrop */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '-180px',
-          left: '-120px',
-          width: '760px',
-          height: '620px',
-          backgroundImage:
-            'radial-gradient(circle at 40% 40%, rgba(217, 70, 239, 0.45) 0%, rgba(217, 70, 239, 0) 65%)',
-          display: 'flex',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          top: '40px',
-          right: '-160px',
-          width: '640px',
-          height: '560px',
-          backgroundImage:
-            'radial-gradient(circle at 55% 45%, rgba(34, 211, 238, 0.3) 0%, rgba(34, 211, 238, 0) 60%)',
-          display: 'flex',
-        }}
-      />
-
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <img
-          src={logo}
-          width={64}
-          height={64}
-          style={{ borderRadius: '14px', marginRight: '20px' }}
-        />
-        <span style={{ fontSize: '48px', fontWeight: 600, color: '#f4f4f5' }}>
-          freemediaheckyeah
-        </span>
-      </div>
+      <span style={{ marginLeft: '8px', fontSize: '48px', fontWeight: 600, color: '#f3f4f6' }}>
+        freemediaheckyeah
+      </span>
 
       <div
         style={{
@@ -227,7 +187,7 @@ function OgCard({
         {description && (
           <span
             style={{
-              marginTop: '10px',
+              marginTop: '8px',
               fontSize: '36px',
               fontWeight: 400,
               color: '#c0caf5',
@@ -316,6 +276,13 @@ if (!existsSync(logoPath)) {
 }
 
 await generateIcons(logoPath)
+
+const ogBasePath = join(publicDir, 'upstream', 'og-base.jpg')
+if (!existsSync(ogBasePath)) {
+  console.error('  missing public/upstream/og-base.jpg — run bun scripts/sync-fmhy.ts first')
+  process.exit(1)
+}
+const ogBase = readFileSync(ogBasePath)
 console.info('  icons: favicon.ico, apple-touch-icon.png, pwa-192.png, pwa-512.png')
 
 mkdirSync(ogDir, { recursive: true })
@@ -335,13 +302,13 @@ if (existsSync(cacheFile) && !process.env.OG_FORCE) {
   }
 }
 
-// the logo bytes are part of the key: when upstream swaps their icon (they do
-// it seasonally), every card re-renders automatically — no version bump needed
-const logoHash = createHash('sha256').update(readFileSync(logoPath)).digest('hex').slice(0, 12)
+// the backdrop bytes are part of the key: when upstream swaps og-base.jpg,
+// every card re-renders automatically — no version bump needed
+const ogBaseHash = createHash('sha256').update(ogBase).digest('hex').slice(0, 12)
 
 const hashFor = (page: OgPage) =>
   createHash('sha256')
-    .update(`${DESIGN_VERSION}\0${logoHash}\0${page.title}\0${page.description ?? ''}`)
+    .update(`${DESIGN_VERSION}\0${ogBaseHash}\0${page.title}\0${page.description ?? ''}`)
     .digest('hex')
     .slice(0, 16)
 
@@ -353,9 +320,6 @@ try {
   console.warn(`  og: skipped (fonts unavailable: ${error})`)
   process.exit(0)
 }
-
-const logoPng = await sharp(readFileSync(logoPath)).resize(128, 128).png().toBuffer()
-const logoDataUrl = `data:image/png;base64,${logoPng.toString('base64')}`
 
 let rendered = 0
 let cached = 0
@@ -372,11 +336,16 @@ for (const page of pages) {
     continue
   }
 
-  const svg = await satori(
-    <OgCard title={page.title} description={page.description} logo={logoDataUrl} />,
-    { width: OG_WIDTH, height: OG_HEIGHT, fonts }
-  )
-  const webp = await sharp(Buffer.from(svg)).webp({ quality: 75 }).toBuffer()
+  const svg = await satori(<OgCard title={page.title} description={page.description} />, {
+    width: OG_WIDTH,
+    height: OG_HEIGHT,
+    fonts,
+  })
+  const text = await sharp(Buffer.from(svg)).png().toBuffer()
+  const webp = await sharp(ogBase)
+    .composite([{ input: text }])
+    .webp({ quality: 75 })
+    .toBuffer()
   writeFileSync(outFile, webp)
   rendered++
 }

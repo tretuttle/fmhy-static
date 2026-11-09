@@ -3,6 +3,8 @@
 export const TWEMOJI_CODES = {
   // ⭐ :star:
   star: '2b50',
+  // 🌟 :glowing-star:
+  glowingStar: '1f31f',
   // 🌐 :globe-with-meridians:
   globeWithMeridians: '1f310',
   // 🔁 :repeat-button: (upstream transformer.ts rewrites ↪ to this)

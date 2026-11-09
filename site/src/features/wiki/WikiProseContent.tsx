@@ -3,6 +3,10 @@ import { Separator, SizableText, XStack, YStack } from 'tamagui'
 
 import { Link } from '~/components/Link'
 import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
+import { InfoIcon } from '~/icons/phosphor/InfoIcon'
+import { LightbulbIcon } from '~/icons/phosphor/LightbulbIcon'
+import { SkullIcon } from '~/icons/phosphor/SkullIcon'
+import { WarningIcon } from '~/icons/phosphor/WarningIcon'
 import { H1, H2, H3, H4 } from '~/interface/text/Headings'
 import { Text } from '~/interface/text/Text'
 
@@ -14,6 +18,7 @@ import { WikiDocFooter } from './WikiDocFooter'
 
 import type { Href } from 'one'
 import type { ReactNode } from 'react'
+import type { IconComponent } from '~/icons/types'
 import type {
   WikiProseAuthor,
   WikiProseBlock,
@@ -130,19 +135,41 @@ const Blockquote = ({ markdown }: { markdown: string }) => (
 )
 
 // container palette: info = fmhy swarm-blue accent ramp, tip/warning reuse the
-// WikiNotice tokens, danger tints red via alpha so it works in every theme
+// WikiNotice tokens, danger tints red via alpha so it works in every theme.
+// labels are vitepress's default titles; icons are upstream style.scss's
+// .custom-block-title::before masks (lucide info / lightbulb / alert-triangle
+// / skull) in their phosphor equivalents
 const CONTAINER_STYLES: Record<
   Exclude<WikiProseContainerVariant, 'details'>,
-  { bg: string; border: string; text: string; label: string }
+  { bg: string; border: string; text: string; label: string; Icon: IconComponent }
 > = {
-  info: { bg: '$accent2', border: '$accent5', text: '$accent12', label: 'Info' },
-  tip: { bg: '$tipBg', border: '$tipBorder', text: '$tipText', label: 'Tip' },
-  warning: { bg: '$warnBg', border: '$warnBorder', text: '$warnText', label: 'Warning' },
+  info: {
+    bg: '$accent2',
+    border: '$accent5',
+    text: '$accent12',
+    label: 'INFO',
+    Icon: InfoIcon,
+  },
+  tip: {
+    bg: '$tipBg',
+    border: '$tipBorder',
+    text: '$tipText',
+    label: 'TIP',
+    Icon: LightbulbIcon,
+  },
+  warning: {
+    bg: '$warnBg',
+    border: '$warnBorder',
+    text: '$warnText',
+    label: 'WARNING',
+    Icon: WarningIcon,
+  },
   danger: {
     bg: 'hsla(0, 70%, 50%, 0.08)',
     border: 'hsla(0, 70%, 50%, 0.35)',
     text: '$dangerText',
-    label: 'Danger',
+    label: 'DANGER',
+    Icon: SkullIcon,
   },
 }
 
@@ -211,9 +238,12 @@ const Container = ({
       borderColor={style.border as '$color4'}
       gap="$1"
     >
-      <SizableText size="$3" fontWeight="700" color={style.text as '$color12'}>
-        {block.title ?? style.label}
-      </SizableText>
+      <XStack gap="$2" items="center">
+        <style.Icon size={16} color={style.text as '$color12'} />
+        <SizableText size="$3" fontWeight="700" color={style.text as '$color12'}>
+          {block.title ?? style.label}
+        </SizableText>
+      </XStack>
       <YStack my="$-2">
         <ProseBlocks blocks={block.blocks} />
       </YStack>

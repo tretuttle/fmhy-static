@@ -18,6 +18,7 @@ import {
   WarningCircleEntrySvg,
   XLogoEntrySvg,
   AndroidEntrySvg,
+  DockerEntrySvg,
   IosEntrySvg,
   LinuxEntrySvg,
   MacEntrySvg,
@@ -28,6 +29,7 @@ import {
 import { InlineImage } from './InlineImage'
 import { InlineMarkdown, parseInlineMarkdown, type InlineSpan } from './InlineMarkdown'
 import { loadNote, parseNoteLink } from './notes'
+import { findPlatformWords, spanSlashStates, type PlatformWord } from './platformWords'
 import { toPlatformWikiRoute } from './routes'
 
 import type { WikiEntry, WikiNote } from './types'
@@ -63,9 +65,9 @@ const ICON_LINKS: Record<string, { tip: string; Icon: EntryIcon }> = {
   '.onion': { tip: '.onion', Icon: TorBrowserEntrySvg },
 }
 
-// platform indicator words after a ' / ' become icons (upstream's "Platform
-// indicators" rules, same tooltips — note macOS, not Mac)
-const PLATFORM_WORDS: Record<string, { tip: string; Icon: EntryIcon }> = {
+// platform indicator words become icons (upstream's "Platform indicators"
+// rules, same tooltips — note macOS, not Mac; matching in platformWords.ts)
+const PLATFORM_WORDS: Record<PlatformWord, { tip: string; Icon: EntryIcon }> = {
   Windows: { tip: 'Windows', Icon: WindowsEntrySvg },
   Mac: { tip: 'macOS', Icon: MacEntrySvg },
   macOS: { tip: 'macOS', Icon: MacEntrySvg },
@@ -73,15 +75,14 @@ const PLATFORM_WORDS: Record<string, { tip: string; Icon: EntryIcon }> = {
   Android: { tip: 'Android', Icon: AndroidEntrySvg },
   iOS: { tip: 'iOS', Icon: IosEntrySvg },
   Web: { tip: 'Web', Icon: WebEntrySvg },
+  Docker: { tip: 'Docker', Icon: DockerEntrySvg },
 }
 
-// a platform word counts only as a standalone atom between separators
-const PLATFORM_TEXT_RE = /(^|[/,]\s*|\s)(Windows|macOS|Mac|Linux|Android|iOS|Web)(?=\s*(?:[/,]|$))/g
-
 // colorful twemoji markers, exactly like fmhy.net (transformer.ts rewrites
-// ⭐→:star:, 🌐→:globe-with-meridians:, ↪→:repeat-button:)
+// ⭐→:star:, 🌟→:glowing-star:, 🌐→:globe-with-meridians:, ↪→:repeat-button:)
 const MARKER_TWEMOJI: Record<string, string> = {
   starred: TWEMOJI_CODES.star,
+  glowing: TWEMOJI_CODES.glowingStar,
   index: TWEMOJI_CODES.globeWithMeridians,
   crossref: TWEMOJI_CODES.repeatButton,
 }
@@ -198,15 +199,26 @@ const IconAnchor = ({
   )
 }
 
-// text runs pass through verbatim except standalone platform words, which
-// become tooltip icons like upstream's transformer
-const TextRun = ({ text, bold }: { text: string; bold?: boolean }) => {
+// text runs pass through verbatim except platform words, which become
+// tooltip icons like upstream's transformer
+const TextRun = ({
+  text,
+  bold,
+  slashOpen,
+  atLineEnd,
+}: {
+  text: string
+  bold?: boolean
+  slashOpen: boolean
+  atLineEnd: boolean
+}) => {
   const out: ReactNode[] = []
   let last = 0
-  for (const m of text.matchAll(PLATFORM_TEXT_RE)) {
-    const platform = PLATFORM_WORDS[m[2]!]!
-    const start = m.index! + m[1]!.length
+  for (const { start, end, word } of findPlatformWords(text, slashOpen, atLineEnd)) {
+    const platform = PLATFORM_WORDS[word]
     if (start > last) out.push(text.slice(last, start))
+    // upstream swaps the word (and a leading ', ') for ' <icon> '
+    if (start < end - word.length) out.push(' ')
     out.push(
       <span
         key={start}
@@ -217,7 +229,7 @@ const TextRun = ({ text, bold }: { text: string; bold?: boolean }) => {
         <platform.Icon />
       </span>
     )
-    last = start + m[2]!.length
+    last = end
   }
   if (last < text.length) out.push(text.slice(last))
   const body = <>{out}</>
@@ -267,6 +279,7 @@ const LinkSpan = ({
 // the whole entry line in source order
 const SourceLine = ({ markdown }: { markdown: string }) => {
   const spans = parseInlineMarkdown(markdown)
+  const slashStates = spanSlashStates(spans)
   return (
     <>
       {spans.map((span, index) => {
@@ -286,7 +299,15 @@ const SourceLine = ({ markdown }: { markdown: string }) => {
           case 'link':
             return <LinkSpan key={index} span={span} prevText={prevText} />
           case 'text':
-            return <TextRun key={index} text={span.text} bold={span.bold} />
+            return (
+              <TextRun
+                key={index}
+                text={span.text}
+                bold={span.bold}
+                slashOpen={slashStates[index]!}
+                atLineEnd={index === spans.length - 1}
+              />
+            )
         }
       })}
     </>

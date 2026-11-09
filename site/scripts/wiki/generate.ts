@@ -265,7 +265,7 @@ for (const page of pages.values()) {
       if (!entry.url && entry.links.length === 0 && entry.alternatives.length === 0)
         linklessEntries++
       if (entry.marker === 'crossref') crossrefEntries++
-      if (entry.marker === 'starred') starredEntries++
+      if (entry.starred) starredEntries++
       if (entry.marker === 'index') indexEntries++
       if (entry.nsfw !== false) nsfwEntries++
       // raw keeps source order for the renderer — swap reddit-wiki urls for
@@ -473,6 +473,7 @@ type LinkPhrase = { phrase: string; starredBold: boolean }
 
 const MARKER_TWEMOJI_CODE: Record<string, string> = {
   starred: '2b50',
+  glowing: '1f31f',
   index: '1f310',
   crossref: '1f501',
 }
@@ -1098,6 +1099,12 @@ const brand = {
   pwaIcon: copyBrandAsset('pwa_icon.png'),
   heroImage: copyBrandAsset(upstream.homeHeroImage),
 }
+// og card backdrop (upstream hooks/opengraph.ts composites onto
+// .vitepress/og-base.jpg) — read by scripts/generate-images.tsx
+{
+  const ogBase = join(DOCS_DIR, '.vitepress', 'og-base.jpg')
+  if (existsSync(ogBase)) writeFileSync(join(brandDir, 'og-base.jpg'), readFileSync(ogBase))
+}
 
 writeFileSync(
   join(OUT_DIR, 'home.json'),
@@ -1110,10 +1117,23 @@ writeFileSync(
 
 // site chrome (header bar + social icons) — upstream's shared.ts `nav` and
 // `socialLinks`, so adding an Ecosystem entry upstream shows up here with no
-// edit on our side. Header.tsx renders straight from this.
+// edit on our side. Header.tsx renders straight from this. `commit` is the
+// fmhy/edit sha this data came from — Footer.tsx's "rev:" link, upstream's
+// shared.ts commitRef (null outside a git checkout, rendered as 'dev').
+const upstreamCommit = (() => {
+  try {
+    return execFileSync('git', ['-C', ROOT, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+  } catch {
+    return null
+  }
+})()
 writeFileSync(
   join(OUT_DIR, 'chrome.json'),
-  JSON.stringify({ nav: upstream.headerNav, socialLinks: upstream.socialLinks }),
+  JSON.stringify({
+    nav: upstream.headerNav,
+    socialLinks: upstream.socialLinks,
+    commit: upstreamCommit,
+  }),
 )
 
 // twemoji SVGs for the sidebar icons — the same @iconify-json/twemoji set

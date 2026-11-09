@@ -64,11 +64,15 @@ export const SUBLINK_ICONS: Record<string, string> = {
   'Source Code': 'source',
 }
 
+// platform words in an entry's ' / ' tail — upstream transformer.ts's
+// "Platform indicators" set (Mac and macOS share the macOS icon)
 export const PLATFORM_TOKENS: Record<string, string> = {
   Windows: 'windows',
   Mac: 'mac',
+  macOS: 'mac',
   Linux: 'linux',
   Android: 'android',
   iOS: 'ios',
   Web: 'web',
+  Docker: 'docker',
 }

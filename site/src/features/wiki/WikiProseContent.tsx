@@ -10,6 +10,7 @@ import { FeedbackCard } from './FeedbackCard'
 import { InlineMarkdown } from './InlineMarkdown'
 import { openExternal } from './openExternal'
 import { AuthorAvatar, ProseImage, WallpaperPreview } from './proseImages'
+import { RemovedDateTooltip, RemovedSites } from './RemovedSites'
 import { WikiDocFooter } from './WikiDocFooter'
 
 import type { Href } from 'one'
@@ -331,6 +332,8 @@ function ProseBlocks({ blocks }: { blocks: WikiProseBlock[] }) {
             return <ProseImage key={index} src={block.src} alt={block.alt} />
           case 'wallpaper':
             return <WallpaperCard key={index} block={block} />
+          case 'removed':
+            return <RemovedSites key={index} sites={block.sites} />
         }
       })}
     </>
@@ -418,6 +421,7 @@ export function WikiProseContent({ page }: { page: WikiProsePage }) {
       {page.header === 'none' && <YStack pt="$2" />}
 
       <ProseBlocks blocks={page.blocks} />
+      {page.blocks.some((block) => block.kind === 'removed') && <RemovedDateTooltip />}
 
       {/* fmhy.net's "Edit this page" footer, mirrored from WikiCategoryContent.
           Prose posts (header 'post') aren't part of the sidebar sequence, so

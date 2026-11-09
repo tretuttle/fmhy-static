@@ -307,6 +307,29 @@ details .details-inner > :last-child {
   scroll-margin-top: calc(var(--fmhy-scroll-inset) - 25px);
 }
 
+/* mobile "On this page" dropdown rows (fmhy style.scss <1280px block):
+   pills with accent-tinted hover/active backgrounds. nested rows sit in
+   vitepress's extra 16px-padded list, text indented 13px. the id lifts these
+   over tamagui's text margin reset */
+#local-nav .local-nav-link {
+  margin-inline: -8px;
+  padding-inline: 8px;
+  border-radius: 6px;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+#local-nav .local-nav-link.nested {
+  margin-inline: 8px;
+  padding-left: 13px;
+}
+#local-nav .local-nav-link:hover {
+  color: var(--accent11) !important;
+  background: color-mix(in srgb, var(--accent11) 7%, var(--background));
+}
+#local-nav .local-nav-link[aria-current='location'] {
+  background: color-mix(in srgb, var(--accent11) 13%, var(--background));
+}
 
 /*
   theme controller overrides (applied at runtime by ThemeController via html classes,

@@ -33,9 +33,9 @@ To read a result, use the pstack **/statechart** skill (`/pstack:statechart` in 
 | `SearchModalOpen.tla` | Modal lifecycle: emitter `open`, React commits, `hasOpenedOnce`/`visible`/`leaving`, leave timer, focus, scroll lock. |
 | `SearchModalOpen.cfg` | Rules that hold (regression gate). |
 | `SearchModalOpen.focus.cfg` | Open finding F1. |
-| `SearchResults.tla` | Engine: `enginePromise`, `clientFetches` corpus entry, network, debounce, stage 2, spinner, "No results". |
+| `SearchResults.tla` | Engine: `enginePromise`, `clientFetches` corpus entry, network, debounce, stage 2, spinner, "No results", "Search could not load". |
 | `SearchResults.cfg` | Rules that hold (regression gate). |
-| `SearchResults.noresults.cfg`, `.retry.cfg`, `.stale.cfg` | Open findings F2, F3, F4 (one each, since TLC stops at the first violation). |
+| `SearchResults.stale.cfg` | Open finding F4. |
 | `*.all.cfg` | Every rule, for /statechart. |
 | `*.view.mjs` | /statechart views. |
 | `check.sh` | The one-command check. |
@@ -51,8 +51,9 @@ Each rule is an INVARIANT in the spec named in brackets.
 | Whenever search is open and rendered, the cursor is in the search box. | You press Ctrl+K and type, and your keystrokes go nowhere. | `FocusInBoxWhenOpen` (Modal) | **breaks: F1** |
 | An empty box lists nothing and shows no spinner. | Old results or a stuck spinner under an empty box. | `EmptyBoxShowsNothing` (Results) | holds |
 | The spinner is on only while a search or its list-building is pending. | The spinner spins forever. | `SpinnerOnlyWhileWorking` (Results) | holds |
-| "No results" appears only after a search really ran on the loaded index. | A failed download tells the reader the wiki has nothing, which is a false answer. | `FailureNotShownAsNoResults` (Results) | **breaks: F2** |
-| Once the network is back, a new search is not failed by the old failure. | One blip offline breaks search until a full page reload. | `RetryAfterFailure` (Results) | **breaks: F3** |
+| "No results" appears only after a search really ran on the loaded index. | A failed download tells the reader the wiki has nothing, which is a false answer. | `FailureNotShownAsNoResults` (Results) | holds (F2 fixed) |
+| Once the network is back, a new search is not failed by the old failure. | One blip offline breaks search until a full page reload. | `RetryAfterFailure` (Results) | holds (F3 fixed) |
+| A search whose index load failed says so. | The reader sees a blank box and cannot tell that search failed. | `FailureShownAsFailure` (Results) | holds |
 | Results listed without the spinner belong to the query and mode in the box. | The reader sees, and may click, results for a query they no longer have, with nothing saying they are stale. | `ResultsMatchQuery` (Results) | **breaks: F4** |
 
 Old results that stay listed while the spinner shows are allowed on purpose. That matches upstream VitePress, which keeps the old list visible during the debounce.
@@ -67,44 +68,35 @@ Old results that stay listed while the spinner shows are allowed on purpose. Tha
 
 Reopening within the 100 ms fade does focus the input, because `visible` is still true. The browser shows the same.
 
-**F2. A failed index download shows "No results for …".** (`FailureNotShownAsNoResults`, 2 steps)
-1. Search is open with a query (for example a `?q=` link) and `/data/search-corpus.json` is still loading. The 350 ms debounce fires and awaits `getSearchEngine()`.
-2. The fetch rejects (offline). `getSearchEngine().catch(() => null)` gives `null`, so the callback runs `setAllResults([])`, `setIsSearching(false)` and `setEnableNoResults(true)`. Stage 2 then takes its empty branch, and `showNoResults` renders `No results for "proxy"` with "Try fuzzy search?".
-
-**F3. That failure is permanent for the session.** (`RetryAfterFailure`, 3 steps)
-1. The corpus fetch rejects while offline. `enginePromise` keeps the rejected promise (`??=` never resets), and so does `clientFetches` in `data.ts`, which deletes only `!res.ok` entries.
-2. The network comes back.
-3. The next debounced search calls `getSearchEngine()`, gets the cached rejection without a request, and shows "No results" again (F2). Closing and reopening does not help: in the browser, exactly one corpus request is made per page load.
-
-The model shows that resetting `enginePromise` alone is not enough, because the reload then gets the rejected `clientFetches` entry. Both caches must drop a rejection.
-
 **F4. Stale results without a spinner.** (`ResultsMatchQuery`, 4 steps; the audit's "first keystroke after a completed search" is a longer path to the same state)
 1. A search for "proxy" lands: `setAllResults(hits)` and `setEnableNoResults(true)`. Stage 2 starts `buildDisplayResults` (excerpt fetch).
 2. You type "zzqxv". Commit 1 runs the immediate effect (`setEnableNoResults(false)`) and the debounced effect (`setIsSearching(true)`, a new 350 ms timer).
 3. Commit 2: `enableNoResults` is a stage-2 dep, so stage 2 re-runs with the old `allResults` (proxy hits) and `queryRef.current="zzqxv"`.
 4. The list is built: `setResults(old hits)` and `setIsSearching(false)`. For about 350 ms the box shows "zzqxv", no spinner, and "Showing 16 of 33 matches" of proxy results. Then the real search lands with "No results". Switching fuzzy/exact goes the same way, because `fuzzy` is also a stage-2 dep.
 
-Browser replays: F1 and F4 on a normal visit, and F2/F3 with `page.route(...).abort('internetdisconnected')` on a first visit. In the browser the service worker (`sw.js`, Workbox) serves `/data/*.json` NetworkFirst from a 24 h `data-cache`. F2 therefore needs the corpus to be missing from that cache: a first visit, an expired or evicted entry, or no service worker. F3 holds whenever F2 happened, because nothing ever refetches. To intercept the excerpt fetches in Playwright, create the context with `serviceWorkers: 'block'`.
+Browser replays: F1 and F4 on a normal visit. The index-failure rules (`FailureNotShownAsNoResults`, `RetryAfterFailure`, `FailureShownAsFailure`) replay with `page.route(...).abort('internetdisconnected')` on a first visit: open `/?q=proxy` while the corpus request aborts, expect "Search could not load", then let the request through, type a new query, and expect results with no reload. In the browser the service worker (`sw.js`, Workbox) serves `/data/*.json` NetworkFirst from a 24 h `data-cache`, so a load can fail only when the corpus is missing from that cache: a first visit, an expired or evicted entry, or no service worker. To intercept the corpus and excerpt fetches in Playwright, create the context with `serviceWorkers: 'block'`.
+
+Fixed: F2 (a failed index download showed `No results for "…"`) and F3 (the rejection stayed cached in both `enginePromise` and `clientFetches`, so search failed until a reload). `getSearchEngine` and `fetchData` now drop a rejected promise, and the debounced search sets `searchFailed` instead of `enableNoResults` when it gets no engine. Resetting only one of the two caches is not enough. The model shows either cache alone replaying the failure, and the browser confirms it for a reset of `enginePromise` alone.
 
 ## Does my change touch this? (coverage record)
 
-**Sync commit: `fb43561`** (main). The models were last confirmed to describe the code below at this commit.
+**Sync commit: `c185000`** (fix/search-retry). The models were last confirmed to describe the code below at this commit.
 
 | Code | Covered | Model element |
 | --- | --- | --- |
 | `site/src/features/wiki/WikiSearchModal.tsx` `WikiSearchModal` | `hasOpenedOnce`, `visible`, `leaving`, `visibleRef`, the `[open]` effect and `LEAVE_DURATION_MS` timeout, conditional `SearchBox` render | Modal `Commit` (parent part), `LeaveTimerFires` |
-| same, `SearchBox` | the `[open, focusSearchInput]` effect (focus+select, overflow lock and restore, focus restore); `style={{ display: visible ? 'flex' : 'none' }}`; `showNoResults`; spinner render; Esc / backdrop / back button / `navigateToResult` → `closeSearch` | Modal `Commit` (child part), `YouClose`; Results `ShowsNoResults` |
+| same, `SearchBox` | the `[open, focusSearchInput]` effect (focus+select, overflow lock and restore, focus restore); `style={{ display: visible ? 'flex' : 'none' }}`; `showNoResults`; the `searchFailed` row; spinner render; Esc / backdrop / back button / `navigateToResult` → `closeSearch` | Modal `Commit` (child part), `YouClose`; Results `ShowsNoResults`, `searchFailed` |
 | same, `useSearchFromQuery` | `?q=` → `primeSearchQuery` + `openSearch` | Modal `YouOpen`; Results `Init` with query `"A"` |
 | `site/src/features/wiki/searchModal.ts` | `openSearch`, `closeSearch`, `toggleSearch` | `YouOpen`, `YouClose` |
 | `site/src/lib/emitter.ts` | `useEmitterValue` (`useSyncExternalStore`): emitting the same value causes no render | `YouOpen` enabled only when closed |
 | `site/app/_layout.tsx` `SearchHotkey` | Ctrl/⌘K toggle, `/` open, Esc close | `YouOpen`, `YouClose` |
-| `site/src/features/wiki/useWikiSearch.ts` | `getSearchEngine` (`enginePromise ??=`); the effects in `useWikiSearch`: warm-up, immediate `[query, fuzzy, urlSearch]`, debounced (`searchGen`, `SEARCH_DEBOUNCE_MS`, the `!engine` branch), stage 2 (`stageGen`, both branches, its dep list); `setQuery`, `setFuzzy` | Results: all actions, `Stage2`, `QueryOrModeChange`, `SearchRuns`, `SearchGetsNoEngine` |
-| `site/src/features/wiki/data.ts` | `fetchData` / `clientFetches` (rejection kept, `!res.ok` deleted), `loadSearchCorpus` | Results `corpus`, `EngineLoads`, `EngineFails` |
+| `site/src/features/wiki/useWikiSearch.ts` | `getSearchEngine` (`enginePromise ??=`, reset to `null` on rejection); the effects in `useWikiSearch`: warm-up, immediate `[query, fuzzy, urlSearch]`, debounced (`searchGen`, `SEARCH_DEBOUNCE_MS`, the `!engine` branch that sets `searchFailed`), stage 2 (`stageGen`, both branches, its dep list); `setQuery`, `setFuzzy` | Results: all actions, `Stage2`, `QueryOrModeChange`, `DebounceFires`, `SearchRuns`, `SearchGetsNoEngine` |
+| `site/src/features/wiki/data.ts` | `fetchData` / `clientFetches` (any rejection deleted), `loadSearchCorpus` | Results `corpus`, `EngineLoads`, `EngineFails` |
 
 To see whether covered code changed since the sync commit, run this in the checkout whose code you are evaluating (add `-C <worktree>` when that is not the current directory). Committed and uncommitted changes both show.
 
 ```sh
-git diff fb43561 -- site/src/features/wiki/WikiSearchModal.tsx site/src/features/wiki/searchModal.ts site/src/features/wiki/useWikiSearch.ts site/src/features/wiki/data.ts site/src/lib/emitter.ts site/app/_layout.tsx
+git diff c185000 -- site/src/features/wiki/WikiSearchModal.tsx site/src/features/wiki/searchModal.ts site/src/features/wiki/useWikiSearch.ts site/src/features/wiki/data.ts site/src/lib/emitter.ts site/app/_layout.tsx
 ```
 
 A diff that only touches code the table does not name (ranking in `runSearch`, the tokenizer, markup classes, `searchHighlight.ts`, keyboard selection) needs no model change. Run `check.sh` anyway.
@@ -139,17 +131,17 @@ If the change was not meant to fix it, the model drifted. Recheck it against the
 
 ## Bounds, assumptions, what is not covered
 
-- **Exhaustive, but over a small abstraction.** Queries are `""`, `"A"` (has hits) and `"B"` (no hits), in exact or fuzzy mode. The modal model has 14 states and the results model 114. Both are checked completely; there is no depth bound.
+- **Exhaustive, but over a small abstraction.** Queries are `""`, `"A"` (has hits) and `"B"` (no hits), in exact or fuzzy mode. The modal model has 14 states and the results model 102. Both are checked completely; there is no depth bound.
 - **React timing.** A commit, its passive effects, and the re-render their `setState` calls queue are flushed before the next user event, timer or fetch callback. This holds for discrete events, which run at sync priority. Stage 2's async half (`buildDisplayResults` and its excerpt fetch) is a separate step, so you can type while it is in flight.
-- **Stage 2's phrase filter** is assumed to keep a non-empty hit list non-empty. The model's network can come back, but it never drops again. In the model, a load fails exactly when the network is down or a rejected fetch is still cached.
+- **Stage 2's phrase filter** is assumed to keep a non-empty hit list non-empty. The model's network can come back, but it never drops again. In the model, a load fails exactly when the network is down or a rejected fetch is still cached. The code no longer keeps a rejection, so `corpus` stays `"clear"`; the variable is kept so a scratch break of either cache is a one-line edit.
 - **Focus abstraction.** "page" means "not the search input". In the browser, when the earlier focus was `<body>`, the input keeps focus during the fade (`body.focus()` is a no-op) until `display:none` blurs it. No rule depends on this.
 - **Not modelled:**
-  - URL search (`urlSearch`, `getUrlRecords`, whose reset-on-failure is defeated by the same `clientFetches` rejection cache).
+  - URL search (`urlSearch`, `getUrlRecords`, which resets on failure like `getSearchEngine`).
   - Section chips, show-more paging, detailed/compact view, suggestions.
   - Ranking (`runSearch`), highlight marking, keyboard selection, the Tab focus trap.
   - `pushState`/`popstate` history entries.
   - Excerpt-load failures (`loadExcerpts` caches an empty map on failure).
-  - HTTP error responses (`!res.ok`: `clientFetches` drops them, but `enginePromise` still caches the failure).
+  - HTTP error responses (`!res.ok`). They take the same path as a network error: both caches drop them.
   - The service worker's data cache.
   - `/startpage`, where `<WikiSearchModal />` is not rendered.
   - Dev-mode StrictMode double effects.

@@ -92,19 +92,20 @@ const ssrPageLoaders: Record<string, () => Promise<unknown>> = import.meta.env.S
     }
   : {}
 
-// in-flight/settled fetches dedupe per path so repeated excerpt loads reuse one request
 const clientFetches = new Map<string, Promise<unknown>>()
 
 const fetchData = <T>(path: string): Promise<T> => {
   let pending = clientFetches.get(path)
   if (!pending) {
-    pending = fetch(path).then((res) => {
-      if (!res.ok) {
+    pending = fetch(path)
+      .then((res) => {
+        if (!res.ok) throw new Error(`failed to load ${path}: ${res.status}`)
+        return res.json()
+      })
+      .catch((error: unknown) => {
         clientFetches.delete(path)
-        throw new Error(`failed to load ${path}: ${res.status}`)
-      }
-      return res.json()
-    })
+        throw error
+      })
     clientFetches.set(path, pending)
   }
   return pending as Promise<T>

@@ -55,6 +55,7 @@ const TITLES = {
   resetButtonTitle: 'Reset search',
   backButtonTitle: 'Close search',
   noResultsText: 'No results for',
+  searchFailedText: 'Search could not load. Check your connection and search again.',
   buttonText: 'Search',
 }
 
@@ -135,6 +136,7 @@ function SearchBox({
     mayHaveMore,
     isSearching,
     enableNoResults,
+    searchFailed,
     fuzzy,
     setFuzzy,
     urlSearch,
@@ -890,6 +892,8 @@ function SearchBox({
               )}
             </li>
           )}
+
+          {searchFailed && <li className="no-results">{TITLES.searchFailedText}</li>}
 
           {!query && recent.length > 0 && (
             <li className="recent-searches">

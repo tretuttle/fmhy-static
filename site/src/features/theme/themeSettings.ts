@@ -64,13 +64,6 @@ export const PRESET_NAMES = THEME_NAMES.filter(
   (name): name is PresetName => name !== 'default',
 )
 
-export const THEME_SWATCHES: Record<PresetName, string> = {
-  catppuccin: '#9345ed',
-  halloween: '#ea580c',
-  monochrome: '#808080',
-  monolith: '#f42a8b',
-}
-
 // each config's displayName — the swatch title / aria-label
 export const PRESET_LABELS: Record<PresetName, string> = {
   catppuccin: 'Catppuccin',

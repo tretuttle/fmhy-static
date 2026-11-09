@@ -319,6 +319,7 @@ html {
   --fmhy-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08);
   --fmhy-hero-name-color: transparent;
   --fmhy-hero-name-bg: linear-gradient(120deg, #c4b5fd 30%, #7bc5e4);
+  --fmhy-default-soft: rgba(142, 150, 170, 0.14);
   --fmhy-accent-subtle: color-mix(in srgb, var(--fmhy-brand-1) 7%, var(--background));
   --fmhy-accent-muted: color-mix(in srgb, var(--fmhy-brand-1) 13%, var(--background));
 }
@@ -328,6 +329,7 @@ html.t_dark {
   --fmhy-selection-bg: hsl(220, 48%, 40%);
   --fmhy-bg-elv: #1a1a1acc;
   --fmhy-shadow-3: 0 12px 32px #0000004d, 0 2px 6px #00000029;
+  --fmhy-default-soft: rgba(101, 117, 133, 0.16);
 }
 
 /* selection follows the active accent/preset (upstream style.scss ::selection).
@@ -1060,6 +1062,239 @@ html.halloween .fmhy-hero-image {
 }
 html.halloween .fmhy-hero-uwu {
   content: url('/upstream/uwu-hall.png');
+}
+
+/* ---- shared popup surface (upstream style.scss "Shared popup surfaces"):
+   the appearance dropdown, nav flyout menus and note tooltips all sit on the
+   page background with a 1px divider border, 12px radius and --vp-shadow-3,
+   no arrow. monolith's sharp variant (2px brand border, square, flat) is
+   their html.monolith block; its #06070b ground only applies in dark — on a
+   light page it would bury the text. */
+.fmhy-popup {
+  background: var(--background);
+  border: 1px solid var(--color4);
+  border-radius: 12px;
+  box-shadow: var(--fmhy-shadow-3);
+  color: var(--color12);
+}
+html.theme-monolith .fmhy-popup {
+  border: 2px solid var(--fmhy-brand-1);
+  border-radius: 0;
+  box-shadow: none;
+}
+html.theme-monolith.t_dark .fmhy-popup {
+  background: #06070b;
+}
+
+/* nav flyout menu body (VPMenu: 12px padding, sized to its widest row) */
+.fmhy-nav-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  min-width: 128px;
+  max-width: 280px;
+  padding: 12px;
+}
+
+/* ---- header appearance controls (ThemeDropdown.vue / VPNavBarExtra) ---- */
+.fmhy-theme-trigger {
+  color: var(--color11);
+  border-radius: 8px;
+  transition: color 0.25s, background-color 0.25s;
+}
+.fmhy-theme-trigger:hover,
+.fmhy-theme-trigger[aria-expanded='true'] {
+  color: var(--color12);
+  background: var(--fmhy-default-soft);
+}
+.fmhy-theme-popup {
+  --ap-surface: var(--background);
+  padding: 6px;
+}
+/* >=1280px the palette button + socials sit in the bar; 800-1279px they
+   live in the "…" flyout instead (upstream's 1280px VPNavBarExtra split) */
+.fmhy-nav-wide {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+.fmhy-nav-extra {
+  display: flex;
+  align-items: center;
+}
+@media (min-width: 1280px) {
+  .fmhy-nav-wide {
+    display: flex;
+  }
+  .fmhy-nav-extra {
+    display: none;
+  }
+}
+.fmhy-extra-menu {
+  --ap-surface: var(--background);
+  width: 220px;
+  padding: 6px;
+}
+.fmhy-menu-group + .fmhy-menu-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color4);
+  display: flex;
+  justify-content: center;
+}
+/* mobile nav sheet (VPNavScreenAppearance): the panel inline, flat */
+.fmhy-screen-appearance {
+  --ap-surface: var(--color2);
+  padding: 4px;
+}
+
+/* ---- appearance panel (AppearancePanel.vue + compact ColorPicker.vue) ---- */
+.ap-panel {
+  width: 100%;
+  min-width: 180px;
+  font-family: var(--f-family);
+}
+.ap-title,
+.ap-section-title {
+  color: var(--color9);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.ap-title {
+  padding: 6px 8px 4px;
+}
+.ap-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  color: var(--color12);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.ap-item:hover {
+  background: var(--fmhy-accent-subtle);
+}
+.ap-item[aria-pressed='true'] {
+  color: var(--fmhy-brand-1);
+  font-weight: 500;
+}
+.ap-item > span {
+  flex: 1;
+}
+.ap-divider {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--color4);
+}
+.ap-colors {
+  padding: 4px 8px 6px;
+}
+.ap-section + .ap-section {
+  margin-top: 12px;
+}
+.ap-section-title {
+  margin-bottom: 8px;
+}
+.ap-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* 22px circles; active = 2px brand-1 ring offset 1px on the panel surface
+   (tailwind ring-2 ring-offset-1) + a white check, inactive dimmed to 85%
+   and scaling up on hover */
+.ap-swatch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: all 0.2s;
+}
+.ap-swatch:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+.ap-swatch[aria-pressed='true'] {
+  opacity: 1;
+  transform: none;
+  box-shadow:
+    0 0 0 1px var(--ap-surface, var(--fmhy-bg-elv)),
+    0 0 0 3px var(--fmhy-brand-1);
+}
+.ap-swatch-fill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+}
+.ap-swatch-check {
+  display: inline-flex;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
+}
+/* monolith has no preview upstream: brand-1 -> brand-2 for the current mode */
+.ap-swatch-fill-monolith {
+  background-image: linear-gradient(135deg, #d81b70 0%, #2d0b80 100%);
+}
+html.t_dark .ap-swatch-fill-monolith {
+  background-image: linear-gradient(135deg, #f42a8b 0%, #3a0ca3 100%);
+}
+
+/* ---- sidebar card toggles (Switch.vue): brand-1 track + white thumb when
+   on; monochrome inverts to a black/white pair (style.scss
+   html[data-theme='monochrome'] .switch). html prefix outranks tamagui's
+   atomic switch colors. */
+html .fmhy-switch {
+  background-color: var(--fmhy-default-soft);
+  border-color: var(--color6);
+  transition: border-color 0.25s, background-color 0.4s ease;
+}
+html .fmhy-switch.fmhy-switch-on {
+  background-color: var(--fmhy-brand-1);
+}
+html .fmhy-switch-thumb {
+  background-color: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+html.theme-monochrome .fmhy-switch {
+  background-color: #000;
+  border-color: #5a5a5a;
+}
+html.theme-monochrome .fmhy-switch.fmhy-switch-on {
+  background-color: #fff;
+}
+html.theme-monochrome .fmhy-switch-thumb {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+html.theme-monochrome .fmhy-switch-on .fmhy-switch-thumb {
+  background-color: #000;
 }
 
 /* AMOLED override — must stay LAST so it beats every theme-* block above

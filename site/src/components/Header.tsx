@@ -16,6 +16,7 @@ import {
 
 import { ArrowUpRightIcon } from '~/icons/phosphor/ArrowUpRightIcon'
 import { CaretDownIcon } from '~/icons/phosphor/CaretDownIcon'
+import { DotsThreeIcon } from '~/icons/phosphor/DotsThreeIcon'
 import { ChatCircleIcon } from '~/icons/phosphor/ChatCircleIcon'
 import { GithubLogoIcon } from '~/icons/phosphor/GithubLogoIcon'
 import {
@@ -25,6 +26,7 @@ import {
 } from '~/icons/social/SolidSocialIcons'
 import { MagnifyingGlassIcon } from '~/icons/phosphor/MagnifyingGlassIcon'
 
+import { AppearancePanel } from '~/features/theme/AppearancePanel'
 import { ThemeMenu } from '~/features/theme/ThemeMenu'
 import { wikiNav } from '~/features/wiki/data'
 import chrome from '~/features/wiki/generated/chrome.json'
@@ -37,6 +39,7 @@ import { Link } from './Link'
 import { LocalNav } from './LocalNav'
 import { ScrollHeader, useMobileNavHidden } from './ScrollHeader'
 
+import type { ReactNode } from 'react'
 import type { TamaguiElement } from 'tamagui'
 
 // fmhy social channels — upstream's shared.ts socialLinks, via chrome.json.
@@ -217,8 +220,19 @@ const EcosystemRow = ({ item }: { item: EcosystemItem }) => {
 
 // VPFlyout port: opens on hover (mouseenter/mouseleave), stays click- and
 // keyboard-operable (the trigger is a real button toggling aria-expanded),
-// closes on Escape and when focus leaves the flyout
-const EcosystemMenu = () => {
+// closes on Escape and when focus leaves the flyout. the menu wears the shared
+// popup surface (.fmhy-popup in app/root.css, upstream's .VPMenu rules).
+const Flyout = ({
+  label,
+  button,
+  menuClassName,
+  children,
+}: {
+  label: string
+  button: ReactNode
+  menuClassName?: string
+  children: ReactNode
+}) => {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<TamaguiElement>(null)
 
@@ -262,15 +276,12 @@ const EcosystemMenu = () => {
         borderWidth={0}
         opacity={0.85}
         hoverStyle={{ opacity: 1 }}
-        aria-label="Ecosystem"
+        aria-label={label}
         {...({ 'aria-haspopup': 'true' } as object)}
         aria-expanded={open}
         onPress={() => setOpen(!open)}
       >
-        <SizableText fontFamily="$body" size="$3" color="$color12">
-          🌱 Ecosystem
-        </SizableText>
-        <CaretDownIcon size={12} color="$color11" />
+        {button}
       </XStack>
 
       {/* .menu: fades in/out (opacity/visibility .25s), sits right under the
@@ -287,27 +298,32 @@ const EcosystemMenu = () => {
           transition: 'opacity 0.25s, visibility 0.25s',
         }}
       >
-        <YStack
-          bg="$color2"
-          borderWidth={1}
-          borderColor="$color5"
-          rounded="$4"
-          p="$2"
-          gap="$0.5"
-          width={240}
-          // --vp-shadow-3
-          style={{
-            boxShadow: '0 12px 32px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08)',
-          }}
-        >
-          {ECOSYSTEM_ITEMS.map((item) => (
-            <EcosystemRow key={item.label} item={item} />
-          ))}
-        </YStack>
+        <div className={menuClassName ? `fmhy-popup ${menuClassName}` : 'fmhy-popup'}>
+          {children}
+        </div>
       </YStack>
     </XStack>
   )
 }
+
+const EcosystemMenu = () => (
+  <Flyout
+    label="Ecosystem"
+    button={
+      <>
+        <SizableText fontFamily="$body" size="$3" color="$color12">
+          🌱 Ecosystem
+        </SizableText>
+        <CaretDownIcon size={12} color="$color11" />
+      </>
+    }
+    menuClassName="fmhy-nav-menu"
+  >
+    {ECOSYSTEM_ITEMS.map((item) => (
+      <EcosystemRow key={item.label} item={item} />
+    ))}
+  </Flyout>
+)
 
 const SocialLinksRow = () => (
   <XStack items="center">
@@ -317,6 +333,28 @@ const SocialLinksRow = () => (
       </CircleLink>
     ))}
   </XStack>
+)
+
+// VPNavBarExtra port (800-1279px): the "…" flyout holding the Appearance
+// panel and the social links, which only sit in the bar itself from 1280px
+// (upstream style.scss @media (max-width: 1279px) .VPNavBarExtra rules)
+const NavBarExtra = () => (
+  <Flyout
+    label="extra navigation"
+    button={
+      <XStack width={36} height={36} items="center" justify="center">
+        <DotsThreeIcon size={20} color="$color12" />
+      </XStack>
+    }
+    menuClassName="fmhy-extra-menu"
+  >
+    <div className="fmhy-menu-group">
+      <AppearancePanel />
+    </div>
+    <div className="fmhy-menu-group">
+      <SocialLinksRow />
+    </div>
+  </Flyout>
 )
 
 // expanded search trigger beside the logo on wide screens (phase 1 placeholder)
@@ -532,7 +570,6 @@ const MobileMenu = () => {
           <YStack flex={1} gap="$2">
             <XStack items="center" justify="space-between">
               <Logo />
-              <ThemeMenu />
             </XStack>
 
             <Separator my="$2" />
@@ -606,6 +643,12 @@ const MobileMenu = () => {
                   />
                 ))}
               </YStack>
+
+              {/* VPNavScreenAppearance: the panel inline, below the menu */}
+              <Separator my="$2" />
+              <div className="fmhy-screen-appearance">
+                <AppearancePanel />
+              </div>
             </ScrollView>
 
             <Separator my="$2" />
@@ -652,7 +695,7 @@ export function Header() {
             </XStack>
 
             {/* lg+ : nav links + ecosystem in a labelled <nav> (VPNavBarMenu),
-                then theme + socials beside it */}
+                then theme + socials (or the "…" menu) beside it */}
             <XStack display="none" $lg={{ display: 'flex' }} gap="$4" items="center">
               <XStack
                 render="nav"
@@ -668,8 +711,15 @@ export function Header() {
                 ))}
                 <EcosystemMenu />
               </XStack>
-              <ThemeMenu />
-              <SocialLinksRow />
+              {/* >=1280px: palette dropdown + socials in the bar; below that
+                  both move into the "…" menu (VPNavBarExtra) */}
+              <div className="fmhy-nav-wide">
+                <ThemeMenu />
+                <SocialLinksRow />
+              </div>
+              <div className="fmhy-nav-extra">
+                <NavBarExtra />
+              </div>
             </XStack>
 
             {/* below lg: hamburger menu */}

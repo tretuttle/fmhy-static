@@ -79,7 +79,7 @@ Browser replays: F4 on a normal visit, and F2/F3 with `page.route(...).abort('in
 
 ## Does my change touch this? (coverage record)
 
-**Sync commit: `fb43561`** (main). The models were last confirmed to describe the code below at this commit.
+**Sync commit: `b7c1d75`** (fix/search-focus). The models were last confirmed to describe the code below at this commit.
 
 | Code | Covered | Model element |
 | --- | --- | --- |
@@ -95,7 +95,7 @@ Browser replays: F4 on a normal visit, and F2/F3 with `page.route(...).abort('in
 To see whether covered code changed since the sync commit, run this in the checkout whose code you are evaluating (add `-C <worktree>` when that is not the current directory). Committed and uncommitted changes both show.
 
 ```sh
-git diff fb43561 -- site/src/features/wiki/WikiSearchModal.tsx site/src/features/wiki/searchModal.ts site/src/features/wiki/useWikiSearch.ts site/src/features/wiki/data.ts site/src/lib/emitter.ts site/app/_layout.tsx
+git diff b7c1d75 -- site/src/features/wiki/WikiSearchModal.tsx site/src/features/wiki/searchModal.ts site/src/features/wiki/useWikiSearch.ts site/src/features/wiki/data.ts site/src/lib/emitter.ts site/app/_layout.tsx
 ```
 
 A diff that only touches code the table does not name (ranking in `runSearch`, the tokenizer, markup classes, `searchHighlight.ts`, keyboard selection) needs no model change. Run `check.sh` anyway.

@@ -3,6 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { XStack, isWeb } from 'tamagui'
 
 import { observeScrollInset } from '~/features/wiki/scrollOffset'
+import {
+  alignInitialHashScroll,
+  watchHashNavigations,
+} from '~/features/wiki/scrollToAnchor'
 import { breakpoints } from '~/tamagui/breakpoints'
 
 import type { ReactNode } from 'react'
@@ -104,6 +108,14 @@ export const ScrollHeader = ({
     if (!header) return
     return observeScrollInset(header, document.getElementById('local-nav'))
   }, [pathname])
+
+  // #hash targets land on the shared inset: re-aligned once after first load
+  // (fonts/images/content-visibility settle), and after client navigations
+  useEffect(() => {
+    if (!isWeb) return
+    void alignInitialHashScroll()
+    return watchHashNavigations()
+  }, [])
 
   useEffect(() => {
     if (!isWeb) return

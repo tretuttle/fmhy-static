@@ -12,6 +12,8 @@
 // react-native — meaning TOC taps, local-nav links and #hash navigation all go dead
 // there. native needs a scroll-registry equivalent behind this same signature.
 
+import { routerStore } from 'one'
+
 import { freezeMobileNav, getAnchorScrollTop } from './scrollOffset'
 
 // a newer jump supersedes an older one still settling, and a search
@@ -76,3 +78,80 @@ export function scrollToAnchor(id: string, { updateHash = true } = {}): boolean 
   return true
 }
 
+// fmhy.net Layout.vue correctInitialHashScroll: the browser's own #hash jump
+// on first load happens before fonts, images and content-visibility sections
+// settle (and before deferred hydration), so once the page has loaded re-align
+// the target with the shared offset. back/forward keeps the browser's restored
+// position; a navigation or search jump in the meantime wins.
+export async function alignInitialHashScroll(): Promise<void> {
+  if (typeof window === 'undefined' || !window.location.hash) return
+
+  const navigation = performance.getEntriesByType('navigation')[0] as
+    | PerformanceNavigationTiming
+    | undefined
+  if (navigation?.type === 'back_forward') return
+
+  const previousRestoration = history.scrollRestoration
+  history.scrollRestoration = 'manual'
+  try {
+    const expectedUrl = window.location.href
+    const pageShown =
+      document.readyState === 'complete'
+        ? Promise.resolve()
+        : new Promise<void>((resolve) =>
+            window.addEventListener('pageshow', () => resolve(), { once: true }),
+          )
+    await Promise.all([document.fonts?.ready, pageShown])
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+    if (
+      window.location.href !== expectedUrl ||
+      document.documentElement.classList.contains('vp-search-scrolling')
+    ) {
+      return
+    }
+
+    let id: string
+    try {
+      id = decodeURIComponent(window.location.hash.slice(1))
+    } catch {
+      return
+    }
+    scrollToAnchor(id, { updateHash: false })
+  } finally {
+    history.scrollRestoration = previousRestoration
+  }
+}
+
+// client navigations to page#hash: One's router scrolls the target into view
+// once, before the new page's content-visibility sections settle, and lands
+// it far off. vitepress's router lands it on getScrollOffset() — re-run the
+// settle-scroll once the target exists. back/forward carries no hash here
+// (the router only tags link navigations), and a search jump owns its own
+// landing.
+export function watchHashNavigations(): () => void {
+  let poll: ReturnType<typeof setTimeout> | undefined
+
+  const dispose = routerStore.subscribeToRootState((state) => {
+    clearTimeout(poll)
+    if (!state.hash || state.linkOptions?.scroll === false) return
+    let id: string
+    try {
+      id = decodeURIComponent(state.hash.replace(/^#/, ''))
+    } catch {
+      return
+    }
+    let attempts = 0
+    const settle = () => {
+      if (isSearchScrolling()) return
+      if (scrollToAnchor(id, { updateHash: false }) || ++attempts >= 60) return
+      poll = setTimeout(settle, 50)
+    }
+    poll = setTimeout(settle)
+  })
+
+  return () => {
+    clearTimeout(poll)
+    dispose()
+  }
+}

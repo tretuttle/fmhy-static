@@ -150,8 +150,26 @@ export function watchHashNavigations(): () => void {
     poll = setTimeout(settle)
   })
 
+  // same-document #hash changes that never touch the router — an edited
+  // address bar, a plain in-page <a href="#x">, back/forward between anchors —
+  // get only the browser's single native jump, which overshoots by thousands
+  // of px against content-visibility placeholders. settle them the same way.
+  // (scrollToAnchor's own history.replaceState never fires hashchange.)
+  const onHashChange = () => {
+    if (isSearchScrolling() || !window.location.hash) return
+    let id: string
+    try {
+      id = decodeURIComponent(window.location.hash.slice(1))
+    } catch {
+      return
+    }
+    scrollToAnchor(id, { updateHash: false })
+  }
+  window.addEventListener('hashchange', onHashChange)
+
   return () => {
     clearTimeout(poll)
     dispose()
+    window.removeEventListener('hashchange', onHashChange)
   }
 }

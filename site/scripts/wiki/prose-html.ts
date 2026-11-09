@@ -108,6 +108,17 @@ function blockHtml(block: WikiProseBlock, opts: ProseHtmlOptions): string {
         `<p><strong>${escapeHtml(block.title)}</strong> - ${inlineHtml(block.description, opts)}</p>` +
         `<p><img src="${escapeHtml(block.desktop)}" alt="${escapeHtml(block.title)}"></p>`
       )
+    // only /recently-removed carries these, never a post — kept so the switch
+    // stays exhaustive
+    case 'removed':
+      return `<ul>${block.sites
+        .map(
+          (site) =>
+            `<li><strong>${escapeHtml(site.name)}</strong>` +
+            (site.description ? ` - ${escapeHtml(site.description)}` : '') +
+            '</li>'
+        )
+        .join('')}</ul>`
   }
 }
 

@@ -7,6 +7,7 @@
 // part of the web search presentation; not portable, replaced wholesale on native.
 
 import { looksLikeUrlQuery, normalizeUrlSearchValue, stripSchemeAndWww } from './searchUrl'
+import { getScrollOffset } from './scrollOffset'
 
 const MARK_MERGE_DISTANCE_PX = 20
 const MARK_SAME_LINE_THRESHOLD_PX = 5
@@ -238,7 +239,6 @@ const HIGHLIGHT_CLASS = 'vp-search-highlight-target'
 const SCROLLING_CLASS = 'vp-search-scrolling'
 // breathing room between the bars and the landed match (upstream
 // --fmhy-scroll-inset = nav + local nav + 16px)
-const LANDING_GAP_PX = 16
 
 let activeScrollId = 0
 let activeObserver: MutationObserver | null = null
@@ -248,17 +248,10 @@ function getContentRoot(): Element | null {
   return document.getElementById('main-content') ?? document.body
 }
 
-// upstream updateScrollInset (Layout.vue): the bars' full heights — a
-// hide-on-scroll header still counts, like VPNav's — plus 16px
-// TODO(parity/scroll): use shared offset
+// upstream updateScrollInset (Layout.vue): header + mobile local-nav + 16px —
+// the same measured inset every other scroller and tracker uses
 function getLandingInset(): number {
-  const visibleHeight = (el: Element | null) =>
-    el && getComputedStyle(el).display !== 'none' ? el.getBoundingClientRect().height : 0
-  return (
-    visibleHeight(document.querySelector('body header')) +
-    visibleHeight(document.getElementById('local-nav')) +
-    LANDING_GAP_PX
-  )
+  return getScrollOffset()
 }
 
 // upstream scrollToMatchInSection's multi-pass element pick; returns the
@@ -377,7 +370,6 @@ const LANDING_STABLE_FRAMES = 3
  * jump lands off once the sections above realize their real heights — jump,
  * re-measure and correct until the position holds for a few frames
  * (scrollToAnchor.ts's settle loop). A user wheel/touch/key ends it early.
- * TODO(parity/scroll): use shared offset
  */
 function landOnMatch(el: Element, isStale: () => boolean, onDone: () => void): void {
   const prev = document.querySelector(`.${HIGHLIGHT_CLASS}`)
@@ -482,9 +474,8 @@ export function scheduleScrollToMatch(
   cancelPendingScroll()
 
   // no transitions on the bars while we jump (upstream html.vp-search-scrolling);
-  // the bars keep whatever state the scroll leaves them in
-  // TODO(parity/scroll): freeze ScrollHeader's hide-on-scroll state during the
-  // jump like upstream VPNav (it ignores scroll while vp-search-scrolling is set)
+  // the bars keep whatever state the scroll leaves them in — ScrollHeader's
+  // isMobileNavFrozen() honours this class, like upstream VPNav
   if (typeof document !== 'undefined') {
     document.documentElement.classList.add(SCROLLING_CLASS)
   }

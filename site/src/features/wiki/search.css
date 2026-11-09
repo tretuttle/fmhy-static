@@ -58,7 +58,7 @@ html.t_dark .VPLocalSearchBox {
 /* (light) / 300 (dark) step, full themes their own `soft`. our accent      */
 /* scale has no such step, so the soft colour is pinned per theme class.   */
 /* these sit on html because the scroll flash lands on the page, not the    */
-/* modal. TODO(parity/theme): read a shared brand-soft token if one lands.  */
+/* modal. (could read a shared brand-soft token if root.css ever adds one) */
 /* ----------------------------------------------------------------------- */
 
 html {
@@ -154,8 +154,8 @@ html.theme-monolith.t_dark {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   will-change: opacity;
   animation: vpl-backdrop-fade 0.15s ease-out both;
 }

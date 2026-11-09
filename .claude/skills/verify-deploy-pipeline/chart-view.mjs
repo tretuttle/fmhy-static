@@ -56,7 +56,7 @@ export const step = (action, from, to) => {
     case "StartWaitingRun":
       return to.run.event === "dispatch" ? "you run the workflow by hand" : "the hourly run starts";
     case "CheckGate":
-      if (to.lastRun === "red") return "check: git ls-remote fails, check job fails";
+      if (to.phase === "idle" && to.lastRun === "red") return "check: git ls-remote fails, check job fails";
       if (to.phase === "idle") return "check: sha equals the record, deploy job skipped";
       if (to.run.event === "schedule" && to.run.sha === from.record)
         return "check: gh api read fails, record reads 'none', so 'changed'";

@@ -24,7 +24,7 @@ description: Model-check the site's Appearance flow (light/dark/AMOLED mode, col
 
 ## Coverage record
 
-Sync commit: **fb43561**. At that commit the model was checked line by line against the code below. Move the sync commit forward only after you confirm, at the new commit, that each action below still describes its code.
+Sync commit: **8771c44**. The model was checked line by line against the code below at fb43561, and `YouPickMode` again at 8771c44, after the only change to covered code since then. Move the sync commit forward only after you confirm, at the new commit, that each action below still describes its code.
 
 | Code (path: function) | Model |
 | --- | --- |
@@ -34,15 +34,15 @@ Sync commit: **fb43561**. At that commit the model was checked line by line agai
 | `site/src/features/theme/themeSettings.ts`: `resolveStoredThemeName`, `isOctober`, emitter seeds, `setAmoled`/`setAccent`/`setThemeName`, `useAmoled`/`useAccent`/`useThemeName` effects | `ResolveTheme`, `Hydrate`, `YouReload` (seeds), `YouPickColor`, `YouPickPreset` |
 | `site/src/lib/storage.ts`: `createStorageValue` (JSON under `fmhy.` keys) | the `s*` storage variables |
 | `site/src/features/theme/ThemeController.tsx`: module IIFE, `applyClasses`, `ThemeController` effects | `Hydrate`, `AppLook` |
-| `site/src/features/theme/AppearancePanel.tsx`: `MODES`, `activeMode`, `selectMode` (early return, `setAmoled` then `userScheme.set`), `ColorPicker` `selectAccent` and preset `onSelect` | `Modes`, `ActiveMode`, `YouPickMode`, `YouPickColor`, `YouPickPreset` |
+| `site/src/features/theme/AppearancePanel.tsx`: `MODES`, `selectMode` (`setAmoled` then `userScheme.set` on every click), `ColorPicker` `selectAccent` and preset `onSelect` | `Modes`, `YouPickMode`, `YouPickColor`, `YouPickPreset` |
 | `site/app/root.css`: `html.amoled.t_dark`, `html.accent-*.t_*`, `html.theme-*.t_*` (a preset wins over an accent) | `Look`, `ModeShown`, `PaletteShown` |
 
-Not covered on purpose: `themeTransition.ts` (animation only; the click's `apply` always runs), `seasonalBranding.ts` (logos and favicon, not the palette), `ThemeMenu.tsx` (popup open/close), `src/components/ThemeSwitch.tsx` (not rendered anywhere at fb43561; if it ever is, it adds a `'system'` setting and `CanFollowOsAgain` must be rechecked).
+Not covered on purpose: `themeTransition.ts` (animation only; the click's `apply` always runs), `seasonalBranding.ts` (logos and favicon, not the palette), `ThemeMenu.tsx` (popup open/close), `src/components/ThemeSwitch.tsx` (not rendered anywhere at 8771c44; if it ever is, it adds a `'system'` setting and `CanFollowOsAgain` must be rechecked).
 
 ## Does a change touch this?
 
 ```sh
-git diff --name-only fb43561 -- site/src/features/theme site/src/lib/storage.ts site/app/_layout.tsx site/app/root.css site/bun.lock site/package.json
+git diff --name-only 8771c44 -- site/src/features/theme site/src/lib/storage.ts site/app/_layout.tsx site/app/root.css site/bun.lock site/package.json
 ```
 
 Then read the hunks against the table. A change in `root.css` or `_layout.tsx` only matters if it touches the selectors or head scripts named above; a `bun.lock` change only if `@vxrn/color-scheme` moved off 1.2.71.
@@ -57,16 +57,15 @@ From the repo root (each run takes about a second):
 ```
 
 - `Holding.cfg` checks the rules that held at the sync commit. Exit 0 means none of them regressed. Non-zero means a regression or a model error: read the printed trace.
-- `Appearance.cfg` checks every rule. At the sync commit it exits 12 because of the three known findings below; TLC stops at the first one (`NoFlipOnLoad`). A new rule breaking here, or a known finding with a different path, is news.
-- Read every result with the pstack **`/statechart`** skill: give it `Appearance.tla` with `Appearance.cfg` to get every broken rule as its shortest path in plain words (it re-runs TLC past each break), and give it the view module `view.mjs` in this folder for the reader's words. For a whole-flow chart, give it `AppearanceChart.cfg` (one colour, one preset; 360 states, under its chart budget). Write its output outside the repo.
+- `Appearance.cfg` checks every rule. At the sync commit it exits 12 because of the two known findings below; TLC stops at the first one (`NoFlipOnLoad`). A new rule breaking here, or a known finding with a different path, is news.
+- Read every result with the pstack **`/statechart`** skill: give it `Appearance.tla` with `Appearance.cfg` to get every broken rule as its shortest path in plain words (it re-runs TLC past each break), and give it the view module `view.mjs` in this folder for the reader's words. For a whole-flow chart, give it `AppearanceChart.cfg` (one colour, one preset; 240 states, under its chart budget). Write its output outside the repo.
 
-## Known findings at fb43561 (do not "fix" the model to hide them)
+## Known findings at 8771c44 (do not "fix" the model to hide them)
 
 1. **`NoFlipOnLoad`: an unknown saved theme name flips to Halloween after first paint, in October.** (1) In October, `fmhy.theme.name` holds a string that is not in `THEME_NAMES` (e.g. a preset renamed or removed in a later release) and `fmhy.theme.accent` is empty. (2) `THEME_PRE_PAINT_SCRIPT` paints the default palette: its halloween fallback needs `n==null`. (3) The `ThemeController` IIFE runs `resolveStoredThemeName()`, which treats an unknown name as no pick and returns `'halloween'`, so `theme-halloween` is added. Replay on the built site (fake date 2026-10-15, OS dark, `fmhy.theme.name = "retired"`): first paint `t_dark`, then `theme-halloween` added at ~185 ms, five animation frames later: **reproduced**.
-2. **`ModeSticks`: clicking the mode that is already showing is not saved.** (1) OS dark, nothing saved; the panel shows Dark checked. (2) You click Dark: `selectMode` hits `if (mode === activeMode) return`, which compares the *resolved* mode, so `vxrn-scheme` stays unset, contrary to the comment inside `selectMode`. (3) The OS turns light: `startWebListener` follows it because the setting is still `'system'`, and the page turns light. Same with Light under a light OS. Replay: after the click storage was all null; after `emulateMedia({colorScheme:'light'})` the html was `t_light`, and still after reload: **reproduced**.
-3. **`CanFollowOsAgain`: no way back to following the OS.** `MODES` has only Light/Dark/AMOLED, and each writes `'light'` or `'dark'` to `vxrn-scheme`. No rendered control ever writes `'system'` or clears the key (`ThemeSwitch` would, but nothing renders it). TLC's lasso: pick any mode, then keep clicking every button forever, and the OS is never followed again. Replay: the panel's mode buttons were `["Light","Dark","AMOLED"]`; `vxrn-scheme` after each click was dark/light/dark/dark/light, and a later OS switch to dark left the page `t_light`: **reproduced**. Also, before commit 8db54b4 the pre-paint script wrote `vxrn-scheme='dark'` for every first visitor, so those returning visitors are pinned to dark without having chosen it.
+2. **`CanFollowOsAgain`: no way back to following the OS.** `MODES` has only Light/Dark/AMOLED, and each writes `'light'` or `'dark'` to `vxrn-scheme`. No rendered control ever writes `'system'` or clears the key (`ThemeSwitch` would, but nothing renders it). TLC's lasso: pick any mode, then keep clicking every button forever, and the OS is never followed again. Replay: the panel's mode buttons were `["Light","Dark","AMOLED"]`; `vxrn-scheme` after each click was dark/light/dark/dark/light, and a later OS switch to dark left the page `t_light`: **reproduced**. Also, before commit 8db54b4 the pre-paint script wrote `vxrn-scheme='dark'` for every first visitor, so those returning visitors are pinned to dark without having chosen it.
 
-Related behaviour that is **not** a rule break under the rules as written: in October with nothing saved, clicking the already-checked Halloween swatch runs `setThemeName('halloween')`, which always writes storage, so the visitor still has Halloween in November. The replay reproduced this. A click counts as a pick, so `PaletteSavedOnlyWhenPicked` holds. Note the asymmetry with finding 2: a click on an already-checked option is saved for palettes but not for modes. If the product decides that such a click is not a pick, change the rules (both ways) with the user's agreement, never one-sidedly to make a check pass.
+Related behaviour that is **not** a rule break under the rules as written: in October with nothing saved, clicking the already-checked Halloween swatch runs `setThemeName('halloween')`, which always writes storage, so the visitor still has Halloween in November. The replay reproduced this. A click counts as a pick, so `PaletteSavedOnlyWhenPicked` holds. Modes behave the same way since 8771c44: a click on the checked mode is saved too. If the product decides that such a click is not a pick, change the rules (both ways) with the user's agreement, never one-sidedly to make a check pass.
 
 ## Able to fail (confirmed at fb43561)
 
@@ -81,6 +80,7 @@ Each rule was seen failing on a model of a plausible code break, and each failin
 | `setThemeName` writes storage only when the value changes (scratch break in the real code, run end to end through this skill) | `Holding.cfg` exit 12: `PaletteSticks` violated (click the checked seasonal Halloween in October, come back after October: default colours) |
 | pre-paint fallback uses the same test as `resolveStoredThemeName` | `NoFlipOnLoad` holds |
 | early return only when the mode is already *saved* | `ModeSticks` holds |
+| `selectMode` returns early when the clicked mode equals the resolved mode (the code before 8771c44) | `Holding.cfg` exit 12: `ModeSticks` violated (OS dark, click Dark, the OS turns light) |
 | a fourth "System" row calling `userScheme.set('system')` | `CanFollowOsAgain` holds |
 
 ## Real bug or modelling error?
@@ -97,6 +97,6 @@ Each rule was seen failing on a model of a plausible code break, and each failin
 
 ## Scope and bounds
 
-- Bounds: one tab; colours {swarm, turquoise}; presets {halloween, catppuccin}; one stale theme name; OS light/dark; month October / not October. The rules do not depend on which colour or which non-seasonal preset, so more of them add nothing. 720 states.
+- Bounds: one tab; colours {swarm, turquoise}; presets {halloween, catppuccin}; one stale theme name; OS light/dark; month October / not October. The rules do not depend on which colour or which non-seasonal preset, so more of them add nothing. 480 states.
 - Atomic steps: first paint (head pre-paint + SchemeProvider body script); hydration (controller IIFE through the first commit's effects); each click; each OS switch. Replays at fb43561 show that the class churn inside hydration (`applyClasses` with the seeded defaults stripping `amoled`/`accent-*`/`theme-*`, and SchemeProvider's `t_dark`→`t_light`→`t_dark`) happens in one MutationObserver batch, so it is never painted.
 - Left out: a second open tab (no `storage` listener, so it stays stale until it reloads or opens the panel, whose hooks re-read storage); the month changing while a page stays open; an OS switch between first paint and hydration; storage that throws or is full; malformed `vxrn-scheme` values; the view-transition animation; seasonal logos and favicons; React Native.

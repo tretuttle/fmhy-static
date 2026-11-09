@@ -7,9 +7,7 @@ const shownMode = (v) => (v.look.dark ? (v.look.amoled ? "AMOLED" : "Dark") : "L
 
 const modeLabel = (v) => {
   if (v.sScheme === "none" || v.sScheme === "system") {
-    return v.pickedMode === "none"
-      ? `${shownMode(v)}, following your OS`
-      : `${shownMode(v)}, following your OS though you clicked a mode`;
+    return `${shownMode(v)}, following your OS`;
   }
   // the saved modes are merged into one chart state to keep the chart small;
   // the report still names Light / Dark / AMOLED in each step

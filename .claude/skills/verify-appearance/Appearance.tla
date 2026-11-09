@@ -100,10 +100,6 @@ SchemeDark(st, o) == st = "dark" \/ (st = "system" /\ o = "dark")
 \* ThemeController applyClasses + SchemeProvider class effect
 AppLook(st, o, am, ac, th) == Look(SchemeDark(st, o), am, ac, th)
 
-\* AppearancePanel.tsx: activeMode = isDark ? (amoled ? 'amoled' : 'dark') : 'light'
-ActiveMode ==
-    IF SchemeDark(setting, os) THEN (IF amoledE THEN "amoled" ELSE "dark") ELSE "light"
-
 -----------------------------------------------------------------------------
 Init ==
     /\ sScheme = None /\ sAmoled = None /\ sAccent = None
@@ -128,23 +124,19 @@ Hydrate ==
     /\ look' = AppLook(setting', os, amoledE', accentE', themeE')
     /\ UNCHANGED <<storage, os, october, paintLook, pickedMode, pickedPalette>>
 
-\* AppearancePanel.tsx selectMode. `if (mode === activeMode) return` compares
-\* the RESOLVED mode, so a click on the mode already shown writes nothing.
-\* Otherwise, in one flushSync: setAmoled(mode === 'amoled') then
-\* userScheme.set(dark|light) (setUserScheme writes 'vxrn-scheme').
+\* AppearancePanel.tsx selectMode. Each click runs in one flushSync:
+\* setAmoled(mode === 'amoled') then userScheme.set(dark|light)
+\* (setUserScheme writes 'vxrn-scheme').
 YouPickMode(m) ==
     /\ phase = "ready"
     /\ pickedMode' = m
     /\ paintLook' = NoLook
-    /\ IF m = ActiveMode
-         THEN UNCHANGED <<storage, app, look>>
-         ELSE /\ sAmoled' = IF m = "amoled" THEN "true" ELSE "false"
-              /\ amoledE' = (m = "amoled")
-              /\ sScheme' = IF m = "light" THEN "light" ELSE "dark"
-              /\ setting' = sScheme'
-              /\ look' = AppLook(setting', os, amoledE', accentE, themeE)
-              /\ UNCHANGED <<sAccent, sTheme, accentE, themeE>>
-    /\ UNCHANGED <<os, october, phase, pickedPalette>>
+    /\ sAmoled' = IF m = "amoled" THEN "true" ELSE "false"
+    /\ amoledE' = (m = "amoled")
+    /\ sScheme' = IF m = "light" THEN "light" ELSE "dark"
+    /\ setting' = sScheme'
+    /\ look' = AppLook(setting', os, amoledE', accentE, themeE)
+    /\ UNCHANGED <<sAccent, sTheme, accentE, themeE, os, october, phase, pickedPalette>>
 
 \* ColorPicker selectAccent: setAccent(name); setThemeName('default').
 \* Both setters always write storage, even when the value is unchanged.

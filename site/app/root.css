@@ -307,6 +307,32 @@ details .details-inner > :last-child {
   scroll-margin-top: calc(var(--fmhy-scroll-inset) - 25px);
 }
 
+/* route progress bar (fmhy style.scss #nprogress; RouteProgress.tsx) */
+#nprogress {
+  pointer-events: none;
+}
+#nprogress .bar {
+  position: fixed;
+  z-index: 1031;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--accent11);
+}
+#nprogress .peg {
+  display: block;
+  position: absolute;
+  right: 0;
+  width: 100px;
+  height: 100%;
+  box-shadow:
+    0 0 10px var(--accent11),
+    0 0 5px var(--accent11);
+  opacity: 1;
+  transform: rotate(3deg) translate(0px, -4px);
+}
+
 /* mobile "On this page" dropdown rows (fmhy style.scss <1280px block):
    pills with accent-tinted hover/active backgrounds. nested rows sit in
    vitepress's extra 16px-padded list, text indented 13px. the id lifts these

@@ -60,6 +60,8 @@ export const SUBLINK_ICONS: Record<string, string> = {
   Telegram: 'telegram',
   Subreddit: 'reddit',
   X: 'x',
+  Mastodon: 'mastodon',
+  BlueSky: 'bluesky',
   '.onion': 'onion',
   'Source Code': 'source',
 }

@@ -41,24 +41,22 @@ const themeClassMap = Object.fromEntries(
 // IIFE lives in a deferred chunk (One's after-lcp loading), so without this the
 // first paint flashes the default theme. Storage encoding mirrors
 // ~/lib/storage.ts: JSON values under 'fmhy.'-prefixed keys (keep in sync).
-// Only ADDS classes; ThemeController reconciles (add + remove) after hydration.
+// Only ADDS the theme classes; ThemeController reconciles (add + remove) after
+// hydration.
 // With no saved theme or color pick, October falls back to halloween — same
 // rule as resolveStoredThemeName (themeSettings.ts) and upstream's own head
 // script (config.mts).
 //
-// Default color scheme (fmhy.net parity): a brand-new visitor with no
-// 'vxrn-scheme' key should land on DARK, not light and not system-tracking.
-// @vxrn/color-scheme's own SchemeProvider has no defaultScheme prop to ask for
-// this (see node_modules/@vxrn/color-scheme/src/index.tsx — only `children`
-// and `getClassName`); its inlined script falls back to
-// prefers-color-scheme whenever the key is 'system' or unset. So this script
-// seeds 'vxrn-scheme' = 'dark' in localStorage the first time it's missing,
-// BEFORE that script runs (this one is injected in <head>, SchemeProvider's
-// is rendered lower in <body> — see app/_layout.tsx) — its script then reads
-// back the 'dark' we just wrote instead of falling through to the OS
-// preference. The html class is also set directly here as a belt-and-suspenders
-// against any future reordering; 't_' is SchemeProvider's default
-// getClassName prefix (TamaguiRootProvider.tsx never overrides it).
+// Default color scheme (fmhy.net parity, themeHandler.ts initializeTheme +
+// the config.mts head script): with no saved mode, follow the OS
+// prefers-color-scheme and keep following it live until the visitor picks
+// one. @vxrn/color-scheme already behaves that way for an unset (or
+// 'system') 'vxrn-scheme' key — its SchemeProvider script resolves it via
+// matchMedia and useUserScheme subscribes to the media query — so nothing is
+// seeded into storage here. The html class is still set from the same rule
+// in <head> so it is right before anything in <body> paints; 't_' is
+// SchemeProvider's default getClassName prefix (TamaguiRootProvider.tsx
+// never overrides it).
 export const THEME_PRE_PAINT_SCRIPT = `(function(){try{
 var c=document.documentElement.classList;
 function r(k){try{return JSON.parse(localStorage.getItem('fmhy.'+k))}catch(e){return null}}
@@ -68,9 +66,8 @@ var n=r('theme.name');
 var t=${JSON.stringify(themeClassMap)}[n];
 if(!t&&n==null&&r('theme.accent')==null&&new Date().getMonth()===9)t='${themeClassName('halloween')}';
 if(t)c.add(t);
-if(!localStorage.getItem('vxrn-scheme')){
-localStorage.setItem('vxrn-scheme','dark');
-c.remove('t_light');
-c.add('t_dark');
-}
+var s=localStorage.getItem('vxrn-scheme');
+var d=s==='dark'||((!s||s==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+c.remove(d?'t_light':'t_dark');
+c.add(d?'t_dark':'t_light');
 }catch(e){}})();`

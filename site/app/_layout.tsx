@@ -11,6 +11,7 @@ import { View, XStack } from 'tamagui'
 
 import { Footer } from '~/components/Footer'
 import { Header } from '~/components/Header'
+import { RouteProgress } from '~/components/RouteProgress'
 import { GlobalTooltipProvider } from '~/components/TooltipSimple'
 import { WikiSidebar } from '~/components/WikiSidebar'
 import { WikiToc } from '~/components/WikiToc'
@@ -180,6 +181,7 @@ export function Layout() {
             <WikiFiltersProvider>
               <ThemeController />
               <SearchHotkey />
+              <RouteProgress />
               <View className="body-scrollable">
                 <Header />
                 <Shell />

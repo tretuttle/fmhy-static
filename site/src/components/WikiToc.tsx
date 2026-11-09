@@ -8,6 +8,7 @@ import { breakpoints } from '~/tamagui/breakpoints'
 import { Text } from '~/interface/text/Text'
 
 import type { TamaguiElement } from 'tamagui'
+import { getAnchorLandingTop } from '~/features/wiki/scrollOffset'
 import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
 
 export type TocEntry = {
@@ -43,14 +44,11 @@ export function useTocEntries(): TocEntry[] {
   return hasOutline ? (tocBySlug[slug] ?? []) : []
 }
 
-// vitepress site data ships scrollOffset: 134 (fmhy.net html); useActiveAnchor
-// adds 4px of slack on top of it
-const SCROLL_OFFSET = 134
-
 // active-anchor tracking ported from vitepress useActiveAnchor: on scroll
 // (throttled+debounced at 100ms like upstream) pick the LAST anchor whose
-// absolute top sits above scrollY + scrollOffset — so nested subsection rows
-// activate while reading them. no active link at the very top; last link
+// absolute top sits within 4px of its landing line — the shared measured
+// scroll offset (fmhy.net scrollOffset: '.fmhy-scroll-inset', see
+// scrollOffset.ts) — so nested subsection rows activate while reading them. no active link at the very top; last link
 // active when the page is scrolled to the bottom.
 function useActiveAnchor(entries: TocEntry[], enabledMinWidth: number) {
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -71,9 +69,16 @@ function useActiveAnchor(entries: TocEntry[], enabledMinWidth: number) {
         .map((entry) => {
           const el = document.getElementById(entry.id)
           if (!el) return null
-          return { id: entry.id, top: el.getBoundingClientRect().top + scrollY }
+          return {
+            id: entry.id,
+            top: el.getBoundingClientRect().top + scrollY,
+            landing: getAnchorLandingTop(el),
+          }
         })
-        .filter((a): a is { id: string; top: number } => a !== null && !Number.isNaN(a.top))
+        .filter(
+          (a): a is { id: string; top: number; landing: number } =>
+            a !== null && !Number.isNaN(a.top),
+        )
         .sort((a, b) => a.top - b.top)
 
       if (anchors.length === 0 || scrollY < 1) {
@@ -86,8 +91,8 @@ function useActiveAnchor(entries: TocEntry[], enabledMinWidth: number) {
       }
 
       let active: string | null = null
-      for (const { id, top } of anchors) {
-        if (top > scrollY + SCROLL_OFFSET + 4) break
+      for (const { id, top, landing } of anchors) {
+        if (top > scrollY + landing + 4) break
         active = id
       }
       setActiveId(active)

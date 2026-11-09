@@ -280,9 +280,81 @@ details .details-inner > :last-child {
   }
 }
 
-/* align anchor scroll with the fixed header */
-html {
-  scroll-padding-top: 64px;
+/* shared scroll offset (fmhy.net --fmhy-scroll-inset): fixed header + the
+   mobile "On this page" bar while shown + 16px. these static values cover
+   first paint / pre-hydration; ScrollHeader then measures the real chrome and
+   sets the var inline on <html> (scrollOffset.ts). every in-content anchor
+   lands there, native #hash jumps included */
+:root {
+  --fmhy-scroll-inset: 80px;
+}
+@media (max-width: 1023.98px) {
+  :root:has(#local-nav) {
+    --fmhy-scroll-inset: 128px;
+  }
+}
+#main-content [id] {
+  scroll-margin-top: var(--fmhy-scroll-inset);
+}
+/* section wrappers (WikiSectionList Anchor) start at their heading's top
+   margin (SepHeading: h2 41px, h3 25px). land the heading box at the inset —
+   the h2 box 24px higher, since vitepress counts its 24px top padding (fmhy
+   style.scss .vp-doc h2[id]) */
+#main-content .wk-anchor[data-toc-level='0'] {
+  scroll-margin-top: calc(var(--fmhy-scroll-inset) - 41px - 24px);
+}
+#main-content .wk-anchor[data-toc-level='1'] {
+  scroll-margin-top: calc(var(--fmhy-scroll-inset) - 25px);
+}
+
+/* route progress bar (fmhy style.scss #nprogress; RouteProgress.tsx) */
+#nprogress {
+  pointer-events: none;
+}
+#nprogress .bar {
+  position: fixed;
+  z-index: 1031;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--accent11);
+}
+#nprogress .peg {
+  display: block;
+  position: absolute;
+  right: 0;
+  width: 100px;
+  height: 100%;
+  box-shadow:
+    0 0 10px var(--accent11),
+    0 0 5px var(--accent11);
+  opacity: 1;
+  transform: rotate(3deg) translate(0px, -4px);
+}
+
+/* mobile "On this page" dropdown rows (fmhy style.scss <1280px block):
+   pills with accent-tinted hover/active backgrounds. nested rows sit in
+   vitepress's extra 16px-padded list, text indented 13px. the id lifts these
+   over tamagui's text margin reset */
+#local-nav .local-nav-link {
+  margin-inline: -8px;
+  padding-inline: 8px;
+  border-radius: 6px;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+#local-nav .local-nav-link.nested {
+  margin-inline: 8px;
+  padding-left: 13px;
+}
+#local-nav .local-nav-link:hover {
+  color: var(--accent11) !important;
+  background: color-mix(in srgb, var(--accent11) 7%, var(--background));
+}
+#local-nav .local-nav-link[aria-current='location'] {
+  background: color-mix(in srgb, var(--accent11) 13%, var(--background));
 }
 
 /*

@@ -1,10 +1,16 @@
 import { usePathname } from 'one'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { XStack, isWeb } from 'tamagui'
 
+import { isMobileNavFrozen, observeScrollInset } from '~/features/wiki/scrollOffset'
+import {
+  alignInitialHashScroll,
+  watchHashNavigations,
+} from '~/features/wiki/scrollToAnchor'
 import { breakpoints } from '~/tamagui/breakpoints'
 
 import type { ReactNode } from 'react'
+import type { TamaguiElement } from 'tamagui'
 
 // fixed header height — must match HEADER_H in app/_layout.tsx, which pads the
 // page content to clear this bar (fmhy.net: --vp-nav-height, 64px there)
@@ -19,13 +25,17 @@ export const setLocalNavDropdownOpen = (open: boolean) => {
   localNavDropdownOpen = open
 }
 
-// minimum scroll delta before the mobile bar toggles (VPNav.vue SCROLL_THRESHOLD)
+// distance from the last show/hide flip before the bar flips again
+// (VPNav.vue SCROLL_THRESHOLD — measured from the flip, not per scroll event,
+// so slow scrolling still accumulates)
 const SCROLL_THRESHOLD = 12
 
 // ported from fmhy.net's custom VPNav.vue scroll logic: the bar NEVER hides on
 // desktop; below the mobile-nav breakpoint (960px there — our hamburger
-// breakpoint $lg here) scrolling down more than 12px hides it, scrolling up or
-// reaching the very top brings it back
+// breakpoint $lg here) scrolling down 12px past the last flip hides it,
+// scrolling up 12px brings it back, reaching the very top always shows it.
+// while the "On this page" dropdown is open only hiding is blocked, and
+// programmatic/search jumps freeze it entirely (freezeMobileNav)
 export function useMobileNavHidden(): boolean {
   const [hidden, setHidden] = useState(false)
 
@@ -38,32 +48,47 @@ export function useMobileNavHidden(): boolean {
 
     const onScroll = () => {
       const y = window.scrollY
-      const diff = y - lastY
-      lastY = y
 
-      // keep the bar pinned while the mobile ToC dropdown is open
-      if (localNavDropdownOpen) return
-
-      // at the very top, always show
       if (y <= 0) {
         setHidden(false)
+        lastY = 0
         return
       }
 
       // desktop: static bar, never hidden
       if (window.innerWidth >= breakpoints.lg) {
         setHidden(false)
+        lastY = y
+        return
+      }
+
+      const diff = y - lastY
+
+      // a scroll-to-anchor or search jump owns the bar until it settles
+      if (isMobileNavFrozen()) {
+        lastY = y
+        return
+      }
+
+      // keep the bar while the mobile ToC dropdown is open — scrolling up may
+      // still reveal it
+      if (diff > 0 && localNavDropdownOpen) {
+        lastY = y
         return
       }
 
       if (Math.abs(diff) > SCROLL_THRESHOLD) {
         setHidden(diff > 0)
+        lastY = y
       }
     }
 
     // resizing up to desktop resets the bar to visible
     const onResize = () => {
-      if (window.innerWidth >= breakpoints.lg) setHidden(false)
+      if (window.innerWidth >= breakpoints.lg) {
+        setHidden(false)
+        lastY = window.scrollY
+      }
     }
 
     window.addEventListener('scroll', onScroll, { passive: true })
@@ -88,8 +113,28 @@ export const ScrollHeader = ({
   children: ReactNode
   hidden?: boolean
 }) => {
-  const isHome = usePathname() === '/'
+  const pathname = usePathname()
+  const isHome = pathname === '/'
   const [atTop, setAtTop] = useState(true)
+  const headerRef = useRef<TamaguiElement>(null)
+
+  // publish the shared scroll inset (header + visible "On this page" bar +
+  // 16px) — re-observed per route since the local-nav only exists on pages
+  // with an outline (fmhy.net Layout.vue observeScrollInset)
+  useEffect(() => {
+    if (!isWeb) return
+    const header = headerRef.current as HTMLElement | null
+    if (!header) return
+    return observeScrollInset(header, document.getElementById('local-nav'))
+  }, [pathname])
+
+  // #hash targets land on the shared inset: re-aligned once after first load
+  // (fonts/images/content-visibility settle), and after client navigations
+  useEffect(() => {
+    if (!isWeb) return
+    void alignInitialHashScroll()
+    return watchHashNavigations()
+  }, [])
 
   useEffect(() => {
     if (!isWeb) return
@@ -103,6 +148,7 @@ export const ScrollHeader = ({
 
   return (
     <XStack
+      ref={headerRef}
       render="header"
       t={0}
       l={0}

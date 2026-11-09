@@ -13,6 +13,7 @@ import { useTocEntries, type TocEntry } from './WikiToc'
 const SIDEBAR_DRAWER_ID = 'sidebar-drawer'
 
 import type { TamaguiElement } from 'tamagui'
+import { getAnchorLandingTop } from '~/features/wiki/scrollOffset'
 import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
 
 // mobile "On this page" sub-bar under the header, ported from vitepress
@@ -26,7 +27,8 @@ import { scrollToAnchor } from '~/features/wiki/scrollToAnchor'
 //   row at the top (theme returnToTopLabel default); Escape / outside click /
 //   route change / link click all close it
 // - active link tracked on scroll like fmhy Layout.vue's
-//   runUpdateMobileActiveLink: last anchor whose top is above 120px
+//   runUpdateMobileActiveLink: last anchor within 4px of the shared scroll
+//   offset (the same line the desktop aside ToC uses)
 export function LocalNav({ navHidden }: { navHidden: boolean }) {
   const pathname = usePathname()
   const entries = useTocEntries()
@@ -76,8 +78,9 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
   }, [open])
 
   // active-link tracking ported from fmhy Layout.vue runUpdateMobileActiveLink:
-  // rAF-throttled scroll handler, active = LAST anchor whose top is above
-  // 120px, only below the desktop-ToC breakpoint (there: innerWidth < 1280)
+  // rAF-throttled scroll handler, active = LAST anchor that has reached its
+  // landing line (getScrollOffset() + 4 there), only below the desktop-ToC
+  // breakpoint (there: innerWidth < 1280)
   useEffect(() => {
     if (!isWeb || entries.length === 0) return
 
@@ -88,7 +91,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
       for (const entry of entries) {
         const el = document.getElementById(entry.id)
         if (!el) continue
-        if (el.getBoundingClientRect().top < 120) {
+        if (el.getBoundingClientRect().top <= getAnchorLandingTop(el) + 4) {
           active = entry.id
         } else {
           break
@@ -175,6 +178,9 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
             pinned, so the button disappears exactly like theirs does. */}
         <XStack
           render="button"
+          // vitepress resets the ua button padding (1px 6px) — without it the
+          // bar grows to 50px and every anchor lands 2px low
+          p={0}
           onPress={() => setMenuOpen(true)}
           aria-expanded={menuOpen}
           aria-controls={SIDEBAR_DRAWER_ID}
@@ -204,6 +210,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
 
         <XStack
           render="button"
+          p={0}
           onPress={() => setOpen(!open)}
           aria-expanded={open}
           items="center"
@@ -213,12 +220,13 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
           borderWidth={0}
           cursor="pointer"
         >
+          {/* fmhy's mobile override: the open button turns brand-coloured */}
           <SizableText
             fontSize={12}
             lineHeight={24}
             fontWeight="500"
-            color={open ? '$color12' : '$color11'}
-            hoverStyle={{ color: '$color12' }}
+            color={open ? '$accent11' : '$color11'}
+            hoverStyle={{ color: open ? '$accent11' : '$color12' }}
             // the button sizes to min-content in its column parent — without
             // nowrap the label wraps per-word into a ~200px-tall bar
             style={{ transition: 'color 0.25s', whiteSpace: 'nowrap' }}
@@ -234,7 +242,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
               transition: 'transform 0.25s',
             }}
           >
-            <CaretDownIcon size={14} color={open ? '$color12' : '$color11'} />
+            <CaretDownIcon size={14} color={open ? '$accent11' : '$color11'} />
           </View>
         </XStack>
 
@@ -242,24 +250,25 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
           // .items: full-width (16px inset) on mobile; once the sidebar shows
           // it becomes a 320px box hanging 32px off the sidebar edge
           // (vitepress: left calc(sidebar-width + 32px), here relative to the
-          // sidebar-padded container)
+          // sidebar-padded container). fmhy: 4px below the bar, the shared
+          // popup surface (bg, divider border, 12px radius, shadow-3), and as
+          // tall as the viewport allows under the bar (+ header when shown)
           <YStack
             position="absolute"
-            t={40}
+            t="calc(100% + 4px)"
             l={16}
             r={16}
             $md={{ l: 32, r: 'auto', width: 320 }}
             z={10}
             borderWidth={1}
-            borderColor="$color5"
-            rounded={8}
-            // gutter background shows through the 1px gaps as hairlines
-            bg="$color4"
-            gap={1}
-            maxH="50vh"
+            borderColor="$color4"
+            rounded={12}
+            bg="$background"
+            maxH={navHidden ? 'calc(100dvh - 64px)' : `calc(100dvh - ${HEADER_HEIGHT + 64}px)`}
             style={{
               overflowX: 'hidden',
               overflowY: 'auto',
+              overscrollBehavior: 'contain',
               // --vp-shadow-3
               boxShadow:
                 '0 12px 32px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08)',
@@ -267,7 +276,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
             enterStyle={{ opacity: 0, y: -16 }}
             transition="200ms"
           >
-            <YStack bg="$color2">
+            <YStack>
               <SizableText
                 render="a"
                 {...({ href: '#' } as object)}
@@ -276,7 +285,7 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
                 lineHeight={48}
                 fontSize={14}
                 fontWeight="500"
-                color="$accent10"
+                color="$accent11"
                 cursor="pointer"
                 textDecorationLine="none"
                 onPress={(e: { preventDefault?: () => void }) => {
@@ -288,7 +297,9 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
               </SizableText>
             </YStack>
 
-            <YStack bg="$color2" py={8}>
+            {/* the outline list (vitepress .outline + VPDocOutlineItem's
+                16px inline padding) */}
+            <YStack py={8} px={16}>
               {entries.map((entry) => (
                 <OutlineLink
                   key={entry.id}
@@ -327,14 +338,18 @@ export function LocalNav({ navHidden }: { navHidden: boolean }) {
             bg="$background"
             borderRightWidth={1}
             borderRightColor="$color4"
-            pt={8}
+            // fmhy's <960px VPSidebar: full-height, 32px top padding and a
+            // bottom pad that clears the home indicator
+            pt={32}
             style={{
               position: 'fixed',
               top: 0,
               left: 0,
-              bottom: 0,
+              height: '100dvh',
+              paddingBottom: 'max(96px, calc(32px + env(safe-area-inset-bottom)))',
               overflowY: 'auto',
               overscrollBehavior: 'contain',
+              touchAction: 'pan-y',
             }}
             enterStyle={{ x: -300 }}
             transition="200ms"
@@ -359,23 +374,26 @@ function OutlineLink({
   return (
     <SizableText
       render="a"
-      {...({ href: `#${entry.id}` } as object)}
+      {...({
+        href: `#${entry.id}`,
+        'aria-current': active ? 'location' : undefined,
+      } as object)}
+      // pill shape, nesting indent and the accent-tinted hover/active
+      // backgrounds live in root.css (.local-nav-link)
+      className={entry.depth === 1 ? 'local-nav-link nested' : 'local-nav-link'}
       display="block"
-      // .outline-link: 32px rows, 14px regular; nested list indents 16px.
-      // fmhy's mobile override colors the active row brand + semibold
+      // .outline-link: 32px rows, 14px regular. fmhy's mobile override
+      // colors the active row brand + semibold
       lineHeight={32}
       fontSize={14}
       fontWeight={active ? '600' : '400'}
-      pl={entry.depth === 1 ? 13 : 0}
-      color={active ? '$accent10' : '$color11'}
-      hoverStyle={{ color: active ? '$accent10' : '$color12' }}
+      color={active ? '$accent11' : '$color11'}
       cursor="pointer"
       textDecorationLine="none"
       style={{
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        transition: 'color 0.25s',
       }}
       onPress={(e: { preventDefault?: () => void }) => {
         e.preventDefault?.()

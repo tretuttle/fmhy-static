@@ -146,10 +146,6 @@ export function AppearancePanel() {
   // snapshots capture around it.
   const selectMode = (mode: Mode, event: MouseEvent) => {
     event.stopPropagation()
-    if (mode === activeMode) {
-      return
-    }
-
     const toDark = mode !== 'light'
     void revealThemeChange(pointFromPressEvent(event), toDark, () => {
       flushSync(() => {

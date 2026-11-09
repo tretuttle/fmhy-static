@@ -1,4 +1,4 @@
 HeaderFreeOnceIdle: holds
 NoSilentDrop: breaks: YouPickASearchResult YouChangeTheHash
 NewestRequestLands: breaks: YouPickASearchResult YouChangeTheHash SearchGivesUp
-JumpStaysOnItsPage: breaks: YouTapAHeading YouOpenASectionOnAnotherPage AJumpSettleStep
+JumpStaysOnItsPage: holds

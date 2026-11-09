@@ -19,8 +19,8 @@ CONSTANT MaxReq
 Other(p) == IF p = "A" THEN "B" ELSE "A"
 
 \* scrolledFor value when the page was scrolled to no request's target:
-\* One's router's single pre-settle hash scroll, the browser's native #hash
-\* jump, or a stale jump measuring a detached element.
+\* One's router's single pre-settle hash scroll or the browser's native
+\* #hash jump.
 OffTarget == -1
 
 VARIABLES
@@ -244,13 +244,11 @@ HashPollFires ==
             /\ UNCHANGED dropped
   /\ UNCHANGED <<path, visit, atTop, req, landable, lock, search, wrongPage>>
 
-\* step() in the requestAnimationFrame x2 settle loop. No isConnected check:
-\* a detached element measures getBoundingClientRect().top = 0, so the
-\* target is scrollY minus its landing line and the loop scrolls the page on
-\* screen upward, unless that page already sits at 0.
+\* step() in the requestAnimationFrame x2 settle loop:
+\* `if (!el.isConnected || superseded()) return`, else measure and scroll.
 JumpSettleStep(j) ==
   /\ j.loop = "on"
-  /\ IF Superseded(j)
+  /\ IF j.visit # visit \/ Superseded(j)
        THEN /\ jumps' = Update(j, [j EXCEPT !.loop = "off"])
             /\ UNCHANGED <<scrolledFor, wrongPage>>
        ELSE \E more \in {"on", "off"} :

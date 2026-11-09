@@ -41,7 +41,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           sha=$(git ls-remote https://github.com/fmhy/edit.git refs/heads/main | cut -f1)
+          if [[ ! $sha =~ ^[0-9a-f]{40}$ ]]; then
+            echo "git ls-remote fmhy/edit refs/heads/main returned no commit sha (got '$sha')" >&2
+            exit 1
+          fi
           last=$(gh api "repos/${{ github.repository }}/contents/.github/last-deployed-upstream-sha" \
                    --jq .content 2>/dev/null | base64 -d | tr -d '[:space:]' || echo "none")
           echo "upstream: $sha · last deployed: $last"

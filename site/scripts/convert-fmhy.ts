@@ -242,7 +242,7 @@ for (const f of readdirSync(join(GENERATED, 'pages'))) {
   copyFileSync(join(GENERATED, 'pages', f), join(PUBLIC_DATA, 'pages', f))
   published++
 }
-for (const f of ['search-corpus.json', 'notes.json']) {
+for (const f of ['search-corpus.json', 'search-urls.json', 'notes.json']) {
   copyFileSync(join(GENERATED, f), join(PUBLIC_DATA, f))
   published++
 }

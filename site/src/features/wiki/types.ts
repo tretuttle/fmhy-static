@@ -237,6 +237,12 @@ export type SearchDoc = {
 // lowercased, invisible-chars-stripped, whitespace-collapsed
 export type SearchLinkMetadata = Record<string, { l?: string[]; s?: string[] }>
 
+// generated/search-urls.json — upstream's u/su metadata (link hrefs in
+// normalizeSearchUrl form, per section id) split out of the corpus and fetched
+// only when url search activates. a leading '*' marks an href from a starred
+// list item (upstream su).
+export type SearchUrlMap = Record<string, string[]>
+
 export type SearchCorpus = {
   docs: SearchDoc[]
   customMetadata: SearchLinkMetadata

@@ -29,8 +29,8 @@
   /* --vp-local-search-highlight-bg/text (dark flips text to black below) */
   --vpl-highlight-bg: var(--accent11);
   --vpl-highlight-text: #ffffff;
-  /* --vp-c-yellow-3: current-match gold (upstream #9f6a00 / #a46a0a) */
-  --vpl-mark-current-bg: #9f6a00;
+  /* --vp-focus-highlight-bg (brand-soft based, see the theme tokens below) */
+  --vpl-mark-current-bg: var(--vp-focus-highlight-bg);
   /* --vp-c-danger-1 */
   --vpl-danger: #b8272c;
   /* --vp-shadow-1 */
@@ -48,8 +48,84 @@
 
 html.t_dark .VPLocalSearchBox {
   --vpl-highlight-text: #000000;
-  --vpl-mark-current-bg: #a46a0a;
   --vpl-danger: #f66f81;
+}
+
+/* ----------------------------------------------------------------------- */
+/* theme-coloured search highlights — upstream style.scss derives the       */
+/* focused-match + scroll-to-match colours from --vp-c-brand-soft, which    */
+/* themeHandler sets per palette: accent presets use the palette's 400      */
+/* (light) / 300 (dark) step, full themes their own `soft`. our accent      */
+/* scale has no such step, so the soft colour is pinned per theme class.   */
+/* these sit on html because the scroll flash lands on the page, not the    */
+/* modal. TODO(parity/theme): read a shared brand-soft token if one lands.  */
+/* ----------------------------------------------------------------------- */
+
+html {
+  /* swarm (the shipped baseline) */
+  --vpl-brand-soft: hsl(207, 65%, 68%);
+  --vp-focus-highlight-bg: color-mix(in srgb, var(--vpl-brand-soft) 87%, black);
+  --vp-scroll-match-bg: color-mix(in srgb, var(--vpl-brand-soft) 46%, transparent);
+}
+html.t_dark {
+  --vpl-brand-soft: hsl(206, 65%, 78%);
+  --vp-focus-highlight-bg: color-mix(in srgb, var(--vpl-brand-soft) 87%, white);
+  --vp-scroll-match-bg: color-mix(in srgb, var(--vpl-brand-soft) 38%, black);
+}
+html.accent-turquoise.t_light {
+  --vpl-brand-soft: hsl(188, 78%, 60%);
+}
+html.accent-turquoise.t_dark {
+  --vpl-brand-soft: hsl(187, 85%, 69%);
+}
+html.accent-carnation.t_light {
+  --vpl-brand-soft: hsl(0, 91%, 71%);
+}
+html.accent-carnation.t_dark {
+  --vpl-brand-soft: hsl(0, 94%, 82%);
+}
+html.accent-cerise.t_light {
+  --vpl-brand-soft: hsl(348, 82%, 71%);
+}
+html.accent-cerise.t_dark {
+  --vpl-brand-soft: hsl(348, 83%, 82%);
+}
+html.accent-meadow.t_light {
+  --vpl-brand-soft: hsl(156, 59%, 52%);
+}
+html.accent-meadow.t_dark {
+  --vpl-brand-soft: hsl(154, 66%, 67%);
+}
+html.accent-merlin.t_light {
+  --vpl-brand-soft: hsl(45, 96%, 53%);
+}
+html.accent-merlin.t_dark {
+  --vpl-brand-soft: hsl(45, 98%, 64%);
+}
+html.accent-blue-violet.t_light {
+  --vpl-brand-soft: hsl(237, 98%, 74%);
+}
+html.accent-blue-violet.t_dark {
+  --vpl-brand-soft: hsl(233, 100%, 82%);
+}
+/* full palette themes win over accent presets (same order as root.css) */
+html.theme-catppuccin.t_light {
+  --vpl-brand-soft: #f5f0ff;
+}
+html.theme-catppuccin.t_dark {
+  --vpl-brand-soft: #35274a;
+}
+html.theme-monochrome.t_light {
+  --vpl-brand-soft: #f0f0f0;
+}
+html.theme-monochrome.t_dark {
+  --vpl-brand-soft: #333333;
+}
+html.theme-monolith.t_light {
+  --vpl-brand-soft: #e8f4fd;
+}
+html.theme-monolith.t_dark {
+  --vpl-brand-soft: #2a1730;
 }
 
 /* element resets (the upstream theme resets these globally) */
@@ -213,7 +289,8 @@ html.t_dark .VPLocalSearchBox {
 
 .VPLocalSearchBox .search-actions button:not([disabled]):hover,
 .VPLocalSearchBox .toggle-layout-button.detailed-list,
-.VPLocalSearchBox .toggle-fuzzy-button.fuzzy-active {
+.VPLocalSearchBox .toggle-fuzzy-button.fuzzy-active,
+.VPLocalSearchBox .toggle-url-button.url-active {
   color: var(--vpl-brand);
 }
 
@@ -247,6 +324,127 @@ html.t_dark .VPLocalSearchBox {
 
 .VPLocalSearchBox .toggle-fuzzy-button.fuzzy-active {
   background: var(--vpl-bg-soft);
+}
+
+/* url search toggle (link icon) — dimmed brand while auto-detected */
+.VPLocalSearchBox .toggle-url-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.VPLocalSearchBox .toggle-url-button .url-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.VPLocalSearchBox .toggle-url-button:hover {
+  background: var(--vpl-bg-soft);
+}
+
+.VPLocalSearchBox .toggle-url-button.url-active {
+  background: var(--vpl-bg-soft);
+}
+
+.VPLocalSearchBox .toggle-url-button.url-auto:not(.url-active) {
+  color: var(--vpl-brand);
+  opacity: 0.6;
+}
+
+/* ----------------------------------------------------------------------- */
+/* section filter chips — horizontally scrollable with a thin visible       */
+/* scrollbar (upstream 12f04bf); vertical wheel scrolls it sideways (tsx)   */
+/* ----------------------------------------------------------------------- */
+
+.VPLocalSearchBox .category-filters {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding: 0 4px 2px;
+  margin-top: -6px;
+}
+
+@supports not selector(::-moz-progress-bar) {
+  .VPLocalSearchBox .category-filters {
+    margin-bottom: -6px;
+  }
+
+  .VPLocalSearchBox .category-filters::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .VPLocalSearchBox .category-filters::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .VPLocalSearchBox .category-filters::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-color: var(--vpl-text-3);
+    background-clip: content-box;
+  }
+
+  .VPLocalSearchBox .category-filters::-webkit-scrollbar-thumb:hover {
+    background-color: var(--vpl-text-2);
+  }
+}
+
+@supports selector(::-moz-progress-bar) {
+  .VPLocalSearchBox .category-filters {
+    padding-bottom: 8px;
+    margin-bottom: -8px;
+    scrollbar-color: var(--vpl-text-3) transparent;
+  }
+
+  .VPLocalSearchBox .category-filters:hover {
+    scrollbar-color: var(--vpl-text-2) transparent;
+  }
+}
+
+.VPLocalSearchBox .category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--vpl-divider);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--vpl-text-2);
+  background-color: var(--vpl-bg);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.VPLocalSearchBox .category-chip:hover {
+  color: var(--vpl-text-1);
+  background-color: var(--vpl-bg-soft);
+}
+
+.VPLocalSearchBox .category-chip.active {
+  color: var(--vpl-brand);
+  background-color: var(--vpl-bg-soft);
+  border-color: color-mix(in srgb, var(--vpl-brand) 35%, var(--vpl-divider));
+}
+
+.VPLocalSearchBox .chip-count {
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+  opacity: 0.7;
 }
 
 /* spinner */
@@ -680,6 +878,14 @@ html.t_dark .VPLocalSearchBox {
   background-color: var(--vpl-bg-soft);
 }
 
+.VPLocalSearchBox .no-results-category {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .VPLocalSearchBox .did-you-mean {
   color: var(--vpl-text-2);
 }
@@ -902,19 +1108,21 @@ html.t_dark .VPLocalSearchBox {
 /* searchHighlight.ts and removed after the animation)                     */
 /* ----------------------------------------------------------------------- */
 
-/* upstream style.scss: freeze the hide-on-scroll chrome while search's
-   post-navigation jump runs, so the target offset stays correct */
+/* upstream style.scss (32ce352): only disable the bars' transitions while
+   search's post-navigation jump runs so they can't animate mid-scroll — the
+   header is NOT forced visible */
 html.vp-search-scrolling header,
 html.vp-search-scrolling #local-nav {
-  transform: none !important;
   transition: none !important;
 }
 
+/* solid resting state so the flash still shows when the fade animation is
+   suppressed (reduced-motion userstyles); js drops the class after 2s */
 .vp-search-highlight-target {
   border-radius: 4px;
-  outline: 2px solid #ffd54f;
+  outline: 2px solid var(--vp-scroll-match-bg);
   outline-offset: 2px;
-  background-color: rgba(255, 213, 79, 0.22);
+  background-color: var(--vp-scroll-match-bg);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -931,12 +1139,12 @@ html.vp-search-scrolling #local-nav {
 
 @keyframes vp-search-flash {
   0% {
-    background-color: rgba(255, 213, 79, 0.25);
-    outline-color: #ffd54f;
+    background-color: var(--vp-scroll-match-bg);
+    outline-color: var(--vpl-brand-soft);
   }
   70% {
-    background-color: rgba(255, 241, 118, 0.15);
-    outline-color: #fff176;
+    background-color: var(--vp-scroll-match-bg);
+    outline-color: var(--vpl-brand-soft);
   }
   100% {
     background-color: transparent;
@@ -966,6 +1174,9 @@ html.vp-search-scrolling #local-nav {
 }
 .VPLocalSearchBox .vpi-corner-down-left {
   --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 10 4 15 9 20'/%3E%3Cpath d='M20 4v7a4 4 0 0 1-4 4H4'/%3E%3C/svg%3E");
+}
+.VPLocalSearchBox .vpi-link {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E");
 }
 .VPLocalSearchBox .vpi-layout-list {
   --icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='7' height='7' x='3' y='3' rx='1'/%3E%3Crect width='7' height='7' x='3' y='14' rx='1'/%3E%3Cpath d='M14 4h7'/%3E%3Cpath d='M14 9h7'/%3E%3Cpath d='M14 15h7'/%3E%3Cpath d='M14 20h7'/%3E%3C/svg%3E");

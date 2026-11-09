@@ -10,7 +10,14 @@
 // is faster than JS parse and the responses are HTTP-cacheable.
 
 import navJson from './generated/nav.json'
-import type { SearchCorpus, SearchExcerptMap, WikiNav, WikiNote, WikiPage } from './types'
+import type {
+  SearchCorpus,
+  SearchExcerptMap,
+  SearchUrlMap,
+  WikiNav,
+  WikiNote,
+  WikiPage,
+} from './types'
 
 // a static json import is already the parsed value, a dynamic import() resolves
 // to a module namespace with the json under `default` — unwrap whichever we get
@@ -122,6 +129,12 @@ export async function loadSearchCorpus(): Promise<SearchCorpus> {
     return fromJsonModule<SearchCorpus>(await import('./generated/search-corpus.json'))
   }
   return fetchData<SearchCorpus>('/data/search-corpus.json')
+}
+
+// url-search hrefs — client-only, fetched the first time url search activates
+// (toggle on or a url-like query) so the default corpus download stays lean
+export function loadSearchUrls(): Promise<SearchUrlMap> {
+  return fetchData<SearchUrlMap>('/data/search-urls.json')
 }
 
 // permanent per-page excerpt cache, the equivalent of fmhy.net's

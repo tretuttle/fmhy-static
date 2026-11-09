@@ -26,6 +26,7 @@ import type {
   SearchDoc,
   SearchExcerptMap,
   SearchLinkMetadata,
+  SearchUrlMap,
   WikiEntry,
   WikiNav,
   WikiNavGroup,
@@ -45,6 +46,7 @@ import { parseProse, splitForSearch, type ParsedProse } from './prose'
 import { assertFmhyRoot } from './fmhy-root'
 import { generateRemoved } from './removed'
 import { loadUpstream } from './upstream'
+import { extractSearchUrls } from '../../src/features/wiki/searchUrl'
 
 const SITE = join(import.meta.dirname, '..', '..')
 const ROOT = assertFmhyRoot()
@@ -371,6 +373,8 @@ const nav: WikiNav = {
 
 const searchDocs: SearchDoc[] = []
 const searchMetadata: SearchLinkMetadata = {}
+// url-search hrefs, emitted separately so the always-loaded corpus stays lean
+const searchUrls: SearchUrlMap = {}
 // pageId ('video', 'other/backups', 'posts/x') → { anchor → section html }
 const searchExcerpts = new Map<string, SearchExcerptMap>()
 
@@ -613,8 +617,9 @@ function entryLinkPhrases(entry: WikiEntry): LinkPhrase[] {
   return phrases
 }
 
-// register a section's curated-link metadata (constants.ts globalLinkMetadata)
-function registerMetadata(sectionId: string, phrases: LinkPhrase[]) {
+// register a section's curated-link metadata (constants.ts globalLinkMetadata):
+// l/s from the link phrases, u/su (url search) from the section's rendered html
+function registerMetadata(sectionId: string, phrases: LinkPhrase[], html: string) {
   const links = new Set<string>()
   const starredBold = new Set<string>()
   for (const { phrase, starredBold: sb } of phrases) {
@@ -626,6 +631,11 @@ function registerMetadata(sectionId: string, phrases: LinkPhrase[]) {
   starredBold.forEach((w) => links.delete(w))
   if (links.size > 0 || starredBold.size > 0) {
     searchMetadata[sectionId] = { l: [...links], s: [...starredBold] }
+  }
+  const { u, su } = extractSearchUrls(html)
+  if (u.length > 0) {
+    const starred = new Set(su)
+    searchUrls[sectionId] = u.map((url) => (starred.has(url) ? `*${url}` : url))
   }
 }
 
@@ -683,7 +693,7 @@ function buildWikiPageSearch(page: WikiPage, routeBase: string, excerptPageId: s
       text,
     })
     if (html) excerptMap[container.id] = html
-    registerMetadata(id, phrases)
+    registerMetadata(id, phrases, html)
     emitted++
   }
 
@@ -713,11 +723,13 @@ function buildWikiPageSearch(page: WikiPage, routeBase: string, excerptPageId: s
   // matching the real client's lookupExcerptText early-return for hash-less ids
   if (emitted === 0) {
     const texts: string[] = []
+    const htmls: string[] = []
     const phrases: LinkPhrase[] = []
     for (const section of page.sections) {
       for (const container of [section, ...section.subsections]) {
         const parts = containerSearchParts(container)
         if (parts.text) texts.push(parts.text)
+        htmls.push(parts.html)
         phrases.push(...parts.phrases)
       }
     }
@@ -729,7 +741,7 @@ function buildWikiPageSearch(page: WikiPage, routeBase: string, excerptPageId: s
         titles: pageTitle ? [pageTitle] : [],
         text,
       })
-      registerMetadata(routeBase, phrases)
+      registerMetadata(routeBase, phrases, htmls.join(''))
     }
     return
   }
@@ -992,11 +1004,11 @@ for (const page of prosePages) {
   const blocks = page.id === 'recently-removed' ? removed.searchBlocks : page.blocks
 
   const pageTitle = SEARCH_PAGE_TITLES[page.id] ?? null
-  const { excerpts, phrasesByAnchor } = proseSectionData(page.blocks)
+  const pageData = proseSectionData(page.blocks)
+  const { excerpts } = pageData
   // metadata must respect search-exclude spans (index-time semantics) — for
-  // recently-removed recompute the phrases from the stripped blocks
-  const indexPhrases =
-    page.id === 'recently-removed' ? proseSectionData(blocks).phrasesByAnchor : phrasesByAnchor
+  // recently-removed recompute the phrases + url html from the stripped blocks
+  const indexData = page.id === 'recently-removed' ? proseSectionData(blocks) : pageData
 
   let emitted = false
   for (const section of splitForSearch(blocks)) {
@@ -1010,7 +1022,11 @@ for (const page of prosePages) {
       titles: pageTitle ? [pageTitle, ...section.path] : [...section.path],
       text: stripInvisible(section.text).replace(/\s+/g, ' ').trim(),
     })
-    registerMetadata(id, indexPhrases.get(section.anchor) ?? [])
+    registerMetadata(
+      id,
+      indexData.phrasesByAnchor.get(section.anchor) ?? [],
+      indexData.excerpts[section.anchor] ?? '',
+    )
     emitted = true
     proseSearchDocs++
   }
@@ -1034,7 +1050,7 @@ for (const page of prosePages) {
         titles: pageTitle ? [pageTitle] : [],
         text: stripInvisible(text).replace(/\s+/g, ' ').trim(),
       })
-      registerMetadata(page.route, phrases)
+      registerMetadata(page.route, phrases, blocks.map(proseBlockHtml).join(''))
       proseSearchDocs++
     }
   }
@@ -1163,6 +1179,7 @@ writeFileSync(
 }
 const searchCorpus: SearchCorpus = { docs: searchDocs, customMetadata: searchMetadata }
 writeFileSync(join(OUT_DIR, 'search-corpus.json'), JSON.stringify(searchCorpus))
+writeFileSync(join(OUT_DIR, 'search-urls.json'), JSON.stringify(searchUrls))
 for (const [excerptPageId, excerptMap] of searchExcerpts) {
   const file = join(OUT_DIR, 'excerpts', `${excerptPageId}.json`)
   mkdirSync(dirname(file), { recursive: true })

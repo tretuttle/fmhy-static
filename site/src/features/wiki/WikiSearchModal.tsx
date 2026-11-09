@@ -11,7 +11,7 @@
 import { router, type Href } from 'one'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-import { closeSearch, useSearchOpen } from './searchModal'
+import { closeSearch, openSearch, useSearchOpen } from './searchModal'
 import {
   centerMarkInExcerpt,
   cancelPendingScroll,
@@ -23,7 +23,8 @@ import {
   scheduleScrollToMatch,
   unmarkAll,
 } from './searchHighlight'
-import { useWikiSearch, type WikiDisplayResult } from './useWikiSearch'
+import { buildUrlQuery, urlMatchesQuery } from './searchUrl'
+import { primeSearchQuery, useWikiSearch, type WikiDisplayResult } from './useWikiSearch'
 
 // tabbable-element query for the native focus trap — mirrors what
 // focus-trap/tabbable considers focusable within the modal shell
@@ -45,6 +46,9 @@ const TITLES = {
   nextMatch: 'Next match',
   fuzzyOn: 'Switch to Exact Search',
   fuzzyOff: 'Switch to Fuzzy Search',
+  urlOn: 'Only search names and text',
+  urlOff: 'Search link URLs too',
+  urlAuto: 'URL detected — searching link URLs. Click to keep this on.',
   searching: 'Searching...',
   cycleMatches: 'to cycle matches',
   displayDetails: 'Display detailed list',
@@ -54,7 +58,37 @@ const TITLES = {
   buttonText: 'Search',
 }
 
+// upstream searchFromQuery.ts: a `?q=` param on any page opens search
+// prefilled — the query goes through the same session key the box reads on
+// mount. initial page load only, like their onMounted.
+function useSearchFromQuery() {
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q')?.trim()
+    if (!q) return
+    primeSearchQuery(q)
+    openSearch()
+  }, [])
+}
+
+// vertical wheel over the chip row scrolls it sideways (upstream onCategoryWheel).
+// attached natively: react's wheel listeners are passive, so they can't
+// preventDefault the page/list scroll
+function onCategoryWheel(event: WheelEvent) {
+  const el = event.currentTarget as HTMLElement
+  if (el.scrollWidth <= el.clientWidth) return
+  if (Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return
+  event.preventDefault()
+  el.scrollLeft += event.deltaY
+}
+
+const categoryWheelRef = (el: HTMLDivElement | null) => {
+  if (!el) return
+  el.addEventListener('wheel', onCategoryWheel, { passive: false })
+  return () => el.removeEventListener('wheel', onCategoryWheel)
+}
+
 export function WikiSearchModal() {
+  useSearchFromQuery()
   const open = useSearchOpen()
   const [hasOpenedOnce, setHasOpenedOnce] = useState(false)
   // exit animation state: keep rendering with .vpl-leaving for a beat
@@ -103,6 +137,9 @@ function SearchBox({
     enableNoResults,
     fuzzy,
     setFuzzy,
+    urlSearch,
+    urlSearchAuto,
+    setUrlSearch,
     detailedView,
     setDetailedView,
     showMore,
@@ -112,6 +149,12 @@ function SearchBox({
     clearRecent,
     suggestions,
     shouldResetScrollRef,
+    activeCategory,
+    selectCategory,
+    visibleCategories,
+    categoryCounts,
+    totalCategoryCount,
+    activeCategoryLabel,
   } = useWikiSearch()
 
   const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -235,6 +278,27 @@ function SearchBox({
       ) as HTMLElement[]
 
       if (fuzzy) mergeNearbyMarks(excerpts)
+
+      // url hits match a link's href, which the text regex can't see — mark
+      // the excerpt links whose href matched instead
+      const urlQuery = results.some((r) => r.urlMatched) ? buildUrlQuery(query) : null
+      if (urlQuery) {
+        results.forEach((r, index) => {
+          if (!r.urlMatched) return
+          const item = items[index]
+          if (!item) return
+          for (const anchor of Array.from(
+            item.querySelectorAll<HTMLAnchorElement>('.excerpt a[href]'),
+          )) {
+            if (!urlMatchesQuery(anchor.getAttribute('href') ?? '', urlQuery)) continue
+            if (anchor.querySelector('mark[data-markjs="true"]')) continue
+            const mark = document.createElement('mark')
+            mark.setAttribute('data-markjs', 'true')
+            mark.append(...Array.from(anchor.childNodes))
+            anchor.appendChild(mark)
+          }
+        })
+      }
 
       // batch-read then batch-write: center each excerpt on its first mark
       const scrollTargets: { excerpt: HTMLElement; scrollTop: number }[] = []
@@ -601,6 +665,7 @@ function SearchBox({
   // -------------------------------------------------------------------------
 
   const hasResults = results.length > 0
+  const urlTitle = urlSearch ? TITLES.urlOn : urlSearchAuto ? TITLES.urlAuto : TITLES.urlOff
   const listId = hasResults ? 'localsearch-list' : undefined
   const showNoResults = !!query && !hasResults && !isSearching && enableNoResults
   const showMoreVisible = !isSearching && (results.length < totalResultsCount || mayHaveMore)
@@ -694,6 +759,23 @@ function SearchBox({
             </button>
 
             <button
+              className={`toggle-url-button${urlSearch ? ' url-active' : ''}${urlSearchAuto ? ' url-auto' : ''}`}
+              type="button"
+              aria-pressed={urlSearch}
+              title={urlTitle}
+              onClick={() => setUrlSearch(!urlSearch)}
+            >
+              <span className="url-icon vpi-link" />
+              <span className="visually-hidden">
+                {urlSearch
+                  ? 'URL Search Active'
+                  : urlSearchAuto
+                    ? 'URL Search Auto-Active'
+                    : 'URL Search Off'}
+              </span>
+            </button>
+
+            <button
               className="clear-button"
               type="reset"
               disabled={!query}
@@ -704,6 +786,34 @@ function SearchBox({
             </button>
           </div>
         </form>
+
+        {!!query && visibleCategories.length > 0 && (
+          <div className="category-filters" ref={categoryWheelRef}>
+            <button
+              type="button"
+              className={`category-chip${activeCategory ? '' : ' active'}`}
+              aria-pressed={!activeCategory}
+              title="All sections"
+              onClick={() => selectCategory('')}
+            >
+              All
+              <span className="chip-count">{totalCategoryCount}</span>
+            </button>
+            {visibleCategories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                className={`category-chip${activeCategory === cat.id ? ' active' : ''}`}
+                aria-pressed={activeCategory === cat.id}
+                title={cat.label}
+                onClick={() => selectCategory(cat.id)}
+              >
+                {cat.label}
+                <span className="chip-count">{categoryCounts.get(cat.id) ?? 0}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <ul
           id={listId}
@@ -740,9 +850,22 @@ function SearchBox({
 
           {showNoResults && (
             <li className="no-results">
-              <div>
-                {TITLES.noResultsText} &quot;{query}&quot;
-              </div>
+              {activeCategory && totalCategoryCount > 0 ? (
+                <div className="no-results-category">
+                  No results in {activeCategoryLabel}
+                  <button
+                    type="button"
+                    className="try-fuzzy-btn"
+                    onClick={() => selectCategory(activeCategory)}
+                  >
+                    Show all sections
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  {TITLES.noResultsText} &quot;{query}&quot;
+                </div>
+              )}
               {!fuzzy && (
                 <div className="no-results-actions">
                   <button type="button" className="try-fuzzy-btn" onClick={() => setFuzzy(true)}>

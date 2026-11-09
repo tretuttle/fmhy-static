@@ -3,14 +3,21 @@
 // MiniSearch over the section-level corpus with the exact upstream tokenizer,
 // substring/suffix expansion in exact mode, fuzzy structured queries, the
 // 6-tier curated-link boost sort, detailed-mode contiguous phrase filtering
-// with a dynamic candidate pool, autosuggest, and recent searches.
+// with a dynamic candidate pool, url search (link hrefs, searchUrl.ts),
+// section filter chips, autosuggest, and recent searches.
 
 import MiniSearch, { type Query, type SearchResult } from 'minisearch'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { createStorageValue } from '~/lib/storage'
 
-import { loadExcerpts, loadSearchCorpus, peekExcerptMap } from './data'
+import { loadExcerpts, loadSearchCorpus, loadSearchUrls, peekExcerptMap, wikiNav } from './data'
+import {
+  buildUrlRecords,
+  findUrlMatches,
+  looksLikeUrlQuery,
+  type UrlRecord,
+} from './searchUrl'
 import { recentSearchesStorage } from './wikiSettingsStorage'
 
 import type { SearchLinkMetadata } from './types'
@@ -26,6 +33,8 @@ const MIN_CANDIDATE_POOL = 32
 
 const fuzzyStorage = createStorageValue<boolean>('wiki.searchFuzzy')
 const detailedViewStorage = createStorageValue<boolean>('wiki.searchDetailedView')
+// opt-in: also match results by the link hrefs they contain (upstream default off)
+const urlSearchStorage = createStorageValue<boolean>('wiki.searchUrl')
 
 // query persists for the session like vitepress:local-search-filter
 const QUERY_SESSION_KEY = 'fmhy.wiki.searchQuery'
@@ -46,6 +55,45 @@ const writeSessionQuery = (value: string) => {
   } catch {
     // ignore disabled storage
   }
+}
+
+// seed the query the next mounted search box starts with (?q= deep links)
+export const primeSearchQuery = writeSessionQuery
+
+// ---------------------------------------------------------------------------
+// section filter chips — categories are the sidebar's pages keyed by the first
+// path segment of a result id ("/gaming#anchor" → "/gaming"); entries sharing
+// a segment (Contribute + other/* pages) keep the first sidebar label
+// ---------------------------------------------------------------------------
+
+export type SearchCategory = { id: string; label: string }
+
+export function resultCategoryOf(id: string): string {
+  const segment = id.split('#')[0]!.replace(/\.html$/, '').split('/').filter(Boolean)[0]
+  return segment ? `/${segment}` : '/'
+}
+
+const SEARCH_CATEGORIES: SearchCategory[] = (() => {
+  const entries: SearchCategory[] = []
+  const seen = new Set<string>()
+  const items = [...wikiNav.topLinks, ...wikiNav.groups.flatMap((g) => g.items)]
+  for (const item of items) {
+    if (item.externalUrl || !item.route.startsWith('/')) continue
+    const id = resultCategoryOf(item.route)
+    if (seen.has(id)) continue
+    seen.add(id)
+    entries.push({ id, label: item.title })
+  }
+  return entries
+})()
+
+function computeCategoryCounts(results: { id: string }[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const r of results) {
+    const category = resultCategoryOf(r.id)
+    counts.set(category, (counts.get(category) ?? 0) + 1)
+  }
+  return counts
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +242,20 @@ export function getSearchEngine(): Promise<SearchEngine> {
   return enginePromise
 }
 
+// url records load lazily (search-urls.json is ~0.75 MB) — only once url search
+// is toggled on or a query looks like a url
+let urlRecordsPromise: Promise<UrlRecord[]> | null = null
+
+function getUrlRecords(): Promise<UrlRecord[]> {
+  urlRecordsPromise ??= loadSearchUrls()
+    .then(buildUrlRecords)
+    .catch((error: unknown) => {
+      urlRecordsPromise = null
+      throw error
+    })
+  return urlRecordsPromise
+}
+
 // ---------------------------------------------------------------------------
 // query execution — debounced watcher port (index query + 6-tier boost sort)
 // ---------------------------------------------------------------------------
@@ -201,6 +263,9 @@ export function getSearchEngine(): Promise<SearchEngine> {
 export type WikiSearchHit = SearchResult & {
   title: string
   titles: string[]
+  // matched through a link href (url search), not the indexed text
+  urlMatched?: boolean
+  urlMatchedStarred?: boolean
 }
 
 type RunOutcome = {
@@ -214,7 +279,9 @@ type BoostFlags = {
   hasStarredPrefix: boolean
   hasPrefix: boolean
   hasStarredWord: boolean
+  hasStarredUrl: boolean
   hasLinkWord: boolean
+  hasLinkUrl: boolean
 }
 
 const TIER_KEYS: (keyof BoostFlags)[] = [
@@ -223,13 +290,17 @@ const TIER_KEYS: (keyof BoostFlags)[] = [
   'hasStarredPrefix',
   'hasPrefix',
   'hasStarredWord',
+  'hasStarredUrl',
   'hasLinkWord',
+  'hasLinkUrl',
 ]
 
+// urlRecords non-null = url search active (toggle or url-like query)
 function runSearch(
   engine: SearchEngine,
   filterTextValue: string,
   isFuzzySearch: boolean,
+  urlRecords: UrlRecord[] | null,
 ): RunOutcome {
   let query: Query = filterTextValue
   let usedSubstringExpansion = false
@@ -270,13 +341,49 @@ function runSearch(
     fuzzy: isFuzzySearch && typeof query === 'string' ? FUZZY_THRESHOLD : false,
   }
 
-  const rawResults = engine.mini.search(query, searchOptions) as unknown as WikiSearchHit[]
-  const currentResults = rawResults.slice(0, MAX_RESULTS_IN_MEMORY)
+  // pasted urls search urls only — url punctuation run through the text index
+  // turns into generic terms and leaks unrelated results
+  const rawResults = looksLikeUrlQuery(filterTextValue)
+    ? []
+    : (engine.mini.search(query, searchOptions) as unknown as WikiSearchHit[])
 
-  // 6-tier ranking: starredExact > exact > starredPrefix > prefix >
-  // starredWord > linkWord > raw score. exact/prefix compare the full cleaned
-  // query against whole hyperlink phrases; word tiers compare matched terms
-  // against phrase tokens.
+  const merged = new Map<string, WikiSearchHit>()
+  for (const r of rawResults) merged.set(r.id, r)
+  if (urlRecords) {
+    const urlMatches = findUrlMatches(urlRecords, filterTextValue, (id) => engine.mini.has(id))
+    for (const m of urlMatches) {
+      const existing = merged.get(m.id)
+      if (existing) {
+        existing.score += 1
+        existing.urlMatched = true
+        existing.urlMatchedStarred = existing.urlMatchedStarred || m.starred
+        continue
+      }
+      const stored = engine.mini.getStoredFields(m.id) as
+        | { title?: string; titles?: string[] }
+        | undefined
+      merged.set(m.id, {
+        id: m.id,
+        score: 1,
+        terms: [filterTextValue],
+        queryTerms: [filterTextValue],
+        match: {},
+        title: stored?.title ?? '',
+        titles: stored?.titles ?? [],
+        urlMatched: true,
+        urlMatchedStarred: m.starred,
+      })
+    }
+  }
+
+  const currentResults = [...merged.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_RESULTS_IN_MEMORY)
+
+  // 8-tier ranking: starredExact > exact > starredPrefix > prefix >
+  // starredWord > starredUrl > linkWord > linkUrl > raw score. exact/prefix
+  // compare the full cleaned query against whole hyperlink phrases; word tiers
+  // compare matched terms against phrase tokens; url tiers are href-only hits.
   const q = filterTextValue.replace(INVISIBLE_CHARS_RE, '').trim().toLowerCase()
 
   const boostedResults = currentResults.map((r) => {
@@ -287,7 +394,9 @@ function runSearch(
       hasStarredPrefix: false,
       hasPrefix: false,
       hasStarredWord: false,
+      hasStarredUrl: false,
       hasLinkWord: false,
+      hasLinkUrl: false,
     }
 
     const lowerTerms = r.terms ? r.terms.map((t) => t.toLowerCase()) : []
@@ -315,6 +424,11 @@ function runSearch(
     processPhrases(meta?.s, true)
     processPhrases(meta?.l, false)
 
+    // href hits never fire the phrase tiers — give them their own, keyed off
+    // whether the href sits in a starred item
+    flags.hasStarredUrl = !!r.urlMatchedStarred
+    flags.hasLinkUrl = !!r.urlMatched && !flags.hasStarredUrl
+
     return { ...r, ...flags }
   })
 
@@ -324,7 +438,10 @@ function runSearch(
       const bv = b[key] ? 1 : 0
       if (av !== bv) return bv - av
     }
-    return b.score - a.score
+    if (b.score !== a.score) return b.score - a.score
+    // deterministic tie-break so equal scores (every url-only hit) keep a
+    // stable order across re-runs
+    return (a.title || '').localeCompare(b.title || '') || a.id.localeCompare(b.id)
   })
 
   return { allResults: boostedResults, usedSubstringExpansion }
@@ -342,6 +459,8 @@ export type WikiDisplayResult = {
   text: string
   // matched index terms (fuzzy mode) — feeds the highlight regex
   matchedTerms: string[]
+  // matched through a link href — the modal marks the matching excerpt links
+  urlMatched: boolean
 }
 
 // upstream lookupExcerptText: excerpts only exist for '#anchor' ids; recover
@@ -398,6 +517,7 @@ function filterResults(results: WikiDisplayResult[], filterTextValue: string) {
   return results.filter((r) => {
     if (clean(r.title).includes(phrase)) return true
     if (r.titles.some((t) => clean(t).includes(phrase))) return true
+    if (r.urlMatched) return true
     if (!r.text) return true // keep optimistically if text is not fetched yet
     return clean(r.text).includes(phrase)
   })
@@ -407,8 +527,12 @@ type StageTwoOutcome = {
   results: WikiDisplayResult[]
   totalCount: number
   mayHaveMore: boolean
+  // the contiguous-filtered candidate pool (exact mode) — null when the raw
+  // pool is what's shown; chip counts come from whichever is displayed
+  postFiltered: WikiDisplayResult[] | null
 }
 
+// allResults here is already scoped to the active section chip
 async function buildDisplayResults(
   allResults: WikiSearchHit[],
   limit: number,
@@ -424,12 +548,15 @@ async function buildDisplayResults(
     titles: r.titles ?? [],
     text,
     matchedTerms: isFuzzySearch ? Object.keys(r.match || {}) : [],
+    urlMatched: !!r.urlMatched,
   })
 
   const isExactSearch = !isFuzzySearch && !usedSubstringExpansion
 
-  if (showDetailedList && isExactSearch) {
-    // dynamic candidate pool so contiguous matches aren't lost to ranking
+  if (isExactSearch) {
+    // exact mode filters in both views (upstream 8fff220): a dynamic candidate
+    // pool so contiguous matches aren't lost to ranking, and the list + chip
+    // counts read the same in compact and detailed
     const candidateLimit = Math.max(MIN_CANDIDATE_POOL, limit * 2)
     const candidates = allResults.slice(0, candidateLimit)
     await fetchExcerptsFor(candidates)
@@ -442,6 +569,7 @@ async function buildDisplayResults(
       totalCount: filtered.length,
       // untested remainder beyond the pool may contain more matches
       mayHaveMore: allResults.length > candidateLimit,
+      postFiltered: filtered,
     }
   }
 
@@ -457,6 +585,7 @@ async function buildDisplayResults(
     results: mapped,
     totalCount: mapped.length + Math.max(0, allResults.length - limit),
     mayHaveMore: false,
+    postFiltered: null,
   }
 }
 
@@ -513,6 +642,7 @@ function computeSuggestions(engine: SearchEngine, filterText: string): string[] 
 export function useWikiSearch() {
   const [query, setQueryState] = useState(() => readSessionQuery())
   const [fuzzy, setFuzzyState] = useState(() => fuzzyStorage.get() ?? false)
+  const [urlSearch, setUrlSearchState] = useState(() => urlSearchStorage.get() ?? false)
   // detailed view defaults ON, like fmhy.net (search.options.detailedView)
   const [detailedView, setDetailedViewState] = useState(
     () => detailedViewStorage.get() ?? true,
@@ -528,24 +658,37 @@ export function useWikiSearch() {
   const [enableNoResults, setEnableNoResults] = useState(false)
   const [resultLimit, setResultLimit] = useState(RESULTS_PAGE_SIZE)
   const [suggestions, setSuggestions] = useState<string[]>([])
+  // active section chip ('' = all) and per-section counts of what's displayed
+  const [activeCategory, setActiveCategory] = useState('')
+  const [categoryCounts, setCategoryCounts] = useState<Map<string, number>>(() => new Map())
 
   // consumed (and reset) by the modal after it applies the new result list
   const shouldResetScrollRef = useRef(false)
   const queryRef = useRef(query)
   queryRef.current = query
 
+  // url matching also kicks in when the query looks like a url, toggle or not
+  const urlSearchAuto = !urlSearch && !!query && looksLikeUrlQuery(query)
+
   // warm the index so building it overlaps with typing
   useEffect(() => {
     getSearchEngine().catch(() => {})
   }, [])
 
-  // immediate watcher: reset paging + spinner on every query/mode change
+  // likewise the url records once url search is switched on
+  useEffect(() => {
+    if (urlSearch) getUrlRecords().catch(() => {})
+  }, [urlSearch])
+
+  // immediate watcher: reset paging, section filter + spinner on every
+  // query/mode change
   const searchGen = useRef(0)
   useEffect(() => {
+    setActiveCategory('')
     setEnableNoResults(false)
     setResultLimit(RESULTS_PAGE_SIZE)
     shouldResetScrollRef.current = true
-  }, [query, fuzzy])
+  }, [query, fuzzy, urlSearch])
 
   // debounced index query (SEARCH_DEBOUNCE_MS, like upstream debouncedWatch)
   useEffect(() => {
@@ -569,26 +712,51 @@ export function useWikiSearch() {
         setEnableNoResults(true)
         return
       }
-      const outcome = runSearch(engine, query, fuzzy)
+      const wantUrls = urlSearch || looksLikeUrlQuery(query)
+      // a failed url-data fetch degrades to text-only search
+      const urlRecords = wantUrls ? await getUrlRecords().catch(() => null) : null
       if (searchGen.current !== gen) return
+      const outcome = runSearch(engine, query, fuzzy, urlRecords)
       setEnableNoResults(true)
       setUsedSubstring(outcome.usedSubstringExpansion)
       setAllResults(outcome.allResults)
     }, SEARCH_DEBOUNCE_MS)
 
     return () => clearTimeout(timeout)
-  }, [query, fuzzy])
+  }, [query, fuzzy, urlSearch])
 
-  // stage 2: slicing + excerpt fetching + contiguous filtering
+  // stage 2: section scoping + slicing + excerpt fetching + contiguous
+  // filtering. chip counts rebuild only when the result set itself changed
+  // (new results, paging, view) — switching sections keeps them, or the other
+  // chips would vanish and you couldn't switch back
   const stageGen = useRef(0)
+  const countedFor = useRef<{ all: WikiSearchHit[]; limit: number; detailed: boolean } | null>(
+    null,
+  )
   useEffect(() => {
     const gen = ++stageGen.current
     const canceled = () => stageGen.current !== gen
+    const counted = countedFor.current
+    const resultSetChanged =
+      !counted ||
+      counted.all !== allResults ||
+      counted.limit !== resultLimit ||
+      counted.detailed !== detailedView
+    const commitCounts = (source: { id: string }[]) => {
+      if (!resultSetChanged) return
+      setCategoryCounts(computeCategoryCounts(source))
+      countedFor.current = { all: allResults, limit: resultLimit, detailed: detailedView }
+    }
 
-    if (allResults.length === 0) {
+    const scoped = activeCategory
+      ? allResults.filter((r) => resultCategoryOf(r.id) === activeCategory)
+      : allResults
+
+    if (scoped.length === 0) {
       setResults([])
       setTotalResultsCount(0)
       setMayHaveMore(false)
+      commitCounts(allResults)
       if (queryRef.current.trim()) {
         // only stop the spinner once a completed (empty) search landed
         setIsSearching((prev) => (enableNoResults ? false : prev))
@@ -608,7 +776,7 @@ export function useWikiSearch() {
 
     ;(async () => {
       const outcome = await buildDisplayResults(
-        allResults,
+        scoped,
         resultLimit,
         detailedView,
         fuzzy,
@@ -620,6 +788,9 @@ export function useWikiSearch() {
       setResults(outcome.results)
       setTotalResultsCount(outcome.totalCount)
       setMayHaveMore(outcome.mayHaveMore)
+      // with a section active the excerpt filter only covered that section,
+      // so count the raw pool; otherwise count what's displayed
+      commitCounts(outcome.postFiltered && !activeCategory ? outcome.postFiltered : allResults)
       setSuggestions(
         outcome.results.length === 0 && !fuzzy
           ? computeSuggestions(await getSearchEngine(), queryRef.current)
@@ -629,7 +800,40 @@ export function useWikiSearch() {
     })().catch(() => {
       if (!canceled()) setIsSearching(false)
     })
-  }, [allResults, resultLimit, detailedView, enableNoResults, fuzzy, usedSubstring])
+  }, [
+    allResults,
+    resultLimit,
+    detailedView,
+    activeCategory,
+    enableNoResults,
+    fuzzy,
+    usedSubstring,
+  ])
+
+  // chips: sections with matches (plus the active one), most matches first;
+  // ties keep sidebar order (stable sort)
+  const visibleCategories = useMemo(
+    () =>
+      SEARCH_CATEGORIES.filter(
+        (c) => (categoryCounts.get(c.id) ?? 0) > 0 || activeCategory === c.id,
+      ).sort((a, b) => (categoryCounts.get(b.id) ?? 0) - (categoryCounts.get(a.id) ?? 0)),
+    [categoryCounts, activeCategory],
+  )
+
+  const totalCategoryCount = useMemo(() => {
+    let sum = 0
+    for (const n of categoryCounts.values()) sum += n
+    return sum
+  }, [categoryCounts])
+
+  const activeCategoryLabel =
+    SEARCH_CATEGORIES.find((c) => c.id === activeCategory)?.label ?? ''
+
+  const selectCategory = useCallback((id: string) => {
+    setActiveCategory((current) => (current === id ? '' : id))
+    setResultLimit(RESULTS_PAGE_SIZE)
+    shouldResetScrollRef.current = true
+  }, [])
 
   const setQuery = useCallback((value: string) => {
     setQueryState(value)
@@ -639,6 +843,11 @@ export function useWikiSearch() {
   const setFuzzy = useCallback((value: boolean) => {
     setFuzzyState(value)
     fuzzyStorage.set(value)
+  }, [])
+
+  const setUrlSearch = useCallback((value: boolean) => {
+    setUrlSearchState(value)
+    urlSearchStorage.set(value)
   }, [])
 
   const setDetailedView = useCallback((value: boolean) => {
@@ -683,6 +892,9 @@ export function useWikiSearch() {
     enableNoResults,
     fuzzy,
     setFuzzy,
+    urlSearch,
+    urlSearchAuto,
+    setUrlSearch,
     detailedView,
     setDetailedView,
     showMore,
@@ -692,5 +904,11 @@ export function useWikiSearch() {
     clearRecent,
     suggestions,
     shouldResetScrollRef,
+    activeCategory,
+    selectCategory,
+    visibleCategories,
+    categoryCounts,
+    totalCategoryCount,
+    activeCategoryLabel,
   }
 }
